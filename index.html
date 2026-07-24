@@ -1,0 +1,1503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#101418">
+<title>Fit Platform Spike</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Fit Spike">
+<style>
+  :root { --bg:#101418; --card:#181f26; --line:#2a343e; --fg:#e8eef4; --dim:#93a2b1;
+          --pass:#2ea36a; --fail:#d94a4a; --warn:#c9a227; --idle:#4a5765; --acc:#3b82f6; }
+  * { box-sizing: border-box; -webkit-text-size-adjust: 100%; }
+  body { margin:0; padding:12px 12px 64px; background:var(--bg); color:var(--fg);
+         font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  h1 { font-size:19px; margin:4px 0 2px; }
+  h2 { font-size:15px; margin:0 0 4px; }
+  p.sub { color:var(--dim); margin:0 0 12px; font-size:13px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px;
+          padding:12px; margin:0 0 12px; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .grow { flex:1 1 180px; min-width:0; }
+  label { display:block; font-size:12px; color:var(--dim); margin:0 0 4px; }
+  input[type=text], textarea {
+    width:100%; padding:10px; border-radius:8px; border:1px solid var(--line);
+    background:#0d1216; color:var(--fg); font:13px/1.4 ui-monospace,Menlo,Consolas,monospace; }
+  textarea { min-height:56px; resize:vertical; }
+  button { -webkit-appearance:none; appearance:none; border:0; border-radius:8px;
+           padding:12px 14px; font-size:14px; font-weight:600; color:#fff;
+           background:var(--acc); cursor:pointer; min-height:44px; }
+  button.secondary { background:#2b3846; }
+  button:disabled { opacity:.5; }
+  .badge { display:inline-block; padding:2px 8px; border-radius:99px; font-size:11px;
+           font-weight:700; letter-spacing:.04em; background:var(--idle); color:#fff; }
+  .badge.PASS { background:var(--pass); }
+  .badge.FAIL { background:var(--fail); }
+  .badge.PARTIAL { background:var(--warn); color:#1a1300; }
+  .badge.RUNNING { background:var(--acc); }
+  pre { white-space:pre-wrap; word-break:break-word; overflow-wrap:anywhere;
+        background:#0d1216; border:1px solid var(--line); border-radius:8px;
+        padding:10px; margin:10px 0 0; font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;
+        color:#cfe0ef; max-height:280px; overflow:auto; }
+  .desc { color:var(--dim); font-size:13px; margin:2px 0 10px; }
+  .hdr { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+  .mono { font:12px/1.4 ui-monospace,Menlo,Consolas,monospace; color:var(--dim);
+          word-break:break-all; }
+  .warnbox { border-left:3px solid var(--warn); padding-left:10px; color:#e7d9a4; font-size:13px; }
+  a { color:#7db3ff; }
+</style>
+</head>
+<body>
+
+<h1>Fit — Platform Spike</h1>
+<p class="sub">Throwaway probe page. Proves platform facts before the real app is written.
+Every probe records its own verdict plus the raw evidence. A failure is a finding, not a bug to work around.</p>
+
+<div class="card">
+  <div class="hdr"><h2>Environment</h2><span id="envBadge" class="badge">INFO</span></div>
+  <div class="desc">Check this says <b>standalone</b> before you trust Probe 1. A browser tab proves nothing about the installed launch.</div>
+  <div class="row">
+    <button id="btnEnv" class="secondary">Re-check environment</button>
+    <button id="btnInstallHint" class="secondary">Install hint</button>
+  </div>
+  <pre id="outEnv">not run</pre>
+</div>
+
+<div class="card">
+  <div class="hdr"><h2>OAuth client id</h2><span class="badge">SETUP</span></div>
+  <div class="desc">Paste the OAuth <b>Web application</b> client id created for <span class="mono" id="originEcho"></span>.
+  It is remembered on this device. It is not a secret and is not part of the exported results.</div>
+  <label for="clientId">Client id (ends in .apps.googleusercontent.com)</label>
+  <input type="text" id="clientId" autocomplete="off" autocapitalize="off" spellcheck="false"
+         placeholder="paste your own client id here — nothing is pre-filled or committed">
+  <div class="row" style="margin-top:8px">
+    <button id="btnSaveClientId">Save client id</button>
+    <button id="btnClearClientId" class="secondary">Forget</button>
+  </div>
+  <pre id="outClientId">not saved</pre>
+</div>
+
+<div class="card">
+  <div class="hdr"><h2>Probe 1 — standalone sign-in</h2><span id="b1" class="badge">IDLE</span></div>
+  <div class="desc">Runs the Google Identity Services token flow from wherever this page is running now,
+  and records the scopes actually <b>granted</b> — not the ones requested.</div>
+  <button id="btn1">Run Probe 1 — get access token</button>
+  <pre id="out1">not run</pre>
+</div>
+
+<div class="card">
+  <div class="hdr"><h2>Probe 2 — real Meet link (personal Gmail)</h2><span id="b2" class="badge">IDLE</span></div>
+  <div class="desc">Inserts a real Calendar event with <span class="mono">conferenceDataVersion=1</span> and a
+  <span class="mono">createRequest</span>, then <b>polls the event</b> until the create request reaches
+  <span class="mono">success</span> and reads the URL from the <span class="mono">video</span> entry point.
+  No URL is ever assembled from a conference id.</div>
+  <button id="btn2">Run Probe 2 — mint a Meet link</button>
+  <pre id="out2">not run</pre>
+</div>
+
+<div class="card">
+  <div class="hdr"><h2>Probe 3 — visible Drive round trip</h2><span id="b3" class="badge">IDLE</span></div>
+  <div class="desc">Creates a folder and a file inside it under the narrow <span class="mono">drive.file</span>
+  scope, then reads the bytes back and compares.</div>
+  <button id="btn3">Run Probe 3 — Drive folder + file</button>
+  <pre id="out3">not run</pre>
+</div>
+
+<div class="card">
+  <div class="hdr"><h2>Probe 4 — hidden appDataFolder round trip</h2><span id="b4" class="badge">IDLE</span></div>
+  <div class="desc">Writes, lists and reads back a file in the hidden application-data space
+  (<span class="mono">spaces=appDataFolder</span>). This is where the key envelope will live.</div>
+  <button id="btn4">Run Probe 4 — appDataFolder</button>
+  <pre id="out4">not run</pre>
+</div>
+
+<div class="card">
+  <div class="hdr"><h2>Probe 5 — persistent storage</h2><span id="b5" class="badge">IDLE</span></div>
+  <div class="desc">Actually calls <span class="mono">navigator.storage.persist()</span> and records the literal
+  boolean it returns, plus the storage estimate. A refusal is a legitimate finding — it is not retried.</div>
+  <button id="btn5">Run Probe 5 — request persistence</button>
+  <pre id="out5">not run</pre>
+</div>
+
+<div class="card">
+  <div class="hdr"><h2>Probe 6 — share sheet with FILES</h2><span id="b6" class="badge">IDLE</span></div>
+  <div class="desc">Three artefacts, checked and shared <b>separately</b>, because
+  <span class="mono">canShare</span> is decided by the declared MIME type and not by the bytes: a canvas
+  <b>PNG</b>, the same table as <b>CSV</b>, and the same table as a real <b>.xlsx</b> workbook.
+  Sharing a link does not count. Tap the capability check first, then share each artefact.</div>
+  <div class="row">
+    <button id="btn6a" class="secondary">Check capability (all three)</button>
+    <button id="btn6img">Share PNG</button>
+    <button id="btn6csv">Share CSV</button>
+    <button id="btn6xlsx">Share XLSX</button>
+    <button id="btn6" class="secondary">Share all three at once</button>
+  </div>
+  <label style="margin-top:10px" for="obs6">What did you actually observe? (goes into the results blob)</label>
+  <textarea id="obs6" placeholder="Say what happened for EACH artefact, e.g. PNG shared to Photos and opened fine; CSV shared to Files and opened in Sheets; XLSX share sheet offered fewer targets but Drive accepted it"></textarea>
+  <div class="row" style="margin-top:8px">
+    <button id="btnObs6" class="secondary">Save observation</button>
+    <button id="btn6dl" class="secondary">Download all three instead</button>
+  </div>
+  <pre id="out6">not run</pre>
+</div>
+
+<div class="card">
+  <div class="hdr"><h2>Key derivation timing</h2><span id="b7" class="badge">IDLE</span></div>
+  <div class="desc">Times PBKDF2-HMAC-SHA-256 on <b>this</b> device at several iteration counts so the result can be
+  interpolated, and checks whether native Argon2id exists in Web Crypto. Decides whether a passphrase key slot is usable.</div>
+  <button id="btn7">Run key-derivation timing</button>
+  <pre id="out7">not run</pre>
+</div>
+
+<div class="card">
+  <div class="hdr"><h2>Results</h2><span id="bAll" class="badge">INFO</span></div>
+  <div class="desc">One blob. Copy it, share it, or download it — that is the deliverable of this exercise.
+  Results survive a reload on this device.</div>
+  <label for="notes">Operator notes (optional)</label>
+  <textarea id="notes" placeholder="Anything that surprised you, anything you had to do twice."></textarea>
+  <div class="row" style="margin-top:8px">
+    <button id="btnCopy">Copy results JSON</button>
+    <button id="btnShare" class="secondary">Share results</button>
+    <button id="btnDownload" class="secondary">Download results</button>
+    <button id="btnReset" class="secondary">Clear results</button>
+  </div>
+  <pre id="outAll">no results yet</pre>
+</div>
+
+<script src="https://accounts.google.com/gsi/client" async defer
+        onload="window.__gisLoaded=true" onerror="window.__gisError=true"></script>
+<script>
+"use strict";
+
+/* ------------------------------------------------------------------ constants */
+var SPIKE_VERSION = "spike-1";
+var LS_CLIENT_ID = "fitspike.clientId";
+var LS_RESULTS  = "fitspike.results";
+var LS_NOTES    = "fitspike.notes";
+
+var SCOPE_CALENDAR = "https://www.googleapis.com/auth/calendar.events";
+var SCOPE_DRIVE_FILE = "https://www.googleapis.com/auth/drive.file";
+var SCOPE_DRIVE_APPDATA = "https://www.googleapis.com/auth/drive.appdata";
+var SCOPES = [SCOPE_CALENDAR, SCOPE_DRIVE_FILE, SCOPE_DRIVE_APPDATA];
+
+var CAL_BASE = "https://www.googleapis.com/calendar/v3";
+var DRIVE_BASE = "https://www.googleapis.com/drive/v3";
+var DRIVE_UPLOAD = "https://www.googleapis.com/upload/drive/v3/files";
+
+var HTTP_TIMEOUT_MS = 20000;      // explicit timeout on every external call
+var POLL_MAX_ATTEMPTS = 20;
+var POLL_BASE_DELAY_MS = 1000;
+var POLL_MAX_DELAY_MS = 3000;
+
+/* Access token lives in memory ONLY. Never localStorage, never in the results blob. */
+var ACCESS_TOKEN = null;
+var GRANTED_SCOPES = [];
+
+/* ------------------------------------------------------------------ tiny dom */
+function $(id) { return document.getElementById(id); }
+function setBadge(id, verdict) {
+  var el = $(id);
+  el.className = "badge " + verdict;
+  el.textContent = verdict;
+}
+function show(id, value) {
+  $(id).textContent = (typeof value === "string") ? value : JSON.stringify(value, null, 2);
+}
+
+/* ------------------------------------------------------------------ results */
+var RESULTS = { version: SPIKE_VERSION, meta: {}, probes: {} };
+
+function loadResults() {
+  try {
+    var raw = localStorage.getItem(LS_RESULTS);
+    if (raw) {
+      var parsed = JSON.parse(raw);
+      if (parsed && parsed.probes) { RESULTS = parsed; }
+    }
+  } catch (err) { /* corrupt cache is not worth failing over; start clean */ }
+  RESULTS.version = SPIKE_VERSION;
+  RESULTS.probes = RESULTS.probes || {};
+}
+function persistResults() {
+  try { localStorage.setItem(LS_RESULTS, JSON.stringify(RESULTS)); }
+  catch (err) { /* storage refusal must not lose the on-screen blob */ }
+}
+function stampMeta() {
+  var env = readEnvironment();
+  RESULTS.meta = {
+    generatedAt: new Date().toISOString(),
+    origin: location.origin,
+    href: location.href,
+    userAgent: navigator.userAgent,
+    displayMode: env.displayMode,
+    isStandalone: env.isStandalone,
+    deviceGuess: env.deviceGuess,
+    deviceGuessBasis: env.deviceGuessBasis,
+    language: navigator.language,
+    timeZone: env.timeZone,
+    screen: env.screen,
+    devicePixelRatio: window.devicePixelRatio || null,
+    maxTouchPoints: navigator.maxTouchPoints === undefined ? null : navigator.maxTouchPoints,
+    serviceWorkerControlled: !!(navigator.serviceWorker && navigator.serviceWorker.controller)
+  };
+}
+function record(key, verdict, evidence) {
+  stampMeta();
+  RESULTS.probes[key] = {
+    verdict: verdict,
+    at: new Date().toISOString(),
+    evidence: evidence
+  };
+  persistResults();
+  renderAll();
+}
+function renderAll() {
+  RESULTS.notes = $("notes").value || "";
+  stampMeta();
+  show("outAll", RESULTS);
+  var keys = Object.keys(RESULTS.probes);
+  var pass = 0, fail = 0;
+  for (var i = 0; i < keys.length; i++) {
+    var v = RESULTS.probes[keys[i]].verdict;
+    if (v === "PASS") { pass = pass + 1; }
+    if (v === "FAIL") { fail = fail + 1; }
+  }
+  var el = $("bAll");
+  el.className = "badge " + (fail > 0 ? "FAIL" : (pass > 0 ? "PASS" : "RUNNING"));
+  el.textContent = pass + " pass / " + fail + " fail / " + keys.length + " recorded";
+}
+
+/* ------------------------------------------------------------------ errors */
+function describeError(err) {
+  if (!err) { return { name: "UnknownError", message: "no error object" }; }
+  var out = {
+    name: err.name || "Error",
+    message: err.message || String(err)
+  };
+  if (err.httpStatus !== undefined) { out.httpStatus = err.httpStatus; }
+  if (err.httpStatusText !== undefined) { out.httpStatusText = err.httpStatusText; }
+  if (err.requestUrl !== undefined) { out.requestUrl = err.requestUrl; }
+  if (err.responseBody !== undefined) { out.responseBody = err.responseBody; }
+  if (err.stack) { out.stack = String(err.stack).slice(0, 1200); }
+  return out;
+}
+function failProbe(key, badgeId, outId, err, extra) {
+  var ev = { error: describeError(err) };
+  if (extra) { ev.context = extra; }
+  setBadge(badgeId, "FAIL");
+  show(outId, ev);
+  record(key, "FAIL", ev);
+}
+
+/* ------------------------------------------------------------------ http */
+function httpText(url, options) {
+  var opts = options || {};
+  var controller = new AbortController();
+  var timer = setTimeout(function () { controller.abort(); }, HTTP_TIMEOUT_MS);
+  var init = {
+    method: opts.method || "GET",
+    headers: opts.headers || {},
+    body: opts.body,
+    signal: controller.signal
+  };
+  return fetch(url, init).then(function (res) {
+    return res.text().then(function (text) {
+      clearTimeout(timer);
+      if (!res.ok) {
+        var e = new Error("HTTP " + res.status + " " + res.statusText + " for " + url);
+        e.name = "HttpError";
+        e.httpStatus = res.status;
+        e.httpStatusText = res.statusText;
+        e.requestUrl = url;
+        e.responseBody = text.slice(0, 2000);
+        throw e;
+      }
+      return text;
+    });
+  }, function (err) {
+    clearTimeout(timer);
+    if (err && err.name === "AbortError") {
+      var t = new Error("request timed out after " + HTTP_TIMEOUT_MS + "ms: " + url);
+      t.name = "TimeoutError";
+      t.requestUrl = url;
+      throw t;
+    }
+    throw err;
+  });
+}
+function httpBytes(url, options) {
+  var opts = options || {};
+  var controller = new AbortController();
+  var timer = setTimeout(function () { controller.abort(); }, HTTP_TIMEOUT_MS);
+  return fetch(url, {
+    method: opts.method || "GET",
+    headers: opts.headers || {},
+    signal: controller.signal
+  }).then(function (res) {
+    if (!res.ok) {
+      return res.text().then(function (text) {
+        clearTimeout(timer);
+        var e = new Error("HTTP " + res.status + " " + res.statusText + " for " + url);
+        e.name = "HttpError";
+        e.httpStatus = res.status;
+        e.httpStatusText = res.statusText;
+        e.requestUrl = url;
+        e.responseBody = text.slice(0, 2000);
+        throw e;
+      });
+    }
+    return res.arrayBuffer().then(function (buf) { clearTimeout(timer); return buf; });
+  });
+}
+function apiJson(url, options) {
+  var opts = options || {};
+  var headers = opts.headers || {};
+  headers["Authorization"] = "Bearer " + requireToken();
+  if (opts.json !== undefined) {
+    headers["Content-Type"] = "application/json";
+    opts.body = JSON.stringify(opts.json);
+  }
+  opts.headers = headers;
+  return httpText(url, opts).then(function (text) {
+    if (!text) { return null; }
+    return JSON.parse(text);
+  });
+}
+function requireToken() {
+  if (!ACCESS_TOKEN) {
+    var e = new Error("no access token in memory — run Probe 1 first (tokens are never stored)");
+    e.name = "NoTokenError";
+    throw e;
+  }
+  return ACCESS_TOKEN;
+}
+function scopeGranted(scope) {
+  return GRANTED_SCOPES.indexOf(scope) !== -1;
+}
+function sleep(ms) {
+  return new Promise(function (resolve) { setTimeout(resolve, ms); });
+}
+
+/* ------------------------------------------------------------------ environment */
+function readEnvironment() {
+  var modes = ["standalone", "fullscreen", "minimal-ui", "window-controls-overlay", "browser"];
+  var matched = [];
+  for (var i = 0; i < modes.length; i++) {
+    try {
+      if (window.matchMedia("(display-mode: " + modes[i] + ")").matches) { matched.push(modes[i]); }
+    } catch (err) { /* older engines: matchMedia on display-mode may throw */ }
+  }
+  var iosStandalone = (navigator.standalone === true);
+  var displayMode = matched.length ? matched[0] : (iosStandalone ? "standalone(ios-navigator)" : "unknown");
+  var isStandalone = (matched.indexOf("standalone") !== -1) ||
+                     (matched.indexOf("fullscreen") !== -1) || iosStandalone;
+
+  var touch = navigator.maxTouchPoints || 0;
+  var smallest = Math.min(screen.width || 0, screen.height || 0);
+  var coarse = false;
+  try { coarse = window.matchMedia("(pointer: coarse)").matches; } catch (err) { coarse = false; }
+  var phoneLike = (touch > 1 && coarse && smallest > 0 && smallest <= 900);
+  var timeZone = null;
+  try { timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (err) { timeZone = null; }
+
+  return {
+    displayMode: displayMode,
+    allDisplayModeMatches: matched,
+    iosNavigatorStandalone: iosStandalone,
+    isStandalone: isStandalone,
+    deviceGuess: phoneLike ? "phone-or-tablet" : "laptop-or-desktop",
+    deviceGuessBasis: "GUESS ONLY from maxTouchPoints=" + touch + ", pointer:coarse=" + coarse +
+                      ", smallest screen edge=" + smallest + "px. Trust userAgent + your own knowledge over this.",
+    screen: { width: screen.width, height: screen.height,
+              innerWidth: window.innerWidth, innerHeight: window.innerHeight },
+    timeZone: timeZone,
+    gisScriptLoaded: !!window.__gisLoaded,
+    gisScriptError: !!window.__gisError,
+    gisApiPresent: !!(window.google && window.google.accounts && window.google.accounts.oauth2),
+    secureContext: window.isSecureContext === true,
+    protocol: location.protocol,
+    apis: {
+      webShare: typeof navigator.share === "function",
+      webShareCanShare: typeof navigator.canShare === "function",
+      storageManager: !!(navigator.storage && navigator.storage.persist),
+      serviceWorker: "serviceWorker" in navigator,
+      indexedDB: typeof indexedDB !== "undefined",
+      cryptoSubtle: !!(window.crypto && window.crypto.subtle),
+      clipboardWriteText: !!(navigator.clipboard && navigator.clipboard.writeText)
+    }
+  };
+}
+function runEnvironment() {
+  var env = readEnvironment();
+  var el = $("envBadge");
+  el.className = "badge " + (env.isStandalone ? "PASS" : "PARTIAL");
+  el.textContent = env.isStandalone ? "STANDALONE" : "BROWSER TAB";
+  show("outEnv", env);
+  stampMeta();
+  RESULTS.environment = env;
+  persistResults();
+  renderAll();
+  return env;
+}
+
+/* ------------------------------------------------------------------ client id */
+function loadClientId() {
+  var saved = localStorage.getItem(LS_CLIENT_ID);
+  if (saved) {
+    $("clientId").value = saved;
+    show("outClientId", "saved on this device: " + saved);
+  }
+}
+function getClientId() {
+  var v = $("clientId").value.trim();
+  if (!v) {
+    var e = new Error("no OAuth client id entered — paste it into the field above and tap Save client id");
+    e.name = "ConfigError";
+    throw e;
+  }
+  return v;
+}
+
+/* ------------------------------------------------------------------ probe 1 */
+function requestAccessToken(clientId) {
+  return new Promise(function (resolve, reject) {
+    if (!(window.google && window.google.accounts && window.google.accounts.oauth2)) {
+      var e = new Error("Google Identity Services script is not loaded. " +
+        "Either the page has no network, or the browser blocked accounts.google.com. " +
+        "gisScriptError=" + (!!window.__gisError));
+      e.name = "GisUnavailableError";
+      reject(e);
+      return;
+    }
+    var settled = false;
+    var timer = setTimeout(function () {
+      if (settled) { return; }
+      settled = true;
+      var t = new Error("token flow did not call back within 120s — the popup was probably blocked, " +
+                        "dismissed, or opened behind this window");
+      t.name = "TokenTimeoutError";
+      reject(t);
+    }, 120000);
+
+    var client = window.google.accounts.oauth2.initTokenClient({
+      client_id: clientId,
+      scope: SCOPES.join(" "),
+      callback: function (response) {
+        if (settled) { return; }
+        settled = true;
+        clearTimeout(timer);
+        resolve(response);
+      },
+      error_callback: function (errResponse) {
+        if (settled) { return; }
+        settled = true;
+        clearTimeout(timer);
+        var e = new Error("GIS error_callback: " + JSON.stringify(errResponse));
+        e.name = "GisError";
+        reject(e);
+      }
+    });
+    client.requestAccessToken();
+  });
+}
+function probe1() {
+  setBadge("b1", "RUNNING");
+  show("out1", "requesting token…");
+  var env = runEnvironment();
+  var clientId;
+  try { clientId = getClientId(); }
+  catch (err) { failProbe("p1_standalone_signin", "b1", "out1", err, { environment: env }); return; }
+
+  requestAccessToken(clientId).then(function (response) {
+    if (response && response.error) {
+      var e = new Error("token response carried an error: " + response.error +
+                        " — " + (response.error_description || "no description"));
+      e.name = "TokenResponseError";
+      throw e;
+    }
+    if (!response || !response.access_token) {
+      var e2 = new Error("token flow completed but returned no access_token. Raw response: " +
+                         JSON.stringify(response));
+      e2.name = "NoTokenReturnedError";
+      throw e2;
+    }
+    ACCESS_TOKEN = response.access_token;
+    GRANTED_SCOPES = (response.scope || "").split(" ");
+
+    /* Prove the token is USABLE, not merely present. */
+    return apiJson(CAL_BASE + "/users/me/calendarList/primary").then(function (cal) {
+      var missing = [];
+      for (var i = 0; i < SCOPES.length; i++) {
+        if (!scopeGranted(SCOPES[i])) { missing.push(SCOPES[i]); }
+      }
+      var ev = {
+        environment: env,
+        launchedStandalone: env.isStandalone,
+        tokenReturned: true,
+        tokenLengthChars: ACCESS_TOKEN.length,
+        tokenPersisted: false,
+        tokenPersistedNote: "access token is held in memory only and is deliberately absent from this blob",
+        tokenType: response.token_type || null,
+        expiresInSeconds: response.expires_in || null,
+        requestedScopes: SCOPES,
+        grantedScopes: GRANTED_SCOPES,
+        scopesDeclined: missing,
+        usabilityCheck: {
+          call: "GET /calendar/v3/users/me/calendarList/primary",
+          ok: true,
+          calendarId: cal ? cal.id : null,
+          accessRole: cal ? cal.accessRole : null,
+          allowedConferenceSolutionTypes:
+            (cal && cal.conferenceProperties) ? cal.conferenceProperties.allowedConferenceSolutionTypes : null
+        }
+      };
+      var verdict = "PASS";
+      if (!env.isStandalone) { verdict = "PARTIAL"; ev.caveat =
+        "Token flow succeeded but this run was NOT standalone. Fact 1 is only proven by a home-screen launch."; }
+      if (missing.length) { verdict = "PARTIAL"; ev.caveat2 =
+        "Some requested scopes were not granted — probes needing them will fail for that reason, not a platform limit."; }
+      setBadge("b1", verdict);
+      show("out1", ev);
+      record("p1_standalone_signin", verdict, ev);
+    });
+  }).catch(function (err) {
+    failProbe("p1_standalone_signin", "b1", "out1", err, { environment: env });
+  });
+}
+
+/* ------------------------------------------------------------------ probe 2 */
+function pollForConference(eventId, transcript, attempt, startedAt) {
+  var url = CAL_BASE + "/calendars/primary/events/" + encodeURIComponent(eventId) +
+            "?conferenceDataVersion=1";
+  return apiJson(url).then(function (ev) {
+    var cd = ev.conferenceData || {};
+    var status = (cd.createRequest && cd.createRequest.status)
+      ? cd.createRequest.status.statusCode : "(no createRequest.status)";
+    transcript.push({
+      attempt: attempt,
+      elapsedMs: Math.round(performance.now() - startedAt),
+      statusCode: status,
+      entryPointTypes: (cd.entryPoints || []).map(function (p) { return p.entryPointType; }),
+      conferenceId: cd.conferenceId || null
+    });
+    if (status === "success") { return { event: ev, transcript: transcript, polls: attempt }; }
+    if (status === "failure") {
+      var e = new Error("Google reported createRequest status 'failure' after " + attempt + " polls");
+      e.name = "ConferenceCreateFailed";
+      e.responseBody = JSON.stringify(cd).slice(0, 2000);
+      throw e;
+    }
+    if (attempt >= POLL_MAX_ATTEMPTS) {
+      var e2 = new Error("createRequest never left status '" + status + "' after " +
+                         attempt + " polls — reported as a FAIL, not retried indefinitely");
+      e2.name = "ConferencePendingTimeout";
+      e2.responseBody = JSON.stringify(cd).slice(0, 2000);
+      throw e2;
+    }
+    var delay = Math.min(POLL_BASE_DELAY_MS * attempt, POLL_MAX_DELAY_MS);
+    return sleep(delay).then(function () {
+      return pollForConference(eventId, transcript, attempt + 1, startedAt);
+    });
+  });
+}
+function probe2() {
+  setBadge("b2", "RUNNING");
+  show("out2", "inserting calendar event with a conference createRequest…");
+  var startedAt = performance.now();
+  var requestId = (window.crypto && window.crypto.randomUUID)
+    ? window.crypto.randomUUID()
+    : "spike-" + startedAt + "-" + navigator.userAgent.length;
+  var tz = null;
+  try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (err) { tz = "UTC"; }
+  var start = new Date(Date.now() + 10 * 60 * 1000);
+  var end = new Date(Date.now() + 40 * 60 * 1000);
+  var body = {
+    summary: "PLATFORM SPIKE — safe to delete",
+    description: "Created by the Fit platform spike to prove a real Meet link can be minted. Delete me.",
+    start: { dateTime: start.toISOString(), timeZone: tz },
+    end: { dateTime: end.toISOString(), timeZone: tz },
+    conferenceData: {
+      createRequest: {
+        requestId: requestId,
+        conferenceSolutionKey: { type: "hangoutsMeet" }
+      }
+    }
+  };
+  var context = {
+    requestId: requestId,
+    conferenceDataVersionSent: 1,
+    scopeGrantedCalendarEvents: scopeGranted(SCOPE_CALENDAR),
+    meetSpacesApiAttempted: false,
+    meetSpacesApiNote: "Not attempted: the Meet REST spaces.create path does not exist on a free personal account (d1).",
+    requestBody: body
+  };
+
+  apiJson(CAL_BASE + "/calendars/primary/events?conferenceDataVersion=1",
+          { method: "POST", json: body })
+  .then(function (inserted) {
+    context.insertResponse = {
+      eventId: inserted.id,
+      htmlLink: inserted.htmlLink || null,
+      hangoutLink: inserted.hangoutLink || null,
+      conferenceDataAtInsert: inserted.conferenceData || null
+    };
+    show("out2", { phase: "inserted — now polling", context: context });
+    return pollForConference(inserted.id, [], 1, startedAt);
+  })
+  .then(function (result) {
+    var cd = result.event.conferenceData || {};
+    var entryPoints = cd.entryPoints || [];
+    var video = null;
+    for (var i = 0; i < entryPoints.length; i++) {
+      if (entryPoints[i].entryPointType === "video") { video = entryPoints[i]; break; }
+    }
+    var ev = {
+      context: context,
+      pollTranscript: result.transcript,
+      pollCount: result.polls,
+      finalStatusCode: (cd.createRequest && cd.createRequest.status)
+        ? cd.createRequest.status.statusCode : null,
+      totalElapsedMs: Math.round(performance.now() - startedAt),
+      entryPointsReturned: entryPoints,
+      meetUrlSource: "conferenceData.entryPoints[] where entryPointType === 'video' — read, never synthesised",
+      meetUrl: video ? video.uri : null,
+      conferenceSolution: cd.conferenceSolution || null,
+      conferenceId: cd.conferenceId || null,
+      eventIdToDelete: result.event.id,
+      eventHtmlLink: result.event.htmlLink || null,
+      cleanupNote: "This is a REAL event on the account's calendar. Delete it after verifying the link."
+    };
+    if (!video || !video.uri) {
+      var e = new Error("createRequest reached success but no entryPoint of type 'video' was returned. " +
+        "A URL is NOT being synthesised from the conference id — this is reported as a FAIL.");
+      e.name = "NoVideoEntryPoint";
+      e.responseBody = JSON.stringify(cd).slice(0, 2000);
+      failProbe("p2_meet_link", "b2", "out2", e, ev);
+      return;
+    }
+    setBadge("b2", "PASS");
+    show("out2", ev);
+    record("p2_meet_link", "PASS", ev);
+  })
+  .catch(function (err) {
+    failProbe("p2_meet_link", "b2", "out2", err, context);
+  });
+}
+
+/* ------------------------------------------------------------------ drive helpers */
+function multipartUpload(metadata, contentText, extraQuery) {
+  var boundary = "spikeboundary" + String(Date.now()) + "xyz";
+  var parts = "--" + boundary + "\r\n" +
+    "Content-Type: application/json; charset=UTF-8\r\n\r\n" +
+    JSON.stringify(metadata) + "\r\n" +
+    "--" + boundary + "\r\n" +
+    "Content-Type: text/plain; charset=UTF-8\r\n\r\n" +
+    contentText + "\r\n" +
+    "--" + boundary + "--";
+  var url = DRIVE_UPLOAD + "?uploadType=multipart&fields=id,name,parents,mimeType,size" +
+            (extraQuery ? "&" + extraQuery : "");
+  return httpText(url, {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer " + requireToken(),
+      "Content-Type": "multipart/related; boundary=" + boundary
+    },
+    body: parts
+  }).then(function (text) { return JSON.parse(text); });
+}
+function readBackBytes(fileId) {
+  return httpBytes(DRIVE_BASE + "/files/" + encodeURIComponent(fileId) + "?alt=media", {
+    headers: { "Authorization": "Bearer " + requireToken() }
+  });
+}
+function bytesEqual(expectedText, buffer) {
+  var expected = new TextEncoder().encode(expectedText);
+  var got = new Uint8Array(buffer);
+  if (expected.length !== got.length) { return false; }
+  for (var i = 0; i < expected.length; i++) {
+    if (expected[i] !== got[i]) { return false; }
+  }
+  return true;
+}
+
+/* ------------------------------------------------------------------ probe 3 */
+function probe3() {
+  setBadge("b3", "RUNNING");
+  show("out3", "creating folder…");
+  var stamp = new Date().toISOString();
+  var content = "fit-spike visible drive round trip\nstamp=" + stamp + "\nnonce=" + Math.random();
+  var context = {
+    scopeUsed: SCOPE_DRIVE_FILE,
+    scopeUsedNote: "drive.file only exposes files this app created — deliberately narrow",
+    scopeGranted: scopeGranted(SCOPE_DRIVE_FILE),
+    writtenContent: content,
+    writtenByteLength: new TextEncoder().encode(content).length
+  };
+  apiJson(DRIVE_BASE + "/files?fields=id,name,mimeType", {
+    method: "POST",
+    json: { name: "Fit Spike " + stamp, mimeType: "application/vnd.google-apps.folder" }
+  })
+  .then(function (folder) {
+    context.folderId = folder.id;
+    context.folderName = folder.name;
+    show("out3", { phase: "folder created — uploading file", context: context });
+    return multipartUpload({ name: "spike-roundtrip.txt", parents: [folder.id] }, content, null);
+  })
+  .then(function (file) {
+    context.fileId = file.id;
+    context.fileName = file.name;
+    context.fileParents = file.parents || null;
+    context.reportedSize = file.size || null;
+    show("out3", { phase: "uploaded — reading back", context: context });
+    return readBackBytes(file.id);
+  })
+  .then(function (buffer) {
+    var match = bytesEqual(content, buffer);
+    context.readBackByteLength = buffer.byteLength;
+    context.readBackContent = new TextDecoder().decode(buffer);
+    context.byteForByteMatch = match;
+    context.driveFileUrl = "https://drive.google.com/file/d/" + context.fileId + "/view";
+    if (!match) {
+      var e = new Error("read-back content did NOT match byte for byte");
+      e.name = "RoundTripMismatch";
+      failProbe("p3_drive_visible", "b3", "out3", e, context);
+      return;
+    }
+    setBadge("b3", "PASS");
+    show("out3", context);
+    record("p3_drive_visible", "PASS", context);
+  })
+  .catch(function (err) { failProbe("p3_drive_visible", "b3", "out3", err, context); });
+}
+
+/* ------------------------------------------------------------------ probe 4 */
+function probe4() {
+  setBadge("b4", "RUNNING");
+  show("out4", "writing to appDataFolder…");
+  var stamp = new Date().toISOString();
+  var content = JSON.stringify({
+    pretendKeyEnvelope: { schemaVersion: 1, note: "shape only, no real key material" },
+    stamp: stamp,
+    nonce: Math.random()
+  });
+  var context = {
+    scopeUsed: SCOPE_DRIVE_APPDATA,
+    scopeGranted: scopeGranted(SCOPE_DRIVE_APPDATA),
+    spacesParameter: "appDataFolder",
+    plannedUse: "the multi-slot key envelope lives here in the real app",
+    writtenContent: content,
+    writtenByteLength: new TextEncoder().encode(content).length
+  };
+  multipartUpload({ name: "spike-key-envelope.json", parents: ["appDataFolder"] }, content, null)
+  .then(function (file) {
+    context.fileId = file.id;
+    context.fileName = file.name;
+    context.fileParents = file.parents || null;
+    show("out4", { phase: "written — listing appDataFolder", context: context });
+    return apiJson(DRIVE_BASE + "/files?spaces=appDataFolder&pageSize=100" +
+                   "&fields=files(id,name,size,mimeType,modifiedTime),incompleteSearch");
+  })
+  .then(function (listing) {
+    context.listing = listing;
+    context.listingCount = (listing.files || []).length;
+    var found = false;
+    var files = listing.files || [];
+    for (var i = 0; i < files.length; i++) {
+      if (files[i].id === context.fileId) { found = true; break; }
+    }
+    context.writtenFileAppearsInListing = found;
+    show("out4", { phase: "listed — reading back", context: context });
+    return readBackBytes(context.fileId);
+  })
+  .then(function (buffer) {
+    var match = bytesEqual(content, buffer);
+    context.readBackByteLength = buffer.byteLength;
+    context.readBackContent = new TextDecoder().decode(buffer);
+    context.byteForByteMatch = match;
+    context.hiddenNote = "appDataFolder is hidden, app-only, not shareable, and is removed if the app is uninstalled / access revoked.";
+    if (!match || !context.writtenFileAppearsInListing) {
+      var e = new Error("appDataFolder round trip incomplete — match=" + match +
+                        ", appearedInListing=" + context.writtenFileAppearsInListing);
+      e.name = "AppDataRoundTripMismatch";
+      failProbe("p4_drive_appdata", "b4", "out4", e, context);
+      return;
+    }
+    setBadge("b4", "PASS");
+    show("out4", context);
+    record("p4_drive_appdata", "PASS", context);
+  })
+  .catch(function (err) { failProbe("p4_drive_appdata", "b4", "out4", err, context); });
+}
+
+/* ------------------------------------------------------------------ probe 5 */
+function probe5() {
+  setBadge("b5", "RUNNING");
+  show("out5", "requesting persistence…");
+  var context = {
+    storageManagerPresent: !!(navigator.storage && navigator.storage.persist),
+    note: "The literal return value is recorded. A refusal is a legitimate finding and is NOT retried."
+  };
+  if (!context.storageManagerPresent) {
+    var e = new Error("navigator.storage.persist is not available in this browser");
+    e.name = "StorageManagerUnavailable";
+    failProbe("p5_persistent_storage", "b5", "out5", e, context);
+    return;
+  }
+  var chain = navigator.storage.persisted
+    ? navigator.storage.persisted()
+    : Promise.resolve(null);
+  chain.then(function (before) {
+    context.persistedBeforeRequest = before;
+    return navigator.storage.persist();
+  })
+  .then(function (granted) {
+    context.persistCallCount = 1;
+    context.persistReturnedLiteral = granted;
+    context.persistReturnedType = typeof granted;
+    return navigator.storage.persisted ? navigator.storage.persisted() : null;
+  })
+  .then(function (after) {
+    context.persistedAfterRequest = after;
+    return (navigator.storage.estimate) ? navigator.storage.estimate() : null;
+  })
+  .then(function (estimate) {
+    if (estimate) {
+      context.estimate = {
+        quotaBytes: estimate.quota === undefined ? null : estimate.quota,
+        usageBytes: estimate.usage === undefined ? null : estimate.usage,
+        quotaMiB: estimate.quota ? Math.round(estimate.quota / 1048576) : null,
+        usageDetails: estimate.usageDetails || null
+      };
+    } else {
+      context.estimate = null;
+      context.estimateNote = "navigator.storage.estimate is not available here";
+    }
+    var verdict = (context.persistReturnedLiteral === true) ? "PASS" : "FAIL";
+    context.verdictReason = (verdict === "PASS")
+      ? "persist() returned literal true"
+      : "persist() returned literal " + JSON.stringify(context.persistReturnedLiteral) +
+        " — recorded as a FAIL finding, not retried. This is real platform behaviour to plan around.";
+    setBadge("b5", verdict);
+    show("out5", context);
+    record("p5_persistent_storage", verdict, context);
+  })
+  .catch(function (err) { failProbe("p5_persistent_storage", "b5", "out5", err, context); });
+}
+
+/* ------------------------------------------------------------------ zip / xlsx (no libraries) */
+var CRC_TABLE = (function () {
+  var table = new Uint32Array(256);
+  for (var n = 0; n < 256; n++) {
+    var c = n;
+    for (var k = 0; k < 8; k++) {
+      c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    }
+    table[n] = c >>> 0;
+  }
+  return table;
+})();
+function crc32(bytes) {
+  var c = 0xFFFFFFFF;
+  for (var i = 0; i < bytes.length; i++) {
+    c = CRC_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+  }
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+/* Store-only (uncompressed) ZIP writer. Enough for a valid .xlsx, zero dependencies. */
+function buildZip(entries) {
+  var encoder = new TextEncoder();
+  var chunks = [];
+  var central = [];
+  var offset = 0;
+
+  function u16(v) { return [v & 0xFF, (v >>> 8) & 0xFF]; }
+  function u32(v) { return [v & 0xFF, (v >>> 8) & 0xFF, (v >>> 16) & 0xFF, (v >>> 24) & 0xFF]; }
+
+  for (var i = 0; i < entries.length; i++) {
+    var nameBytes = encoder.encode(entries[i].name);
+    var dataBytes = encoder.encode(entries[i].content);
+    var crc = crc32(dataBytes);
+    var local = [].concat(
+      u32(0x04034b50), u16(20), u16(0), u16(0), u16(0), u16(0),
+      u32(crc), u32(dataBytes.length), u32(dataBytes.length),
+      u16(nameBytes.length), u16(0)
+    );
+    chunks.push(new Uint8Array(local));
+    chunks.push(nameBytes);
+    chunks.push(dataBytes);
+    central.push({
+      name: nameBytes, crc: crc, size: dataBytes.length, offset: offset
+    });
+    offset = offset + local.length + nameBytes.length + dataBytes.length;
+  }
+
+  var centralStart = offset;
+  var centralSize = 0;
+  for (var j = 0; j < central.length; j++) {
+    var e = central[j];
+    var head = [].concat(
+      u32(0x02014b50), u16(20), u16(20), u16(0), u16(0), u16(0), u16(0),
+      u32(e.crc), u32(e.size), u32(e.size),
+      u16(e.name.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(e.offset)
+    );
+    chunks.push(new Uint8Array(head));
+    chunks.push(e.name);
+    centralSize = centralSize + head.length + e.name.length;
+  }
+  var eocd = [].concat(
+    u32(0x06054b50), u16(0), u16(0), u16(central.length), u16(central.length),
+    u32(centralSize), u32(centralStart), u16(0)
+  );
+  chunks.push(new Uint8Array(eocd));
+  return new Blob(chunks, { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+}
+function xmlEscape(text) {
+  return String(text)
+    .split("&").join("&amp;")
+    .split("<").join("&lt;")
+    .split(">").join("&gt;")
+    .split('"').join("&quot;");
+}
+function buildXlsx(rows) {
+  var sheetRows = [];
+  for (var r = 0; r < rows.length; r++) {
+    var cells = [];
+    for (var c = 0; c < rows[r].length; c++) {
+      var value = rows[r][c];
+      var isNumber = (typeof value === "number" && isFinite(value));
+      var ref = columnLetter(c) + (r + 1);
+      if (isNumber) {
+        cells.push('<c r="' + ref + '"><v>' + value + "</v></c>");
+      } else {
+        cells.push('<c r="' + ref + '" t="inlineStr"><is><t>' +
+                   xmlEscape(value) + "</t></is></c>");
+      }
+    }
+    sheetRows.push('<row r="' + (r + 1) + '">' + cells.join("") + "</row>");
+  }
+  var sheet = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+    "<sheetData>" + sheetRows.join("") + "</sheetData></worksheet>";
+  var contentTypes = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+    '<Default Extension="xml" ContentType="application/xml"/>' +
+    '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
+    '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>' +
+    "</Types>";
+  var rels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>' +
+    "</Relationships>";
+  var workbook = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" ' +
+    'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
+    '<sheets><sheet name="Spike" sheetId="1" r:id="rId1"/></sheets></workbook>';
+  var workbookRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>' +
+    "</Relationships>";
+  return buildZip([
+    { name: "[Content_Types].xml", content: contentTypes },
+    { name: "_rels/.rels", content: rels },
+    { name: "xl/workbook.xml", content: workbook },
+    { name: "xl/_rels/workbook.xml.rels", content: workbookRels },
+    { name: "xl/worksheets/sheet1.xml", content: sheet }
+  ]);
+}
+function columnLetter(index) {
+  var letters = "";
+  var n = index;
+  while (true) {
+    letters = String.fromCharCode(65 + (n % 26)) + letters;
+    n = Math.floor(n / 26) - 1;
+    if (n < 0) { break; }
+  }
+  return letters;
+}
+
+/* ------------------------------------------------------------------ probe 6 */
+function makeChartPng() {
+  return new Promise(function (resolve, reject) {
+    var canvas = document.createElement("canvas");
+    canvas.width = 800;
+    canvas.height = 480;
+    var ctx = canvas.getContext("2d");
+    if (!ctx) { reject(new Error("2d canvas context unavailable")); return; }
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, 800, 480);
+    ctx.fillStyle = "#101418";
+    ctx.font = "bold 26px sans-serif";
+    ctx.fillText("Fit spike — generated chart", 40, 56);
+    ctx.font = "14px sans-serif";
+    ctx.fillStyle = "#5a6875";
+    ctx.fillText("Proves a canvas-generated image reaches the share sheet as a FILE.", 40, 82);
+    var series = [42, 58, 51, 67, 74, 70, 88];
+    ctx.strokeStyle = "#c8d2dc";
+    ctx.beginPath(); ctx.moveTo(60, 400); ctx.lineTo(760, 400); ctx.stroke();
+    ctx.fillStyle = "#3b82f6";
+    for (var i = 0; i < series.length; i++) {
+      var barHeight = series[i] * 2.8;
+      var x = 80 + i * 96;
+      ctx.fillRect(x, 400 - barHeight, 58, barHeight);
+      ctx.fillStyle = "#5a6875";
+      ctx.font = "13px sans-serif";
+      ctx.fillText("S" + (i + 1), x + 18, 422);
+      ctx.fillStyle = "#3b82f6";
+    }
+    canvas.toBlob(function (blob) {
+      if (!blob) { reject(new Error("canvas.toBlob returned null")); return; }
+      resolve(blob);
+    }, "image/png");
+  });
+}
+var SAMPLE_TABLE = [
+  ["Session", "Date", "Exercise", "Load kg", "Reps", "Heart rate"],
+  [1, "2026-07-01", "Deadlift", 80, 5, 132],
+  [2, "2026-07-04", "Bench press", 55, 8, 124],
+  [3, "2026-07-08", "Front squat", 60, 6, 141],
+  [4, "2026-07-11", "Plank hold (s)", 0, 75, 118]
+];
+var XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+function tableToCsv(rows) {
+  var lines = [];
+  for (var r = 0; r < rows.length; r++) {
+    var cells = [];
+    for (var c = 0; c < rows[r].length; c++) {
+      var value = String(rows[r][c]);
+      if (value.indexOf(",") !== -1 || value.indexOf('"') !== -1) {
+        value = '"' + value.split('"').join('""') + '"';
+      }
+      cells.push(value);
+    }
+    lines.push(cells.join(","));
+  }
+  return lines.join("\r\n");
+}
+
+/* THREE artefacts, deliberately distinct in DECLARED TYPE, because canShare is decided by the
+   declared MIME type and not by the bytes. Each is checked and shared on its own so the later
+   export work knows per-type what this phone actually accepts. */
+function buildShareArtefacts() {
+  return makeChartPng().then(function (png) {
+    var csvText = tableToCsv(SAMPLE_TABLE);
+    return [
+      {
+        key: "image_png",
+        label: "canvas-generated PNG",
+        file: new File([png], "spike-chart.png", { type: "image/png" }),
+        bytesAre: "a real PNG produced by canvas.toBlob"
+      },
+      {
+        key: "table_csv",
+        label: "table declared as text/csv",
+        file: new File([csvText], "spike-table.csv", { type: "text/csv" }),
+        bytesAre: "comma-separated text, declared as text/csv — the type matches the bytes"
+      },
+      {
+        key: "table_xlsx",
+        label: "table declared as an OOXML spreadsheet",
+        file: new File([buildXlsx(SAMPLE_TABLE)], "spike-table.xlsx", { type: XLSX_MIME }),
+        bytesAre: "a GENUINE minimal .xlsx workbook — a store-only ZIP of five OOXML parts, " +
+                  "hand-written in-page with no library and no build step. This is NOT a CSV wearing " +
+                  "a spreadsheet MIME type; the bytes really are a workbook and open in a spreadsheet app."
+      }
+    ];
+  });
+}
+function describeArtefact(a) {
+  return { key: a.key, label: a.label, name: a.file.name, declaredType: a.file.type,
+           bytes: a.file.size, bytesAre: a.bytesAre };
+}
+function canShareOne(file) {
+  if (typeof navigator.canShare !== "function") { return null; }
+  try { return navigator.canShare({ files: [file] }); }
+  catch (err) { return "threw: " + describeError(err).message; }
+}
+function probe6Context() {
+  var existing = RESULTS.probes["p6_share_files"];
+  if (existing && existing.evidence && existing.evidence.perArtefact) { return existing.evidence; }
+  return {
+    apiPresent: {
+      navigatorShare: typeof navigator.share === "function",
+      navigatorCanShare: typeof navigator.canShare === "function"
+    },
+    note: "Sharing FILES is a different capability from sharing a URL. Only the file variant counts here.",
+    perArtefact: {},
+    combined: {}
+  };
+}
+function probe6Verdict(context) {
+  var keys = Object.keys(context.perArtefact);
+  if (!keys.length) { return "RUNNING"; }
+  var anyShared = false;
+  var allCanShare = true;
+  for (var i = 0; i < keys.length; i++) {
+    var a = context.perArtefact[keys[i]];
+    if (a.canShareFiles !== true) { allCanShare = false; }
+    if (a.sheetOpened === true) { anyShared = true; }
+  }
+  if (!allCanShare) { return "FAIL"; }
+  if (keys.length < 3) { return "PARTIAL"; }
+  if (!anyShared) { return "PARTIAL"; }
+  return context.observation ? "PASS" : "PARTIAL";
+}
+function probe6Commit(context) {
+  var verdict = probe6Verdict(context);
+  context.verdictReason = {
+    RUNNING: "nothing recorded yet",
+    FAIL: "at least one artefact's canShare({files}) was not true — that type is not shareable here",
+    PARTIAL: "capability recorded, but not every artefact has been shared and confirmed. " +
+             "Share each one and save an observation for a PASS.",
+    PASS: "all three artefact types reported shareable, at least one share sheet opened, " +
+          "and the operator recorded what they observed"
+  }[verdict];
+  setBadge("b6", verdict);
+  show("out6", context);
+  record("p6_share_files", verdict, context);
+}
+function probe6Capability() {
+  setBadge("b6", "RUNNING");
+  show("out6", "generating the three artefacts…");
+  var context = probe6Context();
+  buildShareArtefacts().then(function (artefacts) {
+    context.canShareUrlForComparison = (typeof navigator.canShare === "function")
+      ? navigator.canShare({ url: location.href }) : null;
+    context.combined.canShareAllThree = (typeof navigator.canShare === "function")
+      ? navigator.canShare({ files: artefacts.map(function (a) { return a.file; }) }) : null;
+    for (var i = 0; i < artefacts.length; i++) {
+      var a = artefacts[i];
+      var prior = context.perArtefact[a.key] || {};
+      context.perArtefact[a.key] = {
+        artefact: describeArtefact(a),
+        canShareFiles: canShareOne(a.file),
+        canShareCheckedAt: new Date().toISOString(),
+        sheetOpened: prior.sheetOpened === undefined ? null : prior.sheetOpened,
+        shareOutcome: prior.shareOutcome === undefined ? null : prior.shareOutcome
+      };
+    }
+    probe6Commit(context);
+  })
+  .catch(function (err) { failProbe("p6_share_files", "b6", "out6", err, context); });
+}
+function probe6ShareOne(key) {
+  setBadge("b6", "RUNNING");
+  var context = probe6Context();
+  buildShareArtefacts().then(function (artefacts) {
+    var chosen = null;
+    var files = [];
+    for (var i = 0; i < artefacts.length; i++) {
+      if (key === "all" || artefacts[i].key === key) { chosen = artefacts[i]; files.push(artefacts[i].file); }
+    }
+    if (!files.length) {
+      throw new Error("no artefact matched key " + key);
+    }
+    var slotKey = (key === "all") ? null : key;
+    var can = (typeof navigator.canShare === "function") ? navigator.canShare({ files: files }) : null;
+
+    function writeOutcome(outcome, sheetOpened, err) {
+      if (slotKey) {
+        var slot = context.perArtefact[slotKey] || { artefact: describeArtefact(chosen) };
+        slot.artefact = slot.artefact || describeArtefact(chosen);
+        slot.canShareFiles = can;
+        slot.sheetOpened = sheetOpened;
+        slot.shareOutcome = outcome;
+        slot.sharedAt = new Date().toISOString();
+        if (err) { slot.error = describeError(err); }
+        context.perArtefact[slotKey] = slot;
+      } else {
+        context.combined.canShareAllThree = can;
+        context.combined.sheetOpened = sheetOpened;
+        context.combined.shareOutcome = outcome;
+        context.combined.sharedAt = new Date().toISOString();
+        if (err) { context.combined.error = describeError(err); }
+      }
+      probe6Commit(context);
+    }
+
+    if (can !== true) {
+      writeOutcome("not attempted — canShare({files}) reported " + JSON.stringify(can) +
+                   ", so the platform's own answer is recorded instead of forcing a call", false, null);
+      return;
+    }
+    if (typeof navigator.share !== "function") {
+      writeOutcome("not attempted — navigator.share is not a function on this platform", false, null);
+      return;
+    }
+    return navigator.share({
+      files: files,
+      title: "Fit spike artefact" + (key === "all" ? "s" : ""),
+      text: "Generated by the Fit platform spike."
+    }).then(function () {
+      writeOutcome("share() resolved — the sheet opened and a target was chosen. This does NOT by itself " +
+                   "prove the file landed somewhere usable; confirm in the observation box.", true, null);
+    }, function (err) {
+      if (err && err.name === "AbortError") {
+        writeOutcome("AbortError — the sheet opened and was dismissed. The sheet ACCEPTING the file is " +
+                     "still the capability under test, so this counts as opened.", true, err);
+        return;
+      }
+      writeOutcome("share() rejected: " + describeError(err).name, false, err);
+    });
+  })
+  .catch(function (err) { failProbe("p6_share_files", "b6", "out6", err, context); });
+}
+function saveObservation6() {
+  var text = $("obs6").value || "";
+  var context = probe6Context();
+  context.observation = text;
+  context.observationSavedAt = new Date().toISOString();
+  context.observationNote = "Typed by the operator. This is the only evidence that a shared file actually " +
+                            "landed somewhere usable — no API can report that.";
+  probe6Commit(context);
+}
+function downloadShareFiles() {
+  buildShareArtefacts().then(function (artefacts) {
+    var described = [];
+    for (var i = 0; i < artefacts.length; i++) {
+      downloadBlob(artefacts[i].file, artefacts[i].file.name);
+      described.push(describeArtefact(artefacts[i]));
+    }
+    var context = probe6Context();
+    context.fallbackDownload = described;
+    context.fallbackNote = "Downloaded rather than shared. Open all three to confirm they are valid " +
+                           "(the .xlsx should open in a spreadsheet app), then record that in the observation box.";
+    probe6Commit(context);
+  }, function (err) { show("out6", { error: describeError(err) }); });
+}
+
+/* ------------------------------------------------------------------ key derivation timing */
+function deriveOnce(passphrase, salt, iterations) {
+  return window.crypto.subtle.importKey(
+    "raw", new TextEncoder().encode(passphrase), { name: "PBKDF2" }, false, ["deriveBits"]
+  ).then(function (baseKey) {
+    var t0 = performance.now();
+    return window.crypto.subtle.deriveBits(
+      { name: "PBKDF2", salt: salt, iterations: iterations, hash: "SHA-256" },
+      baseKey, 256
+    ).then(function (bits) {
+      return {
+        iterations: iterations,
+        elapsedMs: Math.round(performance.now() - t0),
+        derivedBits: bits.byteLength * 8
+      };
+    });
+  });
+}
+function probeKdf() {
+  setBadge("b7", "RUNNING");
+  show("out7", "deriving… this deliberately takes a few seconds");
+  if (!(window.crypto && window.crypto.subtle)) {
+    var e = new Error("crypto.subtle is unavailable — the page is probably not in a secure context");
+    e.name = "WebCryptoUnavailable";
+    failProbe("kdf_timing", "b7", "out7", e, { secureContext: window.isSecureContext });
+    return;
+  }
+  var salt = window.crypto.getRandomValues(new Uint8Array(16));
+  var counts = [100000, 300000, 600000];
+  var measurements = [];
+  var context = {
+    algorithm: "PBKDF2-HMAC-SHA-256, 256-bit output, 16-byte random salt",
+    designTarget: "600000 iterations is the count in the key-envelope design — the question is whether this device can afford it",
+    saltBytes: 16
+  };
+
+  var chain = Promise.resolve();
+  counts.forEach(function (n) {
+    chain = chain.then(function () {
+      show("out7", { phase: "deriving at " + n + " iterations…", measurements: measurements });
+      return deriveOnce("spike-passphrase-not-a-real-secret", salt, n).then(function (m) {
+        measurements.push(m);
+      });
+    });
+  });
+
+  chain.then(function () {
+    /* Is native Argon2id in Web Crypto yet? Ask, do not assume. */
+    return window.crypto.subtle.importKey(
+      "raw", new TextEncoder().encode("probe"), { name: "Argon2id" }, false, ["deriveBits"]
+    ).then(function () { return { nativeArgon2id: true, detail: "importKey accepted Argon2id" }; },
+           function (err) { return { nativeArgon2id: false, detail: describeError(err).name + ": " +
+                                     describeError(err).message }; });
+  })
+  .then(function (argon) {
+    context.measurements = measurements;
+    context.argon2id = argon;
+    var at600k = null;
+    for (var i = 0; i < measurements.length; i++) {
+      if (measurements[i].iterations === 600000) { at600k = measurements[i].elapsedMs; }
+    }
+    context.msAt600k = at600k;
+    context.msPer100kIterations = (at600k !== null) ? Math.round(at600k / 6) : null;
+    context.interpolationNote =
+      "PBKDF2 cost is linear in iterations, so any other count can be interpolated from these figures without re-measuring.";
+    var verdict = "PASS";
+    if (at600k === null) { verdict = "PARTIAL"; }
+    else if (at600k > 3000) {
+      verdict = "PARTIAL";
+      context.judgement = at600k + "ms at 600k iterations is slow enough to be felt. Recorded as a finding: " +
+        "either lower the count or keep the passphrase slot strictly optional (it already is).";
+    } else {
+      context.judgement = at600k + "ms at 600k iterations is acceptable for an occasional unlock on this device.";
+    }
+    setBadge("b7", verdict);
+    show("out7", context);
+    record("kdf_timing", verdict, context);
+  })
+  .catch(function (err) { failProbe("kdf_timing", "b7", "out7", err, context); });
+}
+
+/* ------------------------------------------------------------------ export */
+function resultsJson() {
+  renderAll();
+  return JSON.stringify(RESULTS, null, 2);
+}
+function downloadBlob(blob, filename) {
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+}
+function copyResults() {
+  var text = resultsJson();
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function () {
+      show("outClientId", "results JSON copied to the clipboard (" + text.length + " chars)");
+    }, function (err) {
+      show("outClientId", "clipboard refused: " + describeError(err).message +
+                          " — use Download results instead.");
+    });
+    return;
+  }
+  show("outClientId", "no clipboard API here — use Download results or Share results.");
+}
+function shareResults() {
+  var text = resultsJson();
+  var file = new File([text], "fit-spike-results.json", { type: "application/json" });
+  if (typeof navigator.canShare === "function" && navigator.canShare({ files: [file] }) &&
+      typeof navigator.share === "function") {
+    navigator.share({ files: [file], title: "Fit spike results" }).catch(function (err) {
+      show("outAll", "share failed: " + describeError(err).message + "\n\n" + text);
+    });
+    return;
+  }
+  if (typeof navigator.share === "function") {
+    navigator.share({ title: "Fit spike results", text: text.slice(0, 100000) }).catch(function (err) {
+      show("outAll", "share failed: " + describeError(err).message + "\n\n" + text);
+    });
+    return;
+  }
+  downloadBlob(new Blob([text], { type: "application/json" }), "fit-spike-results.json");
+}
+function resetResults() {
+  RESULTS = { version: SPIKE_VERSION, meta: {}, probes: {} };
+  localStorage.removeItem(LS_RESULTS);
+  var ids = ["b1", "b2", "b3", "b4", "b5", "b6", "b7"];
+  for (var i = 0; i < ids.length; i++) { setBadge(ids[i], "IDLE"); }
+  var outs = ["out1", "out2", "out3", "out4", "out5", "out6", "out7"];
+  for (var j = 0; j < outs.length; j++) { show(outs[j], "not run"); }
+  renderAll();
+}
+function installHint() {
+  var env = readEnvironment();
+  var text = env.isStandalone
+    ? "Already running standalone — you are testing the right thing."
+    : "iOS Safari: Share button, then 'Add to Home Screen'. Chrome on Android: the three-dot menu, then " +
+      "'Add to Home screen' or 'Install app'. Then LAUNCH FROM THE HOME-SCREEN ICON, not from the browser. " +
+      "This card must say STANDALONE before Probe 1 means anything.";
+  show("outEnv", { hint: text, environment: env });
+}
+
+/* ------------------------------------------------------------------ wiring */
+function boot() {
+  loadResults();
+  var savedNotes = localStorage.getItem(LS_NOTES);
+  if (savedNotes) { $("notes").value = savedNotes; }
+  $("originEcho").textContent = location.origin;
+  loadClientId();
+
+  $("btnEnv").addEventListener("click", runEnvironment);
+  $("btnInstallHint").addEventListener("click", installHint);
+  $("btnSaveClientId").addEventListener("click", function () {
+    var v = $("clientId").value.trim();
+    if (!v) { show("outClientId", "nothing to save — the field is empty"); return; }
+    localStorage.setItem(LS_CLIENT_ID, v);
+    show("outClientId", "saved on this device: " + v);
+  });
+  $("btnClearClientId").addEventListener("click", function () {
+    localStorage.removeItem(LS_CLIENT_ID);
+    $("clientId").value = "";
+    show("outClientId", "forgotten");
+  });
+
+  $("btn1").addEventListener("click", probe1);
+  $("btn2").addEventListener("click", probe2);
+  $("btn3").addEventListener("click", probe3);
+  $("btn4").addEventListener("click", probe4);
+  $("btn5").addEventListener("click", probe5);
+  $("btn6a").addEventListener("click", probe6Capability);
+  $("btn6img").addEventListener("click", function () { probe6ShareOne("image_png"); });
+  $("btn6csv").addEventListener("click", function () { probe6ShareOne("table_csv"); });
+  $("btn6xlsx").addEventListener("click", function () { probe6ShareOne("table_xlsx"); });
+  $("btn6").addEventListener("click", function () { probe6ShareOne("all"); });
+  $("btn6dl").addEventListener("click", downloadShareFiles);
+  $("btnObs6").addEventListener("click", saveObservation6);
+  $("btn7").addEventListener("click", probeKdf);
+
+  $("btnCopy").addEventListener("click", copyResults);
+  $("btnShare").addEventListener("click", shareResults);
+  $("btnDownload").addEventListener("click", function () {
+    downloadBlob(new Blob([resultsJson()], { type: "application/json" }), "fit-spike-results.json");
+  });
+  $("btnReset").addEventListener("click", resetResults);
+  $("notes").addEventListener("input", function () {
+    localStorage.setItem(LS_NOTES, $("notes").value);
+    renderAll();
+  });
+
+  /* restore any previously recorded verdicts onto the badges */
+  var map = {
+    p1_standalone_signin: ["b1", "out1"],
+    p2_meet_link: ["b2", "out2"],
+    p3_drive_visible: ["b3", "out3"],
+    p4_drive_appdata: ["b4", "out4"],
+    p5_persistent_storage: ["b5", "out5"],
+    p6_share_files: ["b6", "out6"],
+    kdf_timing: ["b7", "out7"]
+  };
+  var keys = Object.keys(map);
+  for (var i = 0; i < keys.length; i++) {
+    var rec = RESULTS.probes[keys[i]];
+    if (rec) {
+      setBadge(map[keys[i]][0], rec.verdict);
+      show(map[keys[i]][1], rec.evidence);
+    }
+  }
+
+  runEnvironment();
+  window.addEventListener("visibilitychange", function () {
+    if (!document.hidden) { runEnvironment(); }
+  });
+
+  if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
+    navigator.serviceWorker.register("sw.js").then(function () {
+      /* installability only; no probe depends on the service worker */
+    }, function (err) {
+      show("outEnv", { serviceWorkerRegistrationFailed: describeError(err),
+                       environment: readEnvironment() });
+    });
+  }
+}
+boot();
+</script>
+</body>
+</html>
