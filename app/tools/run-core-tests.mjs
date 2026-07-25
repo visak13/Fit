@@ -1,6 +1,15 @@
 /**
  * THE AGGREGATE CORE TEST GATE — it DISCOVERS what to run, and it refuses to shrink quietly.
  *
+ * ## WHERE THE MECHANISM LIVES NOW
+ *
+ * The floors, the every-directory-still-runs check and the refusal to pass on a count that dropped
+ * moved to `tools/test-gate.mjs`, unchanged in behaviour, so that `test:shell` and `test:tools`
+ * could have them too — they never had, and a glob matching nothing exits zero, so those two gates
+ * could pass while running no tests at all. What stays HERE is the part that is only true of the
+ * core: its packages carry an entry point, and an entry that does not import all of its suites runs
+ * only some of them. Read `test-gate.mjs` for the shared half; this file is the core's own half.
+ *
  * ## The failure this replaces, which is the whole reason it exists
  *
  * `npm test` used to be a hand-maintained list of directories written into `package.json`. That
@@ -64,11 +73,12 @@
  * no floor until someone records one. Only a DROP is a failure.
  */
 
-import { spawnSync } from 'node:child_process';
-import { readFile, readdir, writeFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
+
+import { runTestGate } from './test-gate.mjs';
 
 const applicationRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CORE_DIRECTORY = path.join(applicationRoot, 'core');
@@ -129,77 +139,25 @@ async function importedTestFiles(packageName) {
 }
 
 /**
- * Run one package's suites in its own process and read back what it actually ran.
+ * THE CORE'S OWN HALF OF THE GATE.
  *
- * The summary counts are taken from the runner's own totals rather than by counting ticks, and a
- * run whose totals cannot be found is treated as a FAILURE rather than as zero — an unreadable
- * result and a result of zero are different things, and neither may pass silently.
- *
- * @param {string} packageName
- * @returns {{tests: number, pass: number, fail: number, skipped: number, status: number, output: string}}
+ * Everything below this point is true of the core and of nothing else: its packages carry an entry
+ * point, and an entry that imports only SOME of its suites runs only some of them while reporting a
+ * plausible number. Those two checks are made here, then the shared mechanism in
+ * `tools/test-gate.mjs` runs each package and holds its floor.
  */
-function runPackage(packageName) {
-  const target = `core/${packageName}/${TEST_ENTRY_FILE}`;
-  const result = spawnSync(process.execPath, ['--test', target], {
-    cwd: applicationRoot,
-    encoding: 'utf8',
-    maxBuffer: 64 * 1024 * 1024,
-  });
-
-  const output = `${result.stdout ?? ''}${result.stderr ?? ''}`;
-  const readTotal = (label) => {
-    const matches = [...output.matchAll(new RegExp(`^\\W*${label} (\\d+)$`, 'gm'))];
-    return matches.length === 0 ? null : Number(matches.at(-1)[1]);
-  };
-
-  return {
-    tests: readTotal('tests'),
-    pass: readTotal('pass'),
-    fail: readTotal('fail'),
-    skipped: readTotal('skipped'),
-    status: result.status ?? 1,
-    output,
-  };
-}
-
 async function main() {
   const updateFloors = process.argv.includes('--update-floors');
-
-  /** @type {{measured: Record<string, number>, note?: string}} */
-  let coverage;
-  try {
-    coverage = JSON.parse(await readFile(COVERAGE_FILE, 'utf8'));
-  } catch (error) {
-    if (error.code !== 'ENOENT') throw error;
-    coverage = { measured: {} };
-  }
-  const floors = coverage.measured ?? {};
-
   const packages = await discoverCorePackages();
-  const failures = [];
 
-  console.log(`discovered ${packages.length} core directories with tests:`);
-  console.log(`  ${packages.map((entry) => entry.name).join(', ')}\n`);
-
-  // A directory that WAS covered and is not discovered now. This is the check that catches the
-  // original defect, and it is checked before anything runs so it is reported even if a suite
-  // later fails for its own reasons.
-  for (const name of Object.keys(floors)) {
-    if (!packages.some((entry) => entry.name === name)) {
-      failures.push(
-        `core/${name} previously ran ${floors[name]} tests and is NO LONGER DISCOVERED. Either its ` +
-          'test files were removed — in which case say so deliberately and update ' +
-          'tools/core-coverage.json — or coverage has silently been lost.',
-      );
-    }
-  }
-
-  const measured = {};
-  let total = 0;
+  /** Failures found before anything runs, handed to the gate so they are reported alongside its own. */
+  const priorFailures = [];
+  /** @type {Array<{name: string, files: string[]}>} */
+  const groups = [];
 
   for (const entry of packages) {
     if (!entry.hasEntry) {
-      failures.push(
+      priorFailures.push(
         `core/${entry.name} holds ${entry.testFiles.length} test files but has no ` +
           `${TEST_ENTRY_FILE}. A directory target resolves as a MODULE on this runtime, so this ` +
           'directory would report success having run nothing.',
@@ -210,86 +168,28 @@ async function main() {
     const imported = await importedTestFiles(entry.name);
     const missing = entry.testFiles.filter((file) => !imported.has(file));
     if (missing.length > 0) {
-      failures.push(
+      priorFailures.push(
         `core/${entry.name}/${TEST_ENTRY_FILE} does not import ${missing.join(', ')}. Those suites ` +
           'exist and would never run; add the import lines.',
       );
     }
 
-    const run = runPackage(entry.name);
-    const floor = floors[entry.name];
-
-    if (run.tests === null) {
-      failures.push(`core/${entry.name}: could not read a test total from the runner output.`);
-      console.log(run.output);
-      continue;
-    }
-
-    measured[entry.name] = run.tests;
-    total += run.tests;
-
-    const flag =
-      run.status !== 0 || run.fail > 0
-        ? 'FAILED'
-        : run.tests === 0
-          ? 'RAN NOTHING'
-          : floor !== undefined && run.tests < floor
-            ? `DROPPED from ${floor}`
-            : 'ok';
-
-    console.log(
-      `  ${entry.name.padEnd(12)} ${String(run.tests).padStart(4)} tests` +
-        `  ${String(run.pass ?? 0).padStart(4)} pass` +
-        `  ${String(run.fail ?? 0).padStart(2)} fail` +
-        `  floor ${floor === undefined ? '  —' : String(floor).padStart(3)}` +
-        `  ${flag}`,
-    );
-
-    if (run.status !== 0 || run.fail > 0) {
-      failures.push(`core/${entry.name}: ${run.fail ?? '?'} failing tests (exit ${run.status}).`);
-      console.log(run.output);
-      continue;
-    }
-    if (run.tests === 0) {
-      failures.push(
-        `core/${entry.name} ran ZERO tests while exiting 0. That is the vacuous pass this gate ` +
-          'exists to catch, not a directory with nothing in it.',
-      );
-      continue;
-    }
-    if (floor !== undefined && run.tests < floor) {
-      failures.push(
-        `core/${entry.name} ran ${run.tests} tests but has previously run ${floor}. A count that ` +
-          'DROPS is a failure even when every test passes: tests do not go missing on purpose ' +
-          'without someone saying so.',
-      );
-    }
+    // The entry point is the target, not the test files: that is what a core package's own gate
+    // runs, so this gate must run exactly the same thing.
+    groups.push({ name: entry.name, files: [`core/${entry.name}/${TEST_ENTRY_FILE}`] });
   }
 
-  console.log(`\n  ${'TOTAL'.padEnd(12)} ${String(total).padStart(4)} tests across ${packages.length} directories`);
-
-  if (updateFloors) {
-    if (failures.length > 0) {
-      console.error('\nrefusing to record floors from a run that did not pass cleanly.');
-    } else {
-      await writeFile(
-        COVERAGE_FILE,
-        `${JSON.stringify({ ...coverage, measured, total }, null, 2)}\n`,
-        'utf8',
-      );
-      console.log(`\nrecorded new floors in tools/core-coverage.json (total ${total}).`);
-      return;
-    }
-  }
-
-  if (failures.length > 0) {
-    console.error('\nCORE TEST GATE FAILED\n');
-    for (const failure of failures) console.error(`  - ${failure}\n`);
-    process.exitCode = 1;
-    return;
-  }
-
-  console.log('\nevery discovered directory ran, every count held its floor.');
+  await runTestGate({
+    label: 'core',
+    cwd: applicationRoot,
+    coverageFile: COVERAGE_FILE,
+    groups,
+    updateFloors,
+    priorFailures,
+    emptyDiscoveryHint:
+      'core/ holds no directory with *.test.js files. Either the core has moved or its suites have ' +
+      'been deleted.',
+  });
 }
 
 main().catch((error) => {

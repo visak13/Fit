@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Interface glyph proof sheet</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 16px;
+      line-height: 1.45;
+      background: #777;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 320px; }
+    header {
+      padding: 32px clamp(20px, 4vw, 56px);
+      color: #17191c;
+      background: #f2f3f5;
+      border-bottom: 1px solid #bbbfc5;
+    }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { margin-bottom: 8px; font-size: clamp(1.75rem, 4vw, 2.5rem); }
+    h2 { margin-bottom: 16px; font-size: 1.35rem; }
+    h3 { margin-bottom: 8px; font-size: 1rem; }
+    p { max-width: 76ch; }
+    .proof-block { margin-top: 28px; }
+    .preset-row, .sync-strip {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      max-width: 900px;
+    }
+    .preset {
+      padding: 16px;
+      color: #17191c;
+      background: #fff;
+      border: 1px solid #c9ccd1;
+      border-radius: 8px;
+    }
+    .preset-icons { display: flex; flex-wrap: wrap; gap: 18px; align-items: center; }
+    .preset svg { width: 32px; height: 32px; }
+    .thin-square { --glyph-stroke: 1.5; --glyph-radius: 0; }
+    .standard { --glyph-stroke: 2; --glyph-radius: 2; }
+    .heavy-soft { --glyph-stroke: 2.5; --glyph-radius: 4; }
+    .sync-strip {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      padding: 16px;
+      color: #222;
+      background: linear-gradient(90deg, #eee, #aaa);
+      filter: grayscale(1);
+      border: 1px solid #888;
+      border-radius: 8px;
+    }
+    .sync-sample { min-width: 0; text-align: center; }
+    .sync-sample svg { display: block; width: 24px; height: 24px; margin: 0 auto 8px; }
+    .sync-sample span { overflow-wrap: anywhere; font-size: 1rem; }
+    .raster-strip {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 12px;
+      max-width: 900px;
+    }
+    .raster-sample {
+      min-width: 0;
+      padding: 12px 8px;
+      text-align: center;
+      color: #17191c;
+      background: #fff;
+      border: 1px solid #c9ccd1;
+      border-radius: 8px;
+    }
+    .raster-sample img {
+      display: block;
+      width: 96px;
+      height: 96px;
+      margin: 0 auto 8px;
+      image-rendering: pixelated;
+    }
+    .raster-sample span { overflow-wrap: anywhere; }
+    .additions { margin: 12px 0 0; padding-left: 22px; }
+    .additions li + li { margin-top: 6px; }
+    .themes {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-items: start;
+    }
+    .theme { min-width: 0; padding: 32px clamp(16px, 2.5vw, 40px) 48px; }
+    .theme-light { color: #202328; background: #fff; }
+    .theme-dark { color: #f3f4f6; background: #17191c; }
+    .theme-title {
+      padding-bottom: 12px;
+      border-bottom: 1px solid currentColor;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 12px;
+    }
+    .tile {
+      min-width: 0;
+      padding: 14px 10px 12px;
+      border: 1px solid;
+      border-radius: 6px;
+    }
+    .theme-light .tile { border-color: #d9dce1; background: #f8f9fa; }
+    .theme-dark .tile { border-color: #3d424a; background: #202329; }
+    .sizes {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
+      align-items: end;
+      min-height: 48px;
+    }
+    .size {
+      display: grid;
+      justify-items: center;
+      align-content: end;
+      gap: 4px;
+      min-width: 0;
+    }
+    .size small { font-size: 1rem; opacity: .72; }
+    .s16 { width: 16px; height: 16px; }
+    .s24 { width: 24px; height: 24px; }
+    .s32 { width: 32px; height: 32px; }
+    .name {
+      margin: 10px 0 0;
+      overflow-wrap: anywhere;
+      text-align: center;
+      font-size: 1rem;
+    }
+    svg { display: block; overflow: visible; }
+    @media (max-width: 900px) {
+      .themes { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 640px) {
+      .preset-row { grid-template-columns: 1fr; }
+      .sync-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .raster-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <svg width="0" height="0" aria-hidden="true" style="position:absolute">
+    <defs>
+      <symbol id="g-nav-clients" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="9" cy="7" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2"/><circle cx="17.5" cy="8.5" r="2.5"/><path d="M16 14.2a5 5 0 0 1 5 4.8v1"/>
+      </symbol>
+      <symbol id="g-nav-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="18" height="17" rx="var(--glyph-radius, 2)"/><path d="M7 2v4M17 2v4M3 9h18"/><path d="M7 13h2M12 13h2M17 13h.01M7 17h2M12 17h2"/>
+      </symbol>
+      <symbol id="g-nav-routines" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 5h6a3 3 0 0 1 3 3v12a4 4 0 0 0-4-3H3Z"/><path d="M21 5h-6a3 3 0 0 0-3 3v12a4 4 0 0 1 4-3h5Z"/>
+      </symbol>
+      <symbol id="g-nav-diet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="7" height="6" rx="var(--glyph-radius, 2)"/><rect x="14" y="4" width="7" height="6" rx="var(--glyph-radius, 2)"/><rect x="3" y="14" width="7" height="6" rx="var(--glyph-radius, 2)"/><rect x="14" y="14" width="7" height="6" rx="var(--glyph-radius, 2)"/>
+      </symbol>
+      <symbol id="g-nav-admin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="18" height="16" rx="var(--glyph-radius, 2)"/><path d="M7 9h10M7 15h10"/><circle cx="10" cy="9" r="1.5"/><circle cx="15" cy="15" r="1.5"/>
+      </symbol>
+      <symbol id="g-session-start" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9.5"/><path d="M10 8.5 16 12l-6 3.5Z" fill="currentColor" stroke="none"/>
+      </symbol>
+      <symbol id="g-session-pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9.5"/><path d="M9.5 8v8M14.5 8v8"/>
+      </symbol>
+      <symbol id="g-session-next-exercise" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 12h14M13 7l5 5-5 5M21 6v12"/>
+      </symbol>
+      <symbol id="g-session-previous-exercise" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 12H6M11 7l-5 5 5 5M3 6v12"/>
+      </symbol>
+      <symbol id="g-session-skip-exercise" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m4 6 8 6-8 6ZM12 6l8 6-8 6ZM21 6v12"/>
+      </symbol>
+      <symbol id="g-session-repeat-exercise" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M19 8a8 8 0 0 0-13.5-2L3 8.5"/><path d="M3 4v4.5h4.5"/><path d="M5 16a8 8 0 0 0 13.5 2l2.5-2.5"/><path d="M21 20v-4.5h-4.5"/>
+      </symbol>
+      <symbol id="g-session-reorder-exercises" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 3v18M2 5l2-2 2 2M2 19l2 2 2-2"/>
+      </symbol>
+      <symbol id="g-session-substitute-exercise" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 8h14M15 5l3 3-3 3"/><path d="M20 16H6M9 13l-3 3 3 3"/>
+      </symbol>
+      <symbol id="g-session-finish" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9.5"/><path d="m7.5 12 3 3 6-6"/>
+      </symbol>
+      <symbol id="g-reading-timer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="13" r="8.5"/><path d="M9 2h6M12 4.5V2M18.5 6.5 20 5"/><path d="M12 8v5l3 2"/>
+      </symbol>
+      <symbol id="g-reading-repetition-count" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m3 9 3-2v10"/><path d="M10 9a2 2 0 0 1 4 0c0 3-4 4-4 8h4"/><path d="M18 7h3l-2 4h1a2 2 0 0 1 0 4h-2"/>
+      </symbol>
+      <symbol id="g-reading-heart-rate" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 12h4l2-5 4 10 2-5h6"/>
+      </symbol>
+      <symbol id="g-reading-held-position" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="5" cy="7" r="2.5"/><path d="M7.5 11h9l3 5H9l-3-5"/><path d="M4 16h17M7 16v3M19 16v3"/>
+      </symbol>
+      <symbol id="g-note" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 3h10l4 4v14H5Z"/><path d="M15 3v5h4M8 12h8M8 16h6"/>
+      </symbol>
+      <symbol id="g-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="10.5" cy="10.5" r="7"/><path d="m15.5 15.5 5 5"/>
+      </symbol>
+      <symbol id="g-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><path d="m5 5 2.1 2.1M16.9 16.9 19 19M19 5l-2.1 2.1M7.1 16.9 5 19"/>
+      </symbol>
+      <symbol id="g-export" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3v12M8 7l4-4 4 4"/><path d="M5 12H3v9h18v-9h-2"/>
+      </symbol>
+      <symbol id="g-share" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.7 10.6 6.6-4.2M8.7 13.4l6.6 4.2"/>
+      </symbol>
+      <symbol id="g-add" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9.5"/><path d="M12 7v10M7 12h10"/>
+      </symbol>
+      <symbol id="g-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m4 16-1 5 5-1L20 8l-4-4Z"/><path d="m13.5 6.5 4 4M4 16l4 4"/>
+      </symbol>
+      <symbol id="g-delete" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 6h16M9 6V3h6v3M6 6l1 15h10l1-15"/><path d="M10 10v7M14 10v7"/>
+      </symbol>
+      <symbol id="g-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m5 5 14 14M19 5 5 19"/>
+      </symbol>
+      <symbol id="g-backup" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 9h16l1 4v8H3v-8Z"/><path d="M12 3v12M8 11l4 4 4-4M3 13h5M16 13h5"/>
+      </symbol>
+      <symbol id="g-restore" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 7v5h5"/><path d="M4.5 11a8.5 8.5 0 1 1 2 7"/><path d="M4 7a8.5 8.5 0 0 1 14-2"/><path d="M12 7v5l3 2"/>
+      </symbol>
+      <symbol id="g-client-adaptation-flag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 21V3"/><path d="M5 4h12l-2 4 2 4H5"/><path d="M9 7h4"/>
+      </symbol>
+      <symbol id="g-sync-backed-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M7 19C4.5 19 3 17.2 3 15c0-2.3 1.6-4.2 3.8-4.5C7.6 7.3 10.1 5 13.3 5c3.1 0 5.7 2.2 6.2 5.3 1.5.7 2.5 2.2 2.5 4.2 0 2.5-2 4.5-5 4.5Z"/><path d="m9 14 2 2 4-4"/>
+      </symbol>
+      <symbol id="g-sync-pending" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 7h11M3 12h16M3 17h11"/><path d="m15 8 4 4-4 4"/>
+      </symbol>
+      <symbol id="g-sync-pending-warning" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 17h14l-2-3v-4c0-3-2-5-5-5s-5 2-5 5v4Z"/><path d="M10 20h4"/>
+      </symbol>
+      <symbol id="g-sync-pending-overdue" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3 22 21H2Z"/><path d="M12 9v5M12 18h.01"/>
+      </symbol>
+      <symbol id="g-sync-offline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 8h7v8H3M6 8V5M9 8V5M10 12h3"/><path d="M15 12h2M17 7v10M20 9v6"/>
+      </symbol>
+      <symbol id="g-sync-failed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 6v12M20 6v12M4 8h16v8H4Z"/><path d="m7 8 4 8M13 8l4 8"/>
+      </symbol>
+      <symbol id="g-help-explain" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 3h16v14H9l-5 4Z"/><path d="M12 10v4M12 7h.01"/>
+      </symbol>
+      <symbol id="g-link-forward" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 8v8M20 12H7M15 7l5 5-5 5"/>
+      </symbol>
+      <symbol id="g-link-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 8v8M4 12h13M9 7l-5 5 5 5"/>
+      </symbol>
+      <symbol id="g-expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m5 9 7 7 7-7"/>
+      </symbol>
+      <symbol id="g-collapse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m5 15 7-7 7 7"/>
+      </symbol>
+      <symbol id="g-filter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 5h18l-7 8v6l-4 2v-8Z"/>
+      </symbol>
+      <symbol id="g-rest-interval" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 3h12M6 21h12M8 3c0 5 2 6 4 9-2 3-4 4-4 9M16 3c0 5-2 6-4 9 2 3 4 4 4 9"/>
+      </symbol>
+      <symbol id="g-progress-over-time" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 3v18h17"/><path d="m7 16 4-5 3 2 5-7"/><path d="M16 6h3v3"/>
+      </symbol>
+      <symbol id="g-drag-handle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="8" cy="6" r="1"/><circle cx="16" cy="6" r="1"/><circle cx="8" cy="12" r="1"/><circle cx="16" cy="12" r="1"/><circle cx="8" cy="18" r="1"/><circle cx="16" cy="18" r="1"/>
+      </symbol>
+      <symbol id="g-sign-out" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 3h9v18H4"/><path d="M9 12h12M17 8l4 4-4 4"/>
+      </symbol>
+      <symbol id="g-sign-out-and-erase-this-device" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="4" y="3" width="16" height="14" rx="var(--glyph-radius, 2)"/><path d="M4 17 2 21h20l-2-4"/><path d="m8 7 8 6M16 7l-8 6"/>
+      </symbol>
+      <symbol id="g-what-leaves-this-device" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="4" width="6" height="16" rx="var(--glyph-radius, 2)"/><rect x="16" y="4" width="6" height="16" rx="var(--glyph-radius, 2)"/><path d="M8 9h2M14 9h2M8 15h2M14 15h2"/>
+      </symbol>
+      <symbol id="g-protected-clinical-note" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="4" y="10" width="16" height="11" rx="var(--glyph-radius, 2)"/><path d="M8 10V7a4 4 0 0 1 8 0v3M8 15h8M8 18h5"/>
+      </symbol>
+    </defs>
+  </svg>
+
+  <header>
+    <h1>Interface glyph proof sheet</h1>
+    <p>Every glyph is shown at 16, 24 and 32 pixels on both light and dark backgrounds. The 16 pixel sample is presented first with the same visual slot as the larger sizes.</p>
+
+    <section class="proof-block" aria-labelledby="parameter-title">
+      <h2 id="parameter-title">Parameter demonstration</h2>
+      <p>The same three glyphs are rendered from one geometry source with three stroke and corner settings.</p>
+      <p>Filled interior marks deliberately use fill="currentColor" so the consuming interface supplies their colour across all three visual directions and both themes. When a glyph file is opened through an image tag, those filled parts render black; that is expected because the application consumes the glyphs inline where colour is set. Do not replace currentColor with a fixed colour merely to improve a standalone preview, because doing so would break the theming the set depends on.</p>
+      <div class="preset-row">
+        <div class="preset thin-square">
+          <h3>Stroke 1.5, radius 0</h3>
+          <div class="preset-icons">
+            <svg aria-label="Calendar"><use href="#g-nav-calendar"/></svg>
+            <svg aria-label="Routines"><use href="#g-nav-routines"/></svg>
+            <svg aria-label="Administration"><use href="#g-nav-admin"/></svg>
+          </div>
+        </div>
+        <div class="preset standard">
+          <h3>Stroke 2, radius 2</h3>
+          <div class="preset-icons">
+            <svg aria-label="Calendar"><use href="#g-nav-calendar"/></svg>
+            <svg aria-label="Routines"><use href="#g-nav-routines"/></svg>
+            <svg aria-label="Administration"><use href="#g-nav-admin"/></svg>
+          </div>
+        </div>
+        <div class="preset heavy-soft">
+          <h3>Stroke 2.5, radius 4</h3>
+          <div class="preset-icons">
+            <svg aria-label="Calendar"><use href="#g-nav-calendar"/></svg>
+            <svg aria-label="Routines"><use href="#g-nav-routines"/></svg>
+            <svg aria-label="Administration"><use href="#g-nav-admin"/></svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="proof-block" aria-labelledby="sync-title">
+      <h2 id="sync-title">Synchronisation shapes in greyscale</h2>
+      <div class="sync-strip">
+        <div class="sync-sample"><svg aria-label="Backed up"><use href="#g-sync-backed-up"/></svg><span>sync-backed-up</span></div>
+        <div class="sync-sample"><svg aria-label="Pending"><use href="#g-sync-pending"/></svg><span>sync-pending</span></div>
+        <div class="sync-sample"><svg aria-label="Pending warning"><use href="#g-sync-pending-warning"/></svg><span>sync-pending-warning</span></div>
+        <div class="sync-sample"><svg aria-label="Pending overdue"><use href="#g-sync-pending-overdue"/></svg><span>sync-pending-overdue</span></div>
+        <div class="sync-sample"><svg aria-label="Offline"><use href="#g-sync-offline"/></svg><span>sync-offline</span></div>
+        <div class="sync-sample"><svg aria-label="Failed"><use href="#g-sync-failed"/></svg><span>sync-failed</span></div>
+      </div>
+      <p>A delay resolves itself; a rejection never does. Failure is therefore its own state rather than another rung on the time-based escalation ladder.</p>
+    </section>
+
+    <section class="proof-block" aria-labelledby="raster-title">
+      <h2 id="raster-title">Synchronisation states at the actual pixel grid</h2>
+      <p>Each sample below is rasterised at 16 pixels, then enlarged six times with nearest-neighbour scaling.</p>
+      <div class="raster-strip">
+        <div class="raster-sample"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAADmSURBVDhP3VKhDgIxDEUikbg2LdCCAYk8iTx5EolEIvkTJPLkSSQSieQT+ATIttvutixnSXhJs/St6/peOhr9L2CmWyRtkPWDrC9kvQAIpnVZAC92SPowp81BEEj2jpMirY8AAGNkfeZ+A1hPbJP5apPeBdhRSQ4p7+GkyT3lffcaSE+5OxMhZzmbiIqQ9Aa8LCPSSyJt+tpbmW9zOoKXpfk9FLAUznX7uPZm9hF5AaQVslz7BdZ11lfusYGboJXVjdTpdPxq2s89gPRoJkzJyi4M6W0wwlK1+qMmxm2WYjAy+/FbfAGXtEZjJRwGYgAAAABJRU5ErkJggg==" alt="16 pixel raster of sync backed up"><span>sync-backed-up</span></div>
+        <div class="raster-sample"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAACDSURBVDhPY2AYBWAgL6+moaCksR8nVlZvR9eDAuTl5TnkldUdcGEFZdU4BWWN+ej6SALySuoJOA2Rl9cXkFdWbyCIldQ3yCtrnETXzyCvqmWAoRgbVtGYoaCscV9BwVAe3QyCAGQJKEBBrkWXIwhgsYRTMySkNf7jwvJK6otwah4FDADcFTl0W+u+BgAAAABJRU5ErkJggg==" alt="16 pixel raster of sync pending"><span>sync-pending</span></div>
+        <div class="raster-sample"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAACySURBVDhP3ZErDgJRDEVHIpG4e9MmtGDYAktAzhJYAhLHEpBIJEtAIpEjkSORSEjDJ6RDMiQgCCd55vT1k7Yo/hNg1KX6kmo11Y9UWwPDXv73EgAdiu0gNo2kKAbxkuL7t4pAfEa1xQtfxiTZN6D4BjqYZA/0nepV9g0+L6BexbjZXy9jdSw5xx7E5uN82d9pixe3u59b3immybnfB2rzp66rHP8dLpjkNQxHoCb2AAAAAElFTkSuQmCC" alt="16 pixel raster of sync pending warning"><span>sync-pending-warning</span></div>
+        <div class="raster-sample"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAADkSURBVDhPtZOvDsJADMYnkci5r7lCrsyARPIIPAISiUTikEgeA4lEIpGTSF6D9La7QJf9SQi/pMvuu1577bos+yfAfKxm9cGQkws5f7f6IDAtFuTkoUHAs7Xd74Wc3MB+BXgilhLAyPq0ohlD5roHxLMTnOysXyt6dS0B7A/BUORBQ5Fb3waaSTOG9zqA1VvROonlGTN9Baj2Su2JPZcg9kc42cc1nN+opXXdm3Tgk1BnyN7dbZ0LTGRp9YxYznB+a3VLnI9+sYPGcFUjK9f02XpMb0vsX6FcfWjjrNMg++VHi7wBVWdNSOplIlcAAAAASUVORK5CYII=" alt="16 pixel raster of sync pending overdue"><span>sync-pending-overdue</span></div>
+        <div class="raster-sample"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAACxSURBVDhPY2AYXkBeST0BGaPLEwTyyuoNyBhFTl6eQ15JPQNZDA7kldUdFJQ1/iNjeSX1X/LyahpwNfLqCgrKGvdhbBQDsAEFJY39IINhfJgByAbhBfKKGqflldUXyCtpFMjL6wvIK6tNUFBWf06CAZqXwQYoqzcoqmraQgzQeE20ASR5ARRYIA0oWFnjvbyKhgWmAaDY0IhAM0CeA2QbCkbSDFGjL6CgpLEeWWwUQAAAI908ciBFVvoAAAAASUVORK5CYII=" alt="16 pixel raster of sync offline"><span>sync-offline</span></div>
+        <div class="raster-sample"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAC3SURBVDhPY2AYPkBeXl0BXQwXwKpWQUljv7yyugO6ODoAaVZQ1riPLs6goKT+XEFZ4z+R+Du6fpAL3surqBXIq2oZKChpnIeJo/NlZdVsFJTVf8M1wgDMACh7vbyyZgCSHJxPlAHotiLziTIAysfqCrwGKChp3AbFBjhGFDVOyytqfMTkq5/DboCi+nFwICqrO8CxkkYQBl9JI0JBSeMJun4GkPPk5fUF0MXRgby8PAfIEHTxIQwAa0BP0TsLK+QAAAAASUVORK5CYII=" alt="16 pixel raster of sync failed"><span>sync-failed</span></div>
+      </div>
+    </section>
+
+    <section class="proof-block" aria-labelledby="additions-title">
+      <h2 id="additions-title">Additional glyphs</h2>
+      <ul class="additions">
+        <li><strong>filter</strong> is included so long client, routine and exercise lists can be narrowed without overloading search.</li>
+        <li><strong>rest-interval</strong> is included because timed recovery is a first-class step during a coached session.</li>
+        <li><strong>progress-over-time</strong> is included so the coach can open a client’s longitudinal training view.</li>
+        <li><strong>drag-handle</strong> is included to expose the direct manipulation target used while reordering exercises.</li>
+        <li><strong>sign-out</strong> is included for the routine action that disconnects the Google account while preserving local data.</li>
+        <li><strong>sign-out-and-erase-this-device</strong> is included for the separately confirmed local wipe action.</li>
+        <li><strong>what-leaves-this-device</strong> is included as the permanent destination for reviewing outbound data.</li>
+        <li><strong>protected-clinical-note</strong> is included so the encrypted field is visibly different in kind from an ordinary note.</li>
+      </ul>
+      <p>The sign-out and sign-out-and-erase-this-device glyphs are deliberately unrelated in silhouette so the routine and destructive actions cannot be mistaken for a matched pair.</p>
+    </section>
+  </header>
+
+  <main class="themes">
+    <section class="theme theme-light" aria-labelledby="light-title">
+      <h2 class="theme-title" id="light-title">Light background</h2>
+      <div class="grid" id="light-grid">
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-nav-clients"/></svg><svg class="s24"><use href="#g-nav-clients"/></svg><svg class="s32"><use href="#g-nav-clients"/></svg></div><p class="name">nav-clients</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-nav-calendar"/></svg><svg class="s24"><use href="#g-nav-calendar"/></svg><svg class="s32"><use href="#g-nav-calendar"/></svg></div><p class="name">nav-calendar</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-nav-routines"/></svg><svg class="s24"><use href="#g-nav-routines"/></svg><svg class="s32"><use href="#g-nav-routines"/></svg></div><p class="name">nav-routines</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-nav-diet"/></svg><svg class="s24"><use href="#g-nav-diet"/></svg><svg class="s32"><use href="#g-nav-diet"/></svg></div><p class="name">nav-diet</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-nav-admin"/></svg><svg class="s24"><use href="#g-nav-admin"/></svg><svg class="s32"><use href="#g-nav-admin"/></svg></div><p class="name">nav-admin</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-session-start"/></svg><svg class="s24"><use href="#g-session-start"/></svg><svg class="s32"><use href="#g-session-start"/></svg></div><p class="name">session-start</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-session-pause"/></svg><svg class="s24"><use href="#g-session-pause"/></svg><svg class="s32"><use href="#g-session-pause"/></svg></div><p class="name">session-pause</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-session-next-exercise"/></svg><svg class="s24"><use href="#g-session-next-exercise"/></svg><svg class="s32"><use href="#g-session-next-exercise"/></svg></div><p class="name">session-next-exercise</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-session-previous-exercise"/></svg><svg class="s24"><use href="#g-session-previous-exercise"/></svg><svg class="s32"><use href="#g-session-previous-exercise"/></svg></div><p class="name">session-previous-exercise</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-session-skip-exercise"/></svg><svg class="s24"><use href="#g-session-skip-exercise"/></svg><svg class="s32"><use href="#g-session-skip-exercise"/></svg></div><p class="name">session-skip-exercise</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-session-repeat-exercise"/></svg><svg class="s24"><use href="#g-session-repeat-exercise"/></svg><svg class="s32"><use href="#g-session-repeat-exercise"/></svg></div><p class="name">session-repeat-exercise</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-session-reorder-exercises"/></svg><svg class="s24"><use href="#g-session-reorder-exercises"/></svg><svg class="s32"><use href="#g-session-reorder-exercises"/></svg></div><p class="name">session-reorder-exercises</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-session-substitute-exercise"/></svg><svg class="s24"><use href="#g-session-substitute-exercise"/></svg><svg class="s32"><use href="#g-session-substitute-exercise"/></svg></div><p class="name">session-substitute-exercise</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-session-finish"/></svg><svg class="s24"><use href="#g-session-finish"/></svg><svg class="s32"><use href="#g-session-finish"/></svg></div><p class="name">session-finish</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-reading-timer"/></svg><svg class="s24"><use href="#g-reading-timer"/></svg><svg class="s32"><use href="#g-reading-timer"/></svg></div><p class="name">reading-timer</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-reading-repetition-count"/></svg><svg class="s24"><use href="#g-reading-repetition-count"/></svg><svg class="s32"><use href="#g-reading-repetition-count"/></svg></div><p class="name">reading-repetition-count</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-reading-heart-rate"/></svg><svg class="s24"><use href="#g-reading-heart-rate"/></svg><svg class="s32"><use href="#g-reading-heart-rate"/></svg></div><p class="name">reading-heart-rate</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-reading-held-position"/></svg><svg class="s24"><use href="#g-reading-held-position"/></svg><svg class="s32"><use href="#g-reading-held-position"/></svg></div><p class="name">reading-held-position</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-note"/></svg><svg class="s24"><use href="#g-note"/></svg><svg class="s32"><use href="#g-note"/></svg></div><p class="name">note</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-search"/></svg><svg class="s24"><use href="#g-search"/></svg><svg class="s32"><use href="#g-search"/></svg></div><p class="name">search</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-settings"/></svg><svg class="s24"><use href="#g-settings"/></svg><svg class="s32"><use href="#g-settings"/></svg></div><p class="name">settings</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-export"/></svg><svg class="s24"><use href="#g-export"/></svg><svg class="s32"><use href="#g-export"/></svg></div><p class="name">export</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-share"/></svg><svg class="s24"><use href="#g-share"/></svg><svg class="s32"><use href="#g-share"/></svg></div><p class="name">share</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-add"/></svg><svg class="s24"><use href="#g-add"/></svg><svg class="s32"><use href="#g-add"/></svg></div><p class="name">add</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-edit"/></svg><svg class="s24"><use href="#g-edit"/></svg><svg class="s32"><use href="#g-edit"/></svg></div><p class="name">edit</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-delete"/></svg><svg class="s24"><use href="#g-delete"/></svg><svg class="s32"><use href="#g-delete"/></svg></div><p class="name">delete</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-close"/></svg><svg class="s24"><use href="#g-close"/></svg><svg class="s32"><use href="#g-close"/></svg></div><p class="name">close</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-backup"/></svg><svg class="s24"><use href="#g-backup"/></svg><svg class="s32"><use href="#g-backup"/></svg></div><p class="name">backup</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-restore"/></svg><svg class="s24"><use href="#g-restore"/></svg><svg class="s32"><use href="#g-restore"/></svg></div><p class="name">restore</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-client-adaptation-flag"/></svg><svg class="s24"><use href="#g-client-adaptation-flag"/></svg><svg class="s32"><use href="#g-client-adaptation-flag"/></svg></div><p class="name">client-adaptation-flag</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-sync-backed-up"/></svg><svg class="s24"><use href="#g-sync-backed-up"/></svg><svg class="s32"><use href="#g-sync-backed-up"/></svg></div><p class="name">sync-backed-up</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-sync-pending"/></svg><svg class="s24"><use href="#g-sync-pending"/></svg><svg class="s32"><use href="#g-sync-pending"/></svg></div><p class="name">sync-pending</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-sync-pending-warning"/></svg><svg class="s24"><use href="#g-sync-pending-warning"/></svg><svg class="s32"><use href="#g-sync-pending-warning"/></svg></div><p class="name">sync-pending-warning</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-sync-pending-overdue"/></svg><svg class="s24"><use href="#g-sync-pending-overdue"/></svg><svg class="s32"><use href="#g-sync-pending-overdue"/></svg></div><p class="name">sync-pending-overdue</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-sync-offline"/></svg><svg class="s24"><use href="#g-sync-offline"/></svg><svg class="s32"><use href="#g-sync-offline"/></svg></div><p class="name">sync-offline</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-sync-failed"/></svg><svg class="s24"><use href="#g-sync-failed"/></svg><svg class="s32"><use href="#g-sync-failed"/></svg></div><p class="name">sync-failed</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-help-explain"/></svg><svg class="s24"><use href="#g-help-explain"/></svg><svg class="s32"><use href="#g-help-explain"/></svg></div><p class="name">help-explain</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-link-forward"/></svg><svg class="s24"><use href="#g-link-forward"/></svg><svg class="s32"><use href="#g-link-forward"/></svg></div><p class="name">link-forward</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-link-back"/></svg><svg class="s24"><use href="#g-link-back"/></svg><svg class="s32"><use href="#g-link-back"/></svg></div><p class="name">link-back</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-expand"/></svg><svg class="s24"><use href="#g-expand"/></svg><svg class="s32"><use href="#g-expand"/></svg></div><p class="name">expand</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-collapse"/></svg><svg class="s24"><use href="#g-collapse"/></svg><svg class="s32"><use href="#g-collapse"/></svg></div><p class="name">collapse</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-filter"/></svg><svg class="s24"><use href="#g-filter"/></svg><svg class="s32"><use href="#g-filter"/></svg></div><p class="name">filter</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-rest-interval"/></svg><svg class="s24"><use href="#g-rest-interval"/></svg><svg class="s32"><use href="#g-rest-interval"/></svg></div><p class="name">rest-interval</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-progress-over-time"/></svg><svg class="s24"><use href="#g-progress-over-time"/></svg><svg class="s32"><use href="#g-progress-over-time"/></svg></div><p class="name">progress-over-time</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-drag-handle"/></svg><svg class="s24"><use href="#g-drag-handle"/></svg><svg class="s32"><use href="#g-drag-handle"/></svg></div><p class="name">drag-handle</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-sign-out"/></svg><svg class="s24"><use href="#g-sign-out"/></svg><svg class="s32"><use href="#g-sign-out"/></svg></div><p class="name">sign-out</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-sign-out-and-erase-this-device"/></svg><svg class="s24"><use href="#g-sign-out-and-erase-this-device"/></svg><svg class="s32"><use href="#g-sign-out-and-erase-this-device"/></svg></div><p class="name">sign-out-and-erase-this-device</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-what-leaves-this-device"/></svg><svg class="s24"><use href="#g-what-leaves-this-device"/></svg><svg class="s32"><use href="#g-what-leaves-this-device"/></svg></div><p class="name">what-leaves-this-device</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-protected-clinical-note"/></svg><svg class="s24"><use href="#g-protected-clinical-note"/></svg><svg class="s32"><use href="#g-protected-clinical-note"/></svg></div><p class="name">protected-clinical-note</p></article>
+      </div>
+    </section>
+    <section class="theme theme-dark" aria-labelledby="dark-title">
+      <h2 class="theme-title" id="dark-title">Dark background</h2>
+      <div class="grid" id="dark-grid">
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-nav-clients"/></svg><svg class="s24"><use href="#g-nav-clients"/></svg><svg class="s32"><use href="#g-nav-clients"/></svg></div><p class="name">nav-clients</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-nav-calendar"/></svg><svg class="s24"><use href="#g-nav-calendar"/></svg><svg class="s32"><use href="#g-nav-calendar"/></svg></div><p class="name">nav-calendar</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-nav-routines"/></svg><svg class="s24"><use href="#g-nav-routines"/></svg><svg class="s32"><use href="#g-nav-routines"/></svg></div><p class="name">nav-routines</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-nav-diet"/></svg><svg class="s24"><use href="#g-nav-diet"/></svg><svg class="s32"><use href="#g-nav-diet"/></svg></div><p class="name">nav-diet</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-nav-admin"/></svg><svg class="s24"><use href="#g-nav-admin"/></svg><svg class="s32"><use href="#g-nav-admin"/></svg></div><p class="name">nav-admin</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-session-start"/></svg><svg class="s24"><use href="#g-session-start"/></svg><svg class="s32"><use href="#g-session-start"/></svg></div><p class="name">session-start</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-session-pause"/></svg><svg class="s24"><use href="#g-session-pause"/></svg><svg class="s32"><use href="#g-session-pause"/></svg></div><p class="name">session-pause</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-session-next-exercise"/></svg><svg class="s24"><use href="#g-session-next-exercise"/></svg><svg class="s32"><use href="#g-session-next-exercise"/></svg></div><p class="name">session-next-exercise</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-session-previous-exercise"/></svg><svg class="s24"><use href="#g-session-previous-exercise"/></svg><svg class="s32"><use href="#g-session-previous-exercise"/></svg></div><p class="name">session-previous-exercise</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-session-skip-exercise"/></svg><svg class="s24"><use href="#g-session-skip-exercise"/></svg><svg class="s32"><use href="#g-session-skip-exercise"/></svg></div><p class="name">session-skip-exercise</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-session-repeat-exercise"/></svg><svg class="s24"><use href="#g-session-repeat-exercise"/></svg><svg class="s32"><use href="#g-session-repeat-exercise"/></svg></div><p class="name">session-repeat-exercise</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-session-reorder-exercises"/></svg><svg class="s24"><use href="#g-session-reorder-exercises"/></svg><svg class="s32"><use href="#g-session-reorder-exercises"/></svg></div><p class="name">session-reorder-exercises</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-session-substitute-exercise"/></svg><svg class="s24"><use href="#g-session-substitute-exercise"/></svg><svg class="s32"><use href="#g-session-substitute-exercise"/></svg></div><p class="name">session-substitute-exercise</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-session-finish"/></svg><svg class="s24"><use href="#g-session-finish"/></svg><svg class="s32"><use href="#g-session-finish"/></svg></div><p class="name">session-finish</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-reading-timer"/></svg><svg class="s24"><use href="#g-reading-timer"/></svg><svg class="s32"><use href="#g-reading-timer"/></svg></div><p class="name">reading-timer</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-reading-repetition-count"/></svg><svg class="s24"><use href="#g-reading-repetition-count"/></svg><svg class="s32"><use href="#g-reading-repetition-count"/></svg></div><p class="name">reading-repetition-count</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-reading-heart-rate"/></svg><svg class="s24"><use href="#g-reading-heart-rate"/></svg><svg class="s32"><use href="#g-reading-heart-rate"/></svg></div><p class="name">reading-heart-rate</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-reading-held-position"/></svg><svg class="s24"><use href="#g-reading-held-position"/></svg><svg class="s32"><use href="#g-reading-held-position"/></svg></div><p class="name">reading-held-position</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-note"/></svg><svg class="s24"><use href="#g-note"/></svg><svg class="s32"><use href="#g-note"/></svg></div><p class="name">note</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-search"/></svg><svg class="s24"><use href="#g-search"/></svg><svg class="s32"><use href="#g-search"/></svg></div><p class="name">search</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-settings"/></svg><svg class="s24"><use href="#g-settings"/></svg><svg class="s32"><use href="#g-settings"/></svg></div><p class="name">settings</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-export"/></svg><svg class="s24"><use href="#g-export"/></svg><svg class="s32"><use href="#g-export"/></svg></div><p class="name">export</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-share"/></svg><svg class="s24"><use href="#g-share"/></svg><svg class="s32"><use href="#g-share"/></svg></div><p class="name">share</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-add"/></svg><svg class="s24"><use href="#g-add"/></svg><svg class="s32"><use href="#g-add"/></svg></div><p class="name">add</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-edit"/></svg><svg class="s24"><use href="#g-edit"/></svg><svg class="s32"><use href="#g-edit"/></svg></div><p class="name">edit</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-delete"/></svg><svg class="s24"><use href="#g-delete"/></svg><svg class="s32"><use href="#g-delete"/></svg></div><p class="name">delete</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-close"/></svg><svg class="s24"><use href="#g-close"/></svg><svg class="s32"><use href="#g-close"/></svg></div><p class="name">close</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-backup"/></svg><svg class="s24"><use href="#g-backup"/></svg><svg class="s32"><use href="#g-backup"/></svg></div><p class="name">backup</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-restore"/></svg><svg class="s24"><use href="#g-restore"/></svg><svg class="s32"><use href="#g-restore"/></svg></div><p class="name">restore</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-client-adaptation-flag"/></svg><svg class="s24"><use href="#g-client-adaptation-flag"/></svg><svg class="s32"><use href="#g-client-adaptation-flag"/></svg></div><p class="name">client-adaptation-flag</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-sync-backed-up"/></svg><svg class="s24"><use href="#g-sync-backed-up"/></svg><svg class="s32"><use href="#g-sync-backed-up"/></svg></div><p class="name">sync-backed-up</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-sync-pending"/></svg><svg class="s24"><use href="#g-sync-pending"/></svg><svg class="s32"><use href="#g-sync-pending"/></svg></div><p class="name">sync-pending</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-sync-pending-warning"/></svg><svg class="s24"><use href="#g-sync-pending-warning"/></svg><svg class="s32"><use href="#g-sync-pending-warning"/></svg></div><p class="name">sync-pending-warning</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-sync-pending-overdue"/></svg><svg class="s24"><use href="#g-sync-pending-overdue"/></svg><svg class="s32"><use href="#g-sync-pending-overdue"/></svg></div><p class="name">sync-pending-overdue</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-sync-offline"/></svg><svg class="s24"><use href="#g-sync-offline"/></svg><svg class="s32"><use href="#g-sync-offline"/></svg></div><p class="name">sync-offline</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-sync-failed"/></svg><svg class="s24"><use href="#g-sync-failed"/></svg><svg class="s32"><use href="#g-sync-failed"/></svg></div><p class="name">sync-failed</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-help-explain"/></svg><svg class="s24"><use href="#g-help-explain"/></svg><svg class="s32"><use href="#g-help-explain"/></svg></div><p class="name">help-explain</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-link-forward"/></svg><svg class="s24"><use href="#g-link-forward"/></svg><svg class="s32"><use href="#g-link-forward"/></svg></div><p class="name">link-forward</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-link-back"/></svg><svg class="s24"><use href="#g-link-back"/></svg><svg class="s32"><use href="#g-link-back"/></svg></div><p class="name">link-back</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-expand"/></svg><svg class="s24"><use href="#g-expand"/></svg><svg class="s32"><use href="#g-expand"/></svg></div><p class="name">expand</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-collapse"/></svg><svg class="s24"><use href="#g-collapse"/></svg><svg class="s32"><use href="#g-collapse"/></svg></div><p class="name">collapse</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-filter"/></svg><svg class="s24"><use href="#g-filter"/></svg><svg class="s32"><use href="#g-filter"/></svg></div><p class="name">filter</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-rest-interval"/></svg><svg class="s24"><use href="#g-rest-interval"/></svg><svg class="s32"><use href="#g-rest-interval"/></svg></div><p class="name">rest-interval</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-progress-over-time"/></svg><svg class="s24"><use href="#g-progress-over-time"/></svg><svg class="s32"><use href="#g-progress-over-time"/></svg></div><p class="name">progress-over-time</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-drag-handle"/></svg><svg class="s24"><use href="#g-drag-handle"/></svg><svg class="s32"><use href="#g-drag-handle"/></svg></div><p class="name">drag-handle</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-sign-out"/></svg><svg class="s24"><use href="#g-sign-out"/></svg><svg class="s32"><use href="#g-sign-out"/></svg></div><p class="name">sign-out</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-sign-out-and-erase-this-device"/></svg><svg class="s24"><use href="#g-sign-out-and-erase-this-device"/></svg><svg class="s32"><use href="#g-sign-out-and-erase-this-device"/></svg></div><p class="name">sign-out-and-erase-this-device</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-what-leaves-this-device"/></svg><svg class="s24"><use href="#g-what-leaves-this-device"/></svg><svg class="s32"><use href="#g-what-leaves-this-device"/></svg></div><p class="name">what-leaves-this-device</p></article>
+        <article class="tile"><div class="sizes"><svg class="s16"><use href="#g-protected-clinical-note"/></svg><svg class="s24"><use href="#g-protected-clinical-note"/></svg><svg class="s32"><use href="#g-protected-clinical-note"/></svg></div><p class="name">protected-clinical-note</p></article>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

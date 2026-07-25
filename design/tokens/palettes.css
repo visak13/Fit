@@ -1,0 +1,285 @@
+/*
+ * GENERATED FILE — do not edit by hand.
+ *
+ * Source: design/tokens/palettes.mjs
+ * Rebuild: node design/build-tokens.mjs
+ * Verified: node design/contrast.mjs re-renders this file and fails if it differs.
+ *
+ * HOW A DOCUMENT SELECTS ITS LOOK
+ *   <html>                                        the house default, light
+ *   <html data-theme="dark">                      the house default, dark
+ *   <html data-palette="slate-blue">              that palette, light
+ *   <html data-palette="slate-blue" data-theme="dark">   that palette, dark
+ *
+ * Both themes of every palette are in this one sheet, switched by one attribute on the
+ * root element. There is never a second stylesheet for dark, because a theme that lives
+ * in its own file is a theme that falls behind the one that does not.
+ */
+
+/* The default, for a document that names no palette. */
+:root {
+  color-scheme: light;
+  --surface-page: #FAF4E8;
+  --surface-card: #FFFCF5;
+  --surface-raised: #F2EADA;
+  --surface-selected: #EADFC7;
+  --surface-input: #FFFDF8;
+  --surface-disabled: #EFE8D9;
+  --line-divider: #E8DFCC;
+  --line-control: #7E7462;
+  --text-primary: #2A2620;
+  --text-muted: #635A4D;
+  --text-placeholder: #6E6558;
+  --text-disabled: #847A69;
+  --text-accent: #835529;
+  --text-danger: #9C2C21;
+  --text-success: #3C6631;
+  --text-warning: #835900;
+  --focus-ring: #835900;
+  --focus-ring-contrast: #FFFCF5;
+  --fill-accent: #835529;
+  --text-on-accent: #FFFCF5;
+  --fill-danger: #9C2C21;
+  --text-on-danger: #FFFCF5;
+  --fill-success: #3C6631;
+  --text-on-success: #FFFCF5;
+  --fill-warning: #835900;
+  --text-on-warning: #FFFCF5;
+  --fill-neutral: #635A4D;
+  --text-on-neutral: #FFFCF5;
+  --shadow-color: #3A2F1C;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-page: #000000;
+  --surface-card: #121110;
+  --surface-raised: #1A1815;
+  --surface-selected: #262119;
+  --surface-input: #16140F;
+  --surface-disabled: #201D18;
+  --line-divider: #2E2A24;
+  --line-control: #877D6B;
+  --text-primary: #EDE4CE;
+  --text-muted: #A79C86;
+  --text-placeholder: #A0957F;
+  --text-disabled: #8A806E;
+  --text-accent: #D9A85F;
+  --text-danger: #F0897A;
+  --text-success: #8CC47A;
+  --text-warning: #E3BE55;
+  --focus-ring: #E3BE55;
+  --focus-ring-contrast: #1A1815;
+  --fill-accent: #D9A85F;
+  --text-on-accent: #1A1815;
+  --fill-danger: #F0897A;
+  --text-on-danger: #1A1815;
+  --fill-success: #8CC47A;
+  --text-on-success: #1A1815;
+  --fill-warning: #E3BE55;
+  --text-on-warning: #1A1815;
+  --fill-neutral: #A79C86;
+  --text-on-neutral: #1A1815;
+  --shadow-color: #000000;
+}
+
+/* Sepia and pure black — house-sepia */
+:root[data-palette="house-sepia"] {
+  color-scheme: light;
+  --surface-page: #FAF4E8;
+  --surface-card: #FFFCF5;
+  --surface-raised: #F2EADA;
+  --surface-selected: #EADFC7;
+  --surface-input: #FFFDF8;
+  --surface-disabled: #EFE8D9;
+  --line-divider: #E8DFCC;
+  --line-control: #7E7462;
+  --text-primary: #2A2620;
+  --text-muted: #635A4D;
+  --text-placeholder: #6E6558;
+  --text-disabled: #847A69;
+  --text-accent: #835529;
+  --text-danger: #9C2C21;
+  --text-success: #3C6631;
+  --text-warning: #835900;
+  --focus-ring: #835900;
+  --focus-ring-contrast: #FFFCF5;
+  --fill-accent: #835529;
+  --text-on-accent: #FFFCF5;
+  --fill-danger: #9C2C21;
+  --text-on-danger: #FFFCF5;
+  --fill-success: #3C6631;
+  --text-on-success: #FFFCF5;
+  --fill-warning: #835900;
+  --text-on-warning: #FFFCF5;
+  --fill-neutral: #635A4D;
+  --text-on-neutral: #FFFCF5;
+  --shadow-color: #3A2F1C;
+}
+
+:root[data-palette="house-sepia"][data-theme="dark"] {
+  color-scheme: dark;
+  --surface-page: #000000;
+  --surface-card: #121110;
+  --surface-raised: #1A1815;
+  --surface-selected: #262119;
+  --surface-input: #16140F;
+  --surface-disabled: #201D18;
+  --line-divider: #2E2A24;
+  --line-control: #877D6B;
+  --text-primary: #EDE4CE;
+  --text-muted: #A79C86;
+  --text-placeholder: #A0957F;
+  --text-disabled: #8A806E;
+  --text-accent: #D9A85F;
+  --text-danger: #F0897A;
+  --text-success: #8CC47A;
+  --text-warning: #E3BE55;
+  --focus-ring: #E3BE55;
+  --focus-ring-contrast: #1A1815;
+  --fill-accent: #D9A85F;
+  --text-on-accent: #1A1815;
+  --fill-danger: #F0897A;
+  --text-on-danger: #1A1815;
+  --fill-success: #8CC47A;
+  --text-on-success: #1A1815;
+  --fill-warning: #E3BE55;
+  --text-on-warning: #1A1815;
+  --fill-neutral: #A79C86;
+  --text-on-neutral: #1A1815;
+  --shadow-color: #000000;
+}
+
+/* Cool slate and deep navy — slate-blue */
+:root[data-palette="slate-blue"] {
+  color-scheme: light;
+  --surface-page: #EFF3F7;
+  --surface-card: #FFFFFF;
+  --surface-raised: #E4EAF1;
+  --surface-selected: #D8E1EB;
+  --surface-input: #FFFFFF;
+  --surface-disabled: #E7ECF2;
+  --line-divider: #D2DAE3;
+  --line-control: #6C7A88;
+  --text-primary: #151D26;
+  --text-muted: #505C69;
+  --text-placeholder: #5A6672;
+  --text-disabled: #6C7A88;
+  --text-accent: #1B5A85;
+  --text-danger: #9C271F;
+  --text-success: #2C6449;
+  --text-warning: #72520A;
+  --focus-ring: #1B5A85;
+  --focus-ring-contrast: #FFFFFF;
+  --fill-accent: #1B5A85;
+  --text-on-accent: #FFFFFF;
+  --fill-danger: #9C271F;
+  --text-on-danger: #FFFFFF;
+  --fill-success: #2C6449;
+  --text-on-success: #FFFFFF;
+  --fill-warning: #72520A;
+  --text-on-warning: #FFFFFF;
+  --fill-neutral: #505C69;
+  --text-on-neutral: #FFFFFF;
+  --shadow-color: #0E1721;
+}
+
+:root[data-palette="slate-blue"][data-theme="dark"] {
+  color-scheme: dark;
+  --surface-page: #0B0F14;
+  --surface-card: #141A21;
+  --surface-raised: #1C242D;
+  --surface-selected: #26313C;
+  --surface-input: #10161C;
+  --surface-disabled: #1E262F;
+  --line-divider: #2A343E;
+  --line-control: #7E8D9B;
+  --text-primary: #E3EAF2;
+  --text-muted: #A3B1BF;
+  --text-placeholder: #9AA8B6;
+  --text-disabled: #828F9C;
+  --text-accent: #7FC1E8;
+  --text-danger: #F19489;
+  --text-success: #86CBA5;
+  --text-warning: #E0BE63;
+  --focus-ring: #7FC1E8;
+  --focus-ring-contrast: #0B0F14;
+  --fill-accent: #7FC1E8;
+  --text-on-accent: #0B0F14;
+  --fill-danger: #F19489;
+  --text-on-danger: #0B0F14;
+  --fill-success: #86CBA5;
+  --text-on-success: #0B0F14;
+  --fill-warning: #E0BE63;
+  --text-on-warning: #0B0F14;
+  --fill-neutral: #A3B1BF;
+  --text-on-neutral: #0B0F14;
+  --shadow-color: #000000;
+}
+
+/* Neutral ink with one accent — ink-neutral */
+:root[data-palette="ink-neutral"] {
+  color-scheme: light;
+  --surface-page: #F4F4F2;
+  --surface-card: #FFFFFF;
+  --surface-raised: #EAEAE7;
+  --surface-selected: #DEDEDA;
+  --surface-input: #FFFFFF;
+  --surface-disabled: #EDEDEA;
+  --line-divider: #D8D8D3;
+  --line-control: #73716C;
+  --text-primary: #131211;
+  --text-muted: #57554F;
+  --text-placeholder: #5F5D57;
+  --text-disabled: #6F6D67;
+  --text-accent: #00564F;
+  --text-danger: #9C2117;
+  --text-success: #2C6432;
+  --text-warning: #725000;
+  --focus-ring: #00564F;
+  --focus-ring-contrast: #FFFFFF;
+  --fill-accent: #00564F;
+  --text-on-accent: #FFFFFF;
+  --fill-danger: #9C2117;
+  --text-on-danger: #FFFFFF;
+  --fill-success: #2C6432;
+  --text-on-success: #FFFFFF;
+  --fill-warning: #725000;
+  --text-on-warning: #FFFFFF;
+  --fill-neutral: #57554F;
+  --text-on-neutral: #FFFFFF;
+  --shadow-color: #1C1B19;
+}
+
+:root[data-palette="ink-neutral"][data-theme="dark"] {
+  color-scheme: dark;
+  --surface-page: #0A0A0A;
+  --surface-card: #151514;
+  --surface-raised: #1F1F1E;
+  --surface-selected: #2B2B29;
+  --surface-input: #101010;
+  --surface-disabled: #232322;
+  --line-divider: #333331;
+  --line-control: #8E8C87;
+  --text-primary: #F2F1EE;
+  --text-muted: #AEACA7;
+  --text-placeholder: #A5A39E;
+  --text-disabled: #8E8C87;
+  --text-accent: #6FD3C6;
+  --text-danger: #F59185;
+  --text-success: #8CCB84;
+  --text-warning: #E5C15C;
+  --focus-ring: #6FD3C6;
+  --focus-ring-contrast: #0A0A0A;
+  --fill-accent: #6FD3C6;
+  --text-on-accent: #0A0A0A;
+  --fill-danger: #F59185;
+  --text-on-danger: #0A0A0A;
+  --fill-success: #8CCB84;
+  --text-on-success: #0A0A0A;
+  --fill-warning: #E5C15C;
+  --text-on-warning: #0A0A0A;
+  --fill-neutral: #AEACA7;
+  --text-on-neutral: #0A0A0A;
+  --shadow-color: #000000;
+}

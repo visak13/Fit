@@ -1,7 +1,9 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-import { BASE_PATH, OUTPUT_DIRECTORY } from './tools/build-config.mjs';
+import path from 'node:path';
+
+import { BASE_PATH, OUTPUT_DIRECTORY, TOKEN_LAYER_DIRECTORY } from './tools/build-config.mjs';
 import { computeSourceStamp } from './tools/source-stamp.mjs';
 
 /**
@@ -15,6 +17,27 @@ const { stamp: sourceStamp } = await computeSourceStamp();
 export default defineConfig({
   base: BASE_PATH,
   plugins: [react()],
+  server: {
+    fs: {
+      /**
+       * THE ONE DIRECTORY OUTSIDE THIS APPLICATION THE BUNDLER MAY READ.
+       *
+       * `src/design/design-system.ts` imports the shared token layer from `design/tokens`, which is
+       * a sibling of this application rather than a file inside it. The development server refuses
+       * to serve files outside its root unless they are allowed here, and the refusal arrives as a
+       * blank page rather than as a build error — so this entry is what keeps `npm run dev`
+       * agreeing with `npm run build`.
+       *
+       * THE ALTERNATIVE, AND WHY IT WAS REJECTED. The obvious way to avoid this line is to copy
+       * `base.css` and `palettes.css` into `src/`. That is a second source of truth, and it fails
+       * silently: `design/contrast.mjs` measures the ORIGINAL files and would go on reporting 390
+       * of 390 while the application's copy drifted away from the values being measured. Every
+       * signal stays green and the interface is painted from colours nobody is checking. One line
+       * of configuration is the cheaper half of that trade.
+       */
+      allow: [path.resolve(import.meta.dirname, TOKEN_LAYER_DIRECTORY), import.meta.dirname],
+    },
+  },
   define: {
     __BUILD_STAMP__: JSON.stringify(sourceStamp),
   },

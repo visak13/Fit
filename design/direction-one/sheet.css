@@ -1,0 +1,452 @@
+/*
+ * THE PRESENTATION SHEET - the furniture AROUND the direction, and deliberately not part
+ * of it.
+ *
+ * Everything in this file belongs to the page that presents Ledger, not to Ledger itself:
+ * the section headings, the explanatory prose, the device frames and the two switches.
+ * It is kept separate so that nothing here can be mistaken for the application, and so a
+ * later comparison page can lift the .app frames out and leave this behind.
+ *
+ * It draws from the same token layer, because a sheet that used its own colours would be
+ * an unmeasured surface sitting next to a measured one, and the eye would compare them.
+ */
+
+body {
+  margin: 0;
+  background: var(--surface-page);
+  color: var(--text-primary);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-size: var(--type-body);
+  line-height: var(--leading-body);
+  -webkit-text-size-adjust: 100%;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/*
+ * A LAYOUT DECLARATION BEATS THE HIDDEN ATTRIBUTE, and the sections below all declare one.
+ * Measured rather than assumed: the first render of this sheet ignored ?only= entirely,
+ * because [hidden] carries display:none from the browser's own stylesheet and any author
+ * rule setting display:grid wins over it. Nothing errored and the parameter looked broken.
+ * Every element this sheet hides therefore says so at a specificity that can win.
+ */
+[data-sheet-part][hidden] {
+  display: none;
+}
+
+.sheet {
+  max-inline-size: var(--sheet-max);
+  margin-inline: auto;
+  padding: var(--space-6) var(--space-5) var(--space-8);
+  display: grid;
+  gap: var(--space-8);
+}
+
+/* ---- The sheet's own control bar --------------------------------------- */
+
+.sheet-bar {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  background: var(--surface-raised);
+  border-block-end: var(--border-strong) solid var(--line-control);
+}
+
+.sheet-bar__title {
+  margin: 0;
+  font-size: var(--type-lead);
+  font-weight: var(--weight-bold);
+}
+
+.sheet-bar__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.switch {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.switch__label {
+  font-size: var(--type-meta);
+  font-weight: var(--weight-medium);
+  color: var(--text-muted);
+}
+
+.switch__group {
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: var(--border-control) solid var(--line-control);
+  border-radius: var(--radius-control);
+  background: var(--surface-card);
+}
+
+/* ---- Sections ---------------------------------------------------------- */
+
+.sheet__intro {
+  display: grid;
+  gap: var(--space-4);
+  max-inline-size: var(--measure-read);
+}
+
+.sheet__title {
+  margin: 0;
+  font-size: var(--type-display);
+  line-height: var(--leading-tight);
+  font-weight: var(--weight-bold);
+}
+
+.sheet__lede {
+  margin: 0;
+  font-size: var(--type-lead);
+  line-height: var(--leading-loose);
+}
+
+.sheet-section {
+  display: grid;
+  gap: var(--space-5);
+  scroll-margin-block-start: var(--space-8);
+}
+
+.sheet-section__head {
+  display: grid;
+  gap: var(--space-2);
+  max-inline-size: var(--measure-read);
+}
+
+.sheet-section__title {
+  margin: 0;
+  font-size: var(--type-title);
+  line-height: var(--leading-tight);
+  font-weight: var(--weight-bold);
+  padding-block-end: var(--space-2);
+  border-block-end: var(--border-strong) solid var(--line-control);
+}
+
+.sheet-section__note {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: var(--leading-loose);
+}
+
+.sheet-note {
+  margin: 0;
+  max-inline-size: var(--measure-read);
+  color: var(--text-muted);
+  font-size: var(--type-meta);
+  line-height: var(--leading-loose);
+}
+
+.sheet-contents {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.sheet-contents a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-touch);
+  padding-inline: var(--space-3);
+  border: var(--border-control) solid var(--line-control);
+  border-radius: var(--radius-control);
+  background: var(--surface-card);
+  color: var(--text-accent);
+  text-decoration: none;
+  font-size: var(--type-meta);
+  font-weight: var(--weight-medium);
+}
+
+.sheet-contents a:hover {
+  background: var(--surface-raised);
+}
+
+/* ---- Device frames ----------------------------------------------------- */
+
+.frames {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+  align-items: flex-start;
+}
+
+.device {
+  display: grid;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+
+.device__caption {
+  font-size: var(--type-meta);
+  font-weight: var(--weight-medium);
+  color: var(--text-muted);
+}
+
+.device__screen {
+  border: var(--border-strong) solid var(--line-control);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+
+.device--laptop {
+  flex: 1 1 var(--frame-laptop-min);
+  min-inline-size: 0;
+}
+
+.device--laptop .device__screen,
+.device--laptop .app {
+  block-size: var(--frame-laptop-height);
+}
+
+.device--phone {
+  flex: 0 0 auto;
+}
+
+.device--phone .device__screen,
+.device--phone .app {
+  inline-size: var(--frame-phone-width);
+  block-size: var(--frame-phone-height);
+}
+
+/*
+ * THE WHOLE SCREEN AT ONCE. The frames above are the height of a real device, so a long
+ * screen scrolls inside them exactly as it will in use - which is right for judging the
+ * design and wrong for reviewing it, since half of a dense screen is then below a fold
+ * nobody can print. data-frame="full" lets each frame grow to its content instead. The
+ * width, and therefore the layout, is untouched.
+ */
+:root[data-frame='full'] .device__screen,
+:root[data-frame='full'] .app {
+  block-size: auto;
+}
+
+/*
+ * WIDTH IS A DOCUMENT SETTING, not only a viewport one, so a sibling page can open this
+ * document straight into one width. data-width="phone" hides every laptop frame and
+ * data-width="laptop" hides every phone frame; the default shows both side by side, which
+ * is the point of the navigation section.
+ */
+:root[data-width='phone'] .device--laptop:not(.device--pinned) {
+  display: none;
+}
+
+:root[data-width='laptop'] .device--phone:not(.device--pinned) {
+  display: none;
+}
+
+/* ---- The synchronisation state gallery --------------------------------- */
+
+.state-grid {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fill, minmax(var(--state-card-min), 1fr));
+}
+
+.state-card {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--surface-card);
+  border: var(--border-hairline) solid var(--line-divider);
+  border-radius: var(--radius-card);
+  align-content: start;
+}
+
+.state-card__name {
+  margin: 0;
+  font-size: var(--type-body);
+  font-weight: var(--weight-bold);
+}
+
+.state-card__why {
+  margin: 0;
+  font-size: var(--type-meta);
+  line-height: var(--leading-loose);
+  color: var(--text-muted);
+}
+
+.state-card .sync {
+  border: var(--border-hairline) solid var(--line-divider);
+  border-radius: var(--radius-card);
+  padding-inline: var(--space-4);
+}
+
+.state-card .sync::before {
+  margin-inline-start: 0;
+}
+
+/*
+ * THE SILHOUETTE STRIP. The six states with every colour removed, which is how they are
+ * read on a greyscale screenshot, in bright sunlight, over a compressed video call, and
+ * by someone who cannot tell green from amber. If two of them are hard to tell apart
+ * here, the set has failed regardless of how it looks in colour.
+ */
+.silhouettes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+  padding: var(--space-4);
+  background: var(--surface-card);
+  border: var(--border-hairline) solid var(--line-divider);
+  border-radius: var(--radius-card);
+  filter: grayscale(100%);
+}
+
+.silhouette {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: center;
+  font-size: var(--type-meta);
+  color: var(--text-muted);
+  text-align: center;
+  inline-size: var(--space-8);
+}
+
+/* ---- The application mark ---------------------------------------------- */
+
+.mark-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-5);
+  padding: var(--space-5);
+  background: var(--surface-card);
+  border: var(--border-hairline) solid var(--line-divider);
+  border-radius: var(--radius-card);
+}
+
+.mark-sample {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: center;
+  font-size: var(--type-meta);
+  color: var(--text-muted);
+}
+
+.mark-sample img {
+  display: block;
+  border-radius: var(--radius-2);
+}
+
+.mark-sample--home {
+  padding: var(--space-3);
+  border-radius: var(--radius-2);
+  background: var(--surface-raised);
+}
+
+/* ---- Tooltip gallery --------------------------------------------------- */
+
+.tip-gallery {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--surface-card);
+  border: var(--border-hairline) solid var(--line-divider);
+  border-radius: var(--radius-card);
+}
+
+.tip-case {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+}
+
+.tip-case__label {
+  font-size: var(--type-meta);
+  color: var(--text-muted);
+  max-inline-size: var(--measure-read);
+}
+
+/* ---- The trade-off panel ----------------------------------------------- */
+
+.tradeoff {
+  padding: var(--card-padding);
+  background: var(--surface-card);
+  border: var(--border-hairline) solid var(--line-divider);
+  border-inline-start: var(--border-strong) solid var(--fill-accent);
+  border-radius: var(--radius-card);
+  max-inline-size: var(--measure-read);
+}
+
+.tradeoff p {
+  margin: 0;
+  line-height: var(--leading-loose);
+}
+
+.fact-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-inline-size: var(--measure-read);
+}
+
+.fact-list li {
+  display: grid;
+  grid-template-columns: var(--fact-term) minmax(0, 1fr);
+  gap: var(--space-3);
+  padding-block: var(--space-2);
+  border-block-end: var(--border-hairline) solid var(--line-divider);
+  font-size: var(--type-meta);
+  line-height: var(--leading-loose);
+}
+
+.fact-list b {
+  font-weight: var(--weight-bold);
+  color: var(--text-muted);
+}
+
+/*
+ * Sheet-only measurements. They describe the presentation, not the direction, which is why
+ * they live here rather than in direction.css - changing the size of a demo frame must not
+ * look like changing the design.
+ */
+:root {
+  --sheet-max: 1400px;
+  /*
+   * A LAPTOP FRAME MUST BE THE WIDTH OF A LAPTOP. An earlier value let the frame shrink to
+   * sit beside the phone on one line, which made the direction look tighter than it is and
+   * pushed it under its own two-column boundary. The frames wrap onto separate lines
+   * instead; being able to see both at once was never worth showing either one wrongly.
+   */
+  --frame-laptop-min: 1180px;
+  --frame-laptop-height: 720px;
+  --frame-phone-width: 390px;
+  --frame-phone-height: 760px;
+  /*
+   * Wide enough that the strip inside reads as the full-width strip it is. At the first
+   * value each card was narrow enough to wrap the wording one word per line, which made a
+   * calm state look frantic and told the reader nothing true about it.
+   */
+  --state-card-min: 480px;
+  --fact-term: 148px;
+}
+
+@media (max-width: 720px) {
+  :root {
+    --frame-laptop-min: 100%;
+  }
+
+  .sheet {
+    padding-inline: var(--space-4);
+  }
+}

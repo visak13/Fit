@@ -1,0 +1,1465 @@
+<!doctype html>
+<html lang="en" data-palette="house-sepia" data-theme="light" data-density="comfortable">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Direction one - Ledger</title>
+<!--
+  DIRECTION ONE - LEDGER. The entry point, and it reaches every screen.
+
+  WHAT THIS IS. One of three visual directions built from design/DIRECTIONS.md so the choice
+  being made is a look and a shape rather than a colourway. Ledger is the first of the three
+  and the recommended one. Its structural axis is TONAL WEIGHT: it is flat, everywhere,
+  including on the sticky header and inside a tooltip. Structure comes from dividers, from
+  spacing, and from the single step between the page floor and a card. It reads as a good
+  paper form.
+
+  HOW THE DIRECTION IS EXPRESSED. Three attributes on this element and nothing else:
+  data-palette selects house-sepia from the shared token layer, data-density selects the
+  comfortable scale, and data-theme switches light and dark. Everything downstream reads
+  var(--token). There is no colour value anywhere in this document, in ledger.css, in
+  sheet.css or in direction.css - the one place two literal colours appear is mark.svg,
+  which is a standalone icon file an operating system renders with no stylesheet loaded,
+  and the reason is written beside them there.
+
+  THE CONTENT IS REAL. The routine, its nine exercises, their prescriptions, their rest
+  intervals, their intensity levels and their coaching cues are the shipped seed content
+  from app/core/seed/content, unchanged. The intensity patterns are the shipped patterns.
+  The client names and the readings are invented, because the seed supplies neither, and
+  they are invented to resemble nobody: no contact detail, no date of birth and no
+  photograph appears here or anywhere in the application, because the record shape refuses
+  to collect them.
+
+  ADDRESSING. The screens carry stable identifiers so a later comparison page can put the
+  same screen from all three directions beside each other:
+    session-runner, client-list, client-record, diet-week,
+    navigation-laptop, navigation-phone, sync-states, tooltips, mark
+  and theme, width and a single-screen view are all settable from the address bar:
+    ?theme=dark   ?width=phone   ?only=session-runner
+-->
+<link rel="stylesheet" href="../tokens/base.css">
+<link rel="stylesheet" href="../tokens/palettes.css">
+<link rel="stylesheet" href="direction.css">
+<link rel="stylesheet" href="ledger.css">
+<link rel="stylesheet" href="sheet.css">
+<link rel="icon" href="mark.svg">
+</head>
+<body>
+
+<!--
+  THE GLYPH FAMILY, inlined once as a sprite. Every path below is the shared set under
+  design/icons, copied verbatim: 24 by 24, a 2px centred stroke, round caps and joins.
+  Ledger takes the lightest weight of the three directions, matched to its flat surfaces,
+  and it sets that weight through --glyph-stroke rather than by redrawing anything.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="g-nav-clients" viewBox="0 0 24 24"><circle cx="9" cy="7" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2"/><circle cx="17.5" cy="8.5" r="2.5"/><path d="M16 14.2a5 5 0 0 1 5 4.8v1"/></symbol>
+  <symbol id="g-nav-calendar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M7 2v4M17 2v4M3 9h18"/><path d="M7 13h2M12 13h2M17 13h.01M7 17h2M12 17h2"/></symbol>
+  <symbol id="g-nav-routines" viewBox="0 0 24 24"><path d="M3 5h6a3 3 0 0 1 3 3v12a4 4 0 0 0-4-3H3Z"/><path d="M21 5h-6a3 3 0 0 0-3 3v12a4 4 0 0 1 4-3h5Z"/></symbol>
+  <symbol id="g-nav-diet" viewBox="0 0 24 24"><rect x="3" y="4" width="7" height="6" rx="2"/><rect x="14" y="4" width="7" height="6" rx="2"/><rect x="3" y="14" width="7" height="6" rx="2"/><rect x="14" y="14" width="7" height="6" rx="2"/></symbol>
+  <symbol id="g-nav-admin" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 15h10"/><circle cx="10" cy="9" r="1.5"/><circle cx="15" cy="15" r="1.5"/></symbol>
+
+  <symbol id="g-sync-backed-up" viewBox="0 0 24 24"><path d="M7 19C4.5 19 3 17.2 3 15c0-2.3 1.6-4.2 3.8-4.5C7.6 7.3 10.1 5 13.3 5c3.1 0 5.7 2.2 6.2 5.3 1.5.7 2.5 2.2 2.5 4.2 0 2.5-2 4.5-5 4.5Z"/><path d="m9 14 2 2 4-4"/></symbol>
+  <symbol id="g-sync-pending" viewBox="0 0 24 24"><path d="M3 7h11M3 12h16M3 17h11"/><path d="m15 8 4 4-4 4"/></symbol>
+  <symbol id="g-sync-pending-warning" viewBox="0 0 24 24"><path d="M5 17h14l-2-3v-4c0-3-2-5-5-5s-5 2-5 5v4Z"/><path d="M10 20h4"/></symbol>
+  <symbol id="g-sync-pending-overdue" viewBox="0 0 24 24"><path d="M12 3 22 21H2Z"/><path d="M12 9v5M12 18h.01"/></symbol>
+  <symbol id="g-sync-offline" viewBox="0 0 24 24"><path d="M3 8h7v8H3M6 8V5M9 8V5M10 12h3"/><path d="M15 12h2M17 7v10M20 9v6"/></symbol>
+  <symbol id="g-sync-failed" viewBox="0 0 24 24"><path d="M4 6v12M20 6v12M4 8h16v8H4Z"/><path d="m7 8 4 8M13 8l4 8"/></symbol>
+
+  <symbol id="g-link-back" viewBox="0 0 24 24"><path d="M20 8v8M4 12h13M9 7l-5 5 5 5"/></symbol>
+  <symbol id="g-link-forward" viewBox="0 0 24 24"><path d="M4 8v8M20 12H7M15 7l5 5-5 5"/></symbol>
+  <symbol id="g-help-explain" viewBox="0 0 24 24"><path d="M4 3h16v14H9l-5 4Z"/><path d="M12 10v4M12 7h.01"/></symbol>
+
+  <symbol id="g-session-pause" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5"/><path d="M9.5 8v8M14.5 8v8"/></symbol>
+  <symbol id="g-session-skip" viewBox="0 0 24 24"><path d="m4 6 8 6-8 6ZM12 6l8 6-8 6ZM21 6v12"/></symbol>
+  <symbol id="g-session-repeat" viewBox="0 0 24 24"><path d="M19 8a8 8 0 0 0-13.5-2L3 8.5"/><path d="M3 4v4.5h4.5"/><path d="M5 16a8 8 0 0 0 13.5 2l2.5-2.5"/><path d="M21 20v-4.5h-4.5"/></symbol>
+  <symbol id="g-session-substitute" viewBox="0 0 24 24"><path d="M4 8h14M15 5l3 3-3 3"/><path d="M20 16H6M9 13l-3 3 3 3"/></symbol>
+  <symbol id="g-session-reorder" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 3v18M2 5l2-2 2 2M2 19l2 2 2-2"/></symbol>
+  <symbol id="g-session-next" viewBox="0 0 24 24"><path d="M4 12h14M13 7l5 5-5 5M21 6v12"/></symbol>
+  <symbol id="g-session-previous" viewBox="0 0 24 24"><path d="M20 12H6M11 7l-5 5 5 5M3 6v12"/></symbol>
+  <symbol id="g-session-finish" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5"/><path d="m7.5 12 3 3 6-6"/></symbol>
+
+  <symbol id="g-reading-heart-rate" viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/></symbol>
+  <symbol id="g-reading-timer" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8.5"/><path d="M9 2h6M12 4.5V2M18.5 6.5 20 5"/><path d="M12 8v5l3 2"/></symbol>
+  <symbol id="g-reading-held-position" viewBox="0 0 24 24"><circle cx="5" cy="7" r="2.5"/><path d="M7.5 11h9l3 5H9l-3-5"/><path d="M4 16h17M7 16v3M19 16v3"/></symbol>
+  <symbol id="g-rest-interval" viewBox="0 0 24 24"><path d="M6 3h12M6 21h12M8 3c0 5 2 6 4 9-2 3-4 4-4 9M16 3c0 5-2 6-4 9 2 3 4 4 4 9"/></symbol>
+
+  <symbol id="g-adaptation-flag" viewBox="0 0 24 24"><path d="M5 21V3"/><path d="M5 4h12l-2 4 2 4H5"/><path d="M9 7h4"/></symbol>
+  <symbol id="g-protected-note" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M8 15h8M8 18h5"/></symbol>
+  <symbol id="g-note" viewBox="0 0 24 24"><path d="M5 3h10l4 4v14H5Z"/><path d="M15 3v5h4M8 12h8M8 16h6"/></symbol>
+  <symbol id="g-progress" viewBox="0 0 24 24"><path d="M4 3v18h17"/><path d="m7 16 4-5 3 2 5-7"/><path d="M16 6h3v3"/></symbol>
+  <symbol id="g-add" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5"/><path d="M12 7v10M7 12h10"/></symbol>
+  <symbol id="g-edit" viewBox="0 0 24 24"><path d="m4 16-1 5 5-1L20 8l-4-4Z"/><path d="m13.5 6.5 4 4M4 16l4 4"/></symbol>
+  <symbol id="g-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="7"/><path d="m15.5 15.5 5 5"/></symbol>
+  <symbol id="g-export" viewBox="0 0 24 24"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M5 12H3v9h18v-9h-2"/></symbol>
+  <symbol id="g-drag-handle" viewBox="0 0 24 24"><circle cx="8" cy="6" r="1"/><circle cx="16" cy="6" r="1"/><circle cx="8" cy="12" r="1"/><circle cx="16" cy="12" r="1"/><circle cx="8" cy="18" r="1"/><circle cx="16" cy="18" r="1"/></symbol>
+  <symbol id="g-what-leaves" viewBox="0 0 24 24"><rect x="2" y="4" width="6" height="16" rx="2"/><rect x="16" y="4" width="6" height="16" rx="2"/><path d="M8 9h2M14 9h2M8 15h2M14 15h2"/></symbol>
+</svg>
+
+
+<div class="sheet-bar" data-sheet-part id="controls">
+  <p class="sheet-bar__title">Direction one - Ledger</p>
+  <div class="sheet-bar__controls">
+    <div class="switch">
+      <span class="switch__label">Theme</span>
+      <div class="switch__group" role="group" aria-label="Theme">
+        <button type="button" class="btn btn--small" data-switch="theme" data-value="light" aria-pressed="true">Light</button>
+        <button type="button" class="btn btn--small" data-switch="theme" data-value="dark" aria-pressed="false">Dark</button>
+      </div>
+    </div>
+    <div class="switch">
+      <span class="switch__label">Width</span>
+      <div class="switch__group" role="group" aria-label="Width">
+        <button type="button" class="btn btn--small" data-switch="width" data-value="both" aria-pressed="true">Both</button>
+        <button type="button" class="btn btn--small" data-switch="width" data-value="laptop" aria-pressed="false">Laptop</button>
+        <button type="button" class="btn btn--small" data-switch="width" data-value="phone" aria-pressed="false">Phone</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<main class="sheet">
+
+  <section class="sheet__intro" data-sheet-part id="introduction">
+    <h1 class="sheet__title">Ledger</h1>
+    <p class="sheet__lede">
+      Ledger is flat. There is no elevation anywhere in it, not on the header that stays put
+      while you scroll and not inside a tooltip. What separates one thing from another is a
+      rule, a gap, or the single step from the page floor up onto a card. It is warm rather
+      than clinical, comfortable rather than tight, and its dark theme sits on pure black, so
+      on the phone the coach actually uses the unlit pixels of an evening session are genuinely
+      off.
+    </p>
+    <div class="tradeoff">
+      <p>
+        <b>The trade-off in one sentence.</b> Ledger is the calmest and the least tiring to look
+        at for hours, and the price is that on a dense screen it separates things a little less
+        sharply than the other two.
+      </p>
+    </div>
+    <ul class="fact-list">
+      <li><b>Palette</b><span>house-sepia. Warm paper in light, pure black in dark, burnt sienna accent.</span></li>
+      <li><b>Density</b><span>Comfortable. 48px rows, 24px gutters, generous section gaps.</span></li>
+      <li><b>Tonal weight</b><span>The lowest of the three. No shadow is drawn anywhere.</span></li>
+      <li><b>Laptop</b><span>A permanently expanded 248px sidebar. Never collapsible.</span></li>
+      <li><b>Phone</b><span>A 56px bottom bar. The same five destinations, same order, same words.</span></li>
+      <li><b>Contextual</b><span>A breadcrumb and a way back that says where it goes.</span></li>
+    </ul>
+    <ul class="sheet-contents">
+      <li><a href="#session-runner">Session runner</a></li>
+      <li><a href="#client-list">Client list</a></li>
+      <li><a href="#client-record">Client record</a></li>
+      <li><a href="#diet-week">Diet week</a></li>
+      <li><a href="#navigation-laptop">Navigation, laptop</a></li>
+      <li><a href="#navigation-phone">Navigation, phone</a></li>
+      <li><a href="#sync-states">Synchronisation states</a></li>
+      <li><a href="#tooltips">Tooltips</a></li>
+      <li><a href="#mark">Application mark</a></li>
+    </ul>
+    <p class="sheet-note">
+      Every frame below is the live layout at that width rather than a picture of one. The
+      phone frames are the same markup as the laptop frames, cloned into a narrower container
+      at load: the layout rules key off the width of the application frame, not the width of
+      the window, so what you are looking at is one design at two widths and never a second,
+      different design.
+    </p>
+  </section>
+
+
+  <!-- =====================================================================
+       THE SESSION RUNNER
+       ===================================================================== -->
+  <section class="sheet-section" id="session-runner" data-sheet-part>
+    <header class="sheet-section__head">
+      <h2 class="sheet-section__title">The session runner</h2>
+      <p class="sheet-section__note">
+        The screen the application exists for, and the one used with a client waiting. It is
+        genuinely dense: the current exercise and what is coming next, a jump to any exercise
+        rather than only forward, pause, skip, repeat, reorder and substitute, the previous
+        session at a glance, somewhere to record a reading or a note mid-session, three clients
+        in one session each keeping their own numbers, and the intensity patterns that reshape
+        the whole session on a press. Ledger keeps it legible by hierarchy and by letting the
+        secondary column carry the history, not by throwing anything away.
+      </p>
+    </header>
+    <div class="frames">
+      <div class="device device--laptop">
+        <p class="device__caption">Laptop</p>
+        <div class="device__screen app-viewport">
+
+<div class="app" data-app="session">
+  <nav class="nav" aria-label="Destinations">
+    <p class="nav__brand"><img class="nav__brand-mark" src="mark.svg" alt="" width="32" height="32"> Fit</p>
+    <ul class="nav__list">
+      <li><a class="nav__link" href="#client-list"><svg class="icon" aria-hidden="true"><use href="#g-nav-clients"/></svg><span class="nav__label">Clients</span></a></li>
+      <li><a class="nav__link" href="#session-runner" aria-current="page"><svg class="icon" aria-hidden="true"><use href="#g-nav-calendar"/></svg><span class="nav__label">Calendar</span></a></li>
+      <li><a class="nav__link" href="#session-runner"><svg class="icon" aria-hidden="true"><use href="#g-nav-routines"/></svg><span class="nav__label">Routines</span></a></li>
+      <li><a class="nav__link" href="#diet-week"><svg class="icon" aria-hidden="true"><use href="#g-nav-diet"/></svg><span class="nav__label">Diet</span></a></li>
+      <li><a class="nav__link" href="#sync-states"><svg class="icon" aria-hidden="true"><use href="#g-nav-admin"/></svg><span class="nav__label">Admin</span></a></li>
+    </ul>
+  </nav>
+
+  <header class="app__header">
+    <ol class="crumbs">
+      <li><a href="#session-runner">Calendar</a></li>
+      <li class="crumbs__sep" aria-hidden="true">/</li>
+      <li><a href="#session-runner">Wednesday 22 July</a></li>
+      <li class="crumbs__sep" aria-hidden="true">/</li>
+      <li aria-current="page">Pull Deadlift Back and Biceps</li>
+    </ol>
+    <a class="back-link" href="#session-runner">
+      <svg class="icon icon--small" aria-hidden="true"><use href="#g-link-back"/></svg>
+      Back to Wednesday 22 July
+    </a>
+    <div class="header__title-row">
+      <div>
+        <h1 class="header__title">Pull Deadlift Back and Biceps</h1>
+        <p class="header__meta">In progress since 18:04 &middot; three clients &middot; exercise 2 of 9</p>
+      </div>
+      <div class="header__actions">
+        <button type="button" class="btn"><svg class="icon icon--small" aria-hidden="true"><use href="#g-note"/></svg> Session note</button>
+        <button type="button" class="btn btn--primary"><svg class="icon icon--small" aria-hidden="true"><use href="#g-session-finish"/></svg> Finish and record</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="sync" data-state="backed-up" role="status">
+    <svg class="icon sync__icon" aria-hidden="true"><use href="#g-sync-backed-up"/></svg>
+    <span class="sync__text">Backed up 4 minutes ago. <span class="sync__count">Nothing waiting.</span></span>
+    <button type="button" class="btn btn--small sync__action">Back up now</button>
+  </div>
+
+  <div class="app__content">
+    <div class="with-aside">
+      <div class="runner">
+
+        <section class="now" aria-label="Current exercise">
+          <p class="now__label">Now &middot; exercise 2 of 9</p>
+          <div class="split">
+            <h2 class="now__name">Deadlift</h2>
+            <span class="intensity" data-level="high" title="High intensity">H</span>
+          </div>
+          <p class="now__meta">Barbell &middot; hinge &middot; hamstrings and glutes</p>
+          <div class="now__prescription">
+            <span class="now__figure"><span class="now__value">6</span><span class="now__unit">repetitions</span></span>
+            <span class="now__figure"><span class="now__value">2 of 4</span><span class="now__unit">sets</span></span>
+            <span class="now__figure"><span class="now__value">120</span><span class="now__unit">seconds rest</span></span>
+          </div>
+          <p class="now__cue">Bar over the mid foot, flat back, push the floor away and lock out tall without leaning back.</p>
+          <div class="now__controls">
+            <button type="button" class="btn"><svg class="icon icon--small" aria-hidden="true"><use href="#g-session-previous"/></svg> Previous</button>
+            <button type="button" class="btn"><svg class="icon icon--small" aria-hidden="true"><use href="#g-session-pause"/></svg> Pause</button>
+            <button type="button" class="btn"><svg class="icon icon--small" aria-hidden="true"><use href="#g-session-repeat"/></svg> Repeat set</button>
+            <button type="button" class="btn"><svg class="icon icon--small" aria-hidden="true"><use href="#g-session-skip"/></svg> Skip</button>
+            <button type="button" class="btn"><svg class="icon icon--small" aria-hidden="true"><use href="#g-session-substitute"/></svg> Substitute</button>
+            <button type="button" class="btn btn--primary"><svg class="icon icon--small" aria-hidden="true"><use href="#g-session-next"/></svg> Next exercise</button>
+          </div>
+        </section>
+
+        <div class="next-up">
+          <span class="next-up__label">Next</span>
+          <span class="next-up__name">Bent Over Row &middot; 4 sets of 8 &middot; 90 seconds rest</span>
+          <span class="intensity" data-level="high" title="High intensity">H</span>
+        </div>
+
+        <section class="card" aria-label="Shape the session">
+          <div class="card__head">
+            <div>
+              <h2 class="card__title">Shape the session</h2>
+              <p class="card__sub">Reorders the exercises and scales the work. It never touches load.</p>
+            </div>
+            <span class="chip">Low Medium High Low applied</span>
+          </div>
+          <div class="patterns" data-choice-group>
+            <button type="button" class="pattern" data-choice="pattern" aria-pressed="true">
+              <span class="pattern__name">Low Medium High Low</span>
+              <span class="pattern__curve" aria-hidden="true"><span class="pattern__step" data-level="low"></span><span class="pattern__step" data-level="medium"></span><span class="pattern__step" data-level="high"></span><span class="pattern__step" data-level="low"></span></span>
+            </button>
+            <button type="button" class="pattern" data-choice="pattern" aria-pressed="false">
+              <span class="pattern__name">Steady Build</span>
+              <span class="pattern__curve" aria-hidden="true"><span class="pattern__step" data-level="low"></span><span class="pattern__step" data-level="medium"></span><span class="pattern__step" data-level="high"></span></span>
+            </button>
+            <button type="button" class="pattern" data-choice="pattern" aria-pressed="false">
+              <span class="pattern__name">Descending Taper</span>
+              <span class="pattern__curve" aria-hidden="true"><span class="pattern__step" data-level="high"></span><span class="pattern__step" data-level="medium"></span><span class="pattern__step" data-level="low"></span></span>
+            </button>
+            <button type="button" class="pattern" data-choice="pattern" aria-pressed="false">
+              <span class="pattern__name">Interval Alternation</span>
+              <span class="pattern__curve" aria-hidden="true"><span class="pattern__step" data-level="high"></span><span class="pattern__step" data-level="low"></span></span>
+            </button>
+            <button type="button" class="pattern" data-choice="pattern" aria-pressed="false">
+              <span class="pattern__name">Build And Hold</span>
+              <span class="pattern__curve" aria-hidden="true"><span class="pattern__step" data-level="low"></span><span class="pattern__step" data-level="medium"></span><span class="pattern__step" data-level="high"></span></span>
+            </button>
+          </div>
+          <!-- TOOLTIP ONE OF THREE, shown open. The wrapper reserves the room it needs. -->
+          <div class="tip tip-room" data-open="true">
+            <button type="button" class="tip__target" aria-expanded="true">
+              <svg class="icon icon--small" aria-hidden="true"><use href="#g-help-explain"/></svg>
+              What does pressing one of these do
+            </button>
+            <div class="tip__bubble" role="tooltip">
+              It rebuilds today's session to follow that shape. The exercises move into a new
+              order and the repetitions, timers and rest change with them. Nothing is saved
+              until you accept it, and you can still change any single value afterwards. It
+              never suggests a heavier weight, because that is your call and not the
+              application's.
+            </div>
+          </div>
+        </section>
+
+        <section class="card card--flush" aria-label="All nine exercises">
+          <div class="card__head">
+            <div>
+              <h2 class="card__title">The whole session</h2>
+              <p class="card__sub">Jump straight to any of them. You are not held to the order.</p>
+            </div>
+            <button type="button" class="btn btn--small"><svg class="icon icon--small" aria-hidden="true"><use href="#g-session-reorder"/></svg> Reorder</button>
+          </div>
+          <ul class="list">
+            <li>
+              <div class="row" data-status="done">
+                <span class="row__index">1</span>
+                <button type="button" class="plan-row__jump">
+                  <span class="row__main"><span class="row__name">Band Pull Apart</span><span class="row__meta">2 sets of 20 &middot; done at 18:09</span></span>
+                </button>
+                <span class="intensity" data-level="low" title="Low intensity">L</span>
+                <span class="row__trail"><span class="chip chip--success">Performed</span></span>
+              </div>
+            </li>
+            <li>
+              <div class="row" aria-current="true">
+                <span class="row__index">2</span>
+                <button type="button" class="plan-row__jump">
+                  <span class="row__main"><span class="row__name">Deadlift</span><span class="row__meta">4 sets of 6 &middot; 120 seconds rest &middot; barbell</span></span>
+                </button>
+                <span class="intensity" data-level="high" title="High intensity">H</span>
+                <span class="row__trail">
+                  <span class="chip chip--accent">Now</span>
+                  <button type="button" class="btn btn--small btn--icon" aria-label="Substitute Deadlift"><svg class="icon icon--small" aria-hidden="true"><use href="#g-session-substitute"/></svg></button>
+                </span>
+              </div>
+            </li>
+            <li>
+              <div class="row">
+                <span class="row__index">3</span>
+                <button type="button" class="plan-row__jump">
+                  <span class="row__main"><span class="row__name">Bent Over Row</span><span class="row__meta">4 sets of 8 &middot; 90 seconds rest &middot; barbell</span></span>
+                </button>
+                <span class="intensity" data-level="high" title="High intensity">H</span>
+                <span class="row__trail plan-row__actions">
+                  <button type="button" class="btn btn--small btn--icon" aria-label="Move Bent Over Row"><svg class="icon icon--small" aria-hidden="true"><use href="#g-drag-handle"/></svg></button>
+                  <button type="button" class="btn btn--small btn--icon" aria-label="Substitute Bent Over Row"><svg class="icon icon--small" aria-hidden="true"><use href="#g-session-substitute"/></svg></button>
+                  <button type="button" class="btn btn--small btn--icon" aria-label="Skip Bent Over Row"><svg class="icon icon--small" aria-hidden="true"><use href="#g-session-skip"/></svg></button>
+                </span>
+              </div>
+            </li>
+            <li>
+              <div class="row">
+                <span class="row__index">4</span>
+                <button type="button" class="plan-row__jump">
+                  <span class="row__main"><span class="row__name">Lat Pulldown</span><span class="row__meta">4 sets of 8 &middot; 90 seconds rest &middot; cable machine</span></span>
+                </button>
+                <span class="intensity" data-level="medium" title="Medium intensity">M</span>
+                <span class="row__trail plan-row__actions">
+                  <button type="button" class="btn btn--small btn--icon" aria-label="Move Lat Pulldown"><svg class="icon icon--small" aria-hidden="true"><use href="#g-drag-handle"/></svg></button>
+                  <button type="button" class="btn btn--small btn--icon" aria-label="Substitute Lat Pulldown"><svg class="icon icon--small" aria-hidden="true"><use href="#g-session-substitute"/></svg></button>
+                  <button type="button" class="btn btn--small btn--icon" aria-label="Skip Lat Pulldown"><svg class="icon icon--small" aria-hidden="true"><use href="#g-session-skip"/></svg></button>
+                </span>
+              </div>
+            </li>
+            <li>
+              <div class="row">
+                <span class="row__index">5</span>
+                <button type="button" class="plan-row__jump">
+                  <span class="row__main"><span class="row__name">Single Arm Dumbbell Row</span><span class="row__meta">4 sets of 8 &middot; 90 seconds rest &middot; dumbbell and bench</span></span>
+                </button>
+                <span class="intensity" data-level="medium" title="Medium intensity">M</span>
+                <span class="row__trail plan-row__actions">
+                  <button type="button" class="btn btn--small btn--icon" aria-label="Move Single Arm Dumbbell Row"><svg class="icon icon--small" aria-hidden="true"><use href="#g-drag-handle"/></svg></button>
+                  <button type="button" class="btn btn--small btn--icon" aria-label="Substitute Single Arm Dumbbell Row"><svg class="icon icon--small" aria-hidden="true"><use href="#g-session-substitute"/></svg></button>
+                  <button type="button" class="btn btn--small btn--icon" aria-label="Skip Single Arm Dumbbell Row"><svg class="icon icon--small" aria-hidden="true"><use href="#g-session-skip"/></svg></button>
+                </span>
+              </div>
+            </li>
+            <li>
+              <div class="row">
+                <span class="row__index">6</span>
+                <button type="button" class="plan-row__jump">
+                  <span class="row__main"><span class="row__name">Face Pull</span><span class="row__meta">3 sets of 12 &middot; 45 seconds rest &middot; resistance band</span></span>
+                </button>
+                <span class="intensity" data-level="low" title="Low intensity">L</span>
+                <span class="row__trail plan-row__actions">
+                  <button type="button" class="btn btn--small btn--icon" aria-label="Move Face Pull"><svg class="icon icon--small" aria-hidden="true"><use href="#g-drag-handle"/></svg></button>
+                  <button type="button" class="btn btn--small btn--icon" aria-label="Substitute Face Pull"><svg class="icon icon--small" aria-hidden="true"><use href="#g-session-substitute"/></svg></button>
+                  <button type="button" class="btn btn--small btn--icon" aria-label="Skip Face Pull"><svg class="icon icon--small" aria-hidden="true"><use href="#g-session-skip"/></svg></button>
+                </span>
+              </div>
+            </li>
+            <li>
+              <div class="row">
+                <span class="row__index">7</span>
+                <button type="button" class="plan-row__jump">
+                  <span class="row__main"><span class="row__name">Barbell Biceps Curl</span><span class="row__meta">3 sets of 12 &middot; 45 seconds rest &middot; barbell</span></span>
+                </button>
+                <span class="intensity" data-level="medium" title="Medium intensity">M</span>
+                <span class="row__trail plan-row__actions">
+                  <button type="button" class="btn btn--small btn--icon" aria-label="Move Barbell Biceps Curl"><svg class="icon icon--small" aria-hidden="true"><use href="#g-drag-handle"/></svg></button>
+                  <button type="button" class="btn btn--small btn--icon" aria-label="Substitute Barbell Biceps Curl"><svg class="icon icon--small" aria-hidden="true"><use href="#g-session-substitute"/></svg></button>
+                  <button type="button" class="btn btn--small btn--icon" aria-label="Skip Barbell Biceps Curl"><svg class="icon icon--small" aria-hidden="true"><use href="#g-session-skip"/></svg></button>
+                </span>
+              </div>
+            </li>
+            <li>
+              <div class="row">
+                <span class="row__index">8</span>
+                <button type="button" class="plan-row__jump">
+                  <span class="row__main"><span class="row__name">Hammer Curl</span><span class="row__meta">3 sets of 12 &middot; 45 seconds rest &middot; dumbbell</span></span>
+                </button>
+                <span class="intensity" data-level="low" title="Low intensity">L</span>
+                <span class="row__trail plan-row__actions">
+                  <button type="button" class="btn btn--small btn--icon" aria-label="Move Hammer Curl"><svg class="icon icon--small" aria-hidden="true"><use href="#g-drag-handle"/></svg></button>
+                  <button type="button" class="btn btn--small btn--icon" aria-label="Substitute Hammer Curl"><svg class="icon icon--small" aria-hidden="true"><use href="#g-session-substitute"/></svg></button>
+                  <button type="button" class="btn btn--small btn--icon" aria-label="Skip Hammer Curl"><svg class="icon icon--small" aria-hidden="true"><use href="#g-session-skip"/></svg></button>
+                </span>
+              </div>
+            </li>
+            <li>
+              <div class="row">
+                <span class="row__index">9</span>
+                <button type="button" class="plan-row__jump">
+                  <span class="row__main"><span class="row__name">Dead Hang</span><span class="row__meta">2 sets of 45 seconds &middot; pull-up bar</span></span>
+                </button>
+                <span class="intensity" data-level="low" title="Low intensity">L</span>
+                <span class="row__trail plan-row__actions">
+                  <button type="button" class="btn btn--small btn--icon" aria-label="Move Dead Hang"><svg class="icon icon--small" aria-hidden="true"><use href="#g-drag-handle"/></svg></button>
+                  <button type="button" class="btn btn--small btn--icon" aria-label="Substitute Dead Hang"><svg class="icon icon--small" aria-hidden="true"><use href="#g-session-substitute"/></svg></button>
+                  <button type="button" class="btn btn--small btn--icon" aria-label="Skip Dead Hang"><svg class="icon icon--small" aria-hidden="true"><use href="#g-session-skip"/></svg></button>
+                </span>
+              </div>
+            </li>
+          </ul>
+        </section>
+
+        <section class="card" aria-label="Capture against a client">
+          <div class="card__head">
+            <div>
+              <h2 class="card__title">In this session</h2>
+              <p class="card__sub">Three clients, one routine. Each one keeps their own numbers.</p>
+            </div>
+            <button type="button" class="btn btn--small"><svg class="icon icon--small" aria-hidden="true"><use href="#g-add"/></svg> Add a client</button>
+          </div>
+
+          <div class="attendees">
+            <article class="attendee">
+              <div class="attendee__head">
+                <h3 class="attendee__name">Priya Menon</h3>
+                <span class="chip"><svg class="icon icon--small" aria-hidden="true"><use href="#g-adaptation-flag"/></svg> Adaptation on file</span>
+              </div>
+              <div class="readings">
+                <span class="reading"><svg class="icon icon--small" aria-hidden="true"><use href="#g-reading-heart-rate"/></svg> Heart rate <span class="reading__value">138</span> bpm</span>
+                <span class="reading"><svg class="icon icon--small" aria-hidden="true"><use href="#g-reading-timer"/></svg> Dead hang <span class="reading__value">42</span> seconds</span>
+              </div>
+              <div class="capture">
+                <label class="field">
+                  <span class="field__label">Reading</span>
+                  <select class="select">
+                    <option>Heart rate</option>
+                    <option>Resting heart rate</option>
+                    <option>Plank hold</option>
+                    <option selected>Hollow hold</option>
+                    <option>Wall sit</option>
+                    <option>Dead hang</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span class="field__label">Value in seconds</span>
+                  <input class="input" type="text" inputmode="numeric" placeholder="e.g. 45">
+                </label>
+                <button type="button" class="btn btn--primary">Save against Priya</button>
+              </div>
+              <label class="field">
+                <span class="field__label">Note for Priya, this session</span>
+                <input class="input" type="text" value="Dropped to three sets on the deadlift, right knee stiff on the warm up.">
+              </label>
+            </article>
+
+            <article class="attendee">
+              <div class="attendee__head">
+                <h3 class="attendee__name">Arun Balakrishnan</h3>
+                <span class="chip chip--neutral">Second session</span>
+              </div>
+              <div class="readings">
+                <span class="reading"><svg class="icon icon--small" aria-hidden="true"><use href="#g-reading-heart-rate"/></svg> Heart rate <span class="reading__value">146</span> bpm</span>
+              </div>
+              <div class="capture">
+                <label class="field">
+                  <span class="field__label">Reading</span>
+                  <select class="select">
+                    <option selected>Heart rate</option>
+                    <option>Resting heart rate</option>
+                    <option>Plank hold</option>
+                    <option>Hollow hold</option>
+                    <option>Wall sit</option>
+                    <option>Dead hang</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span class="field__label">Value in bpm</span>
+                  <input class="input" type="text" inputmode="numeric" placeholder="e.g. 142">
+                </label>
+                <button type="button" class="btn btn--primary">Save against Arun</button>
+              </div>
+              <label class="field">
+                <span class="field__label">Note for Arun, this session</span>
+                <input class="input" type="text" placeholder="Anything worth remembering next time">
+              </label>
+            </article>
+
+            <article class="attendee">
+              <div class="attendee__head">
+                <h3 class="attendee__name">Sneha Iyer</h3>
+                <span class="chip chip--warning">Substituted an exercise</span>
+              </div>
+              <div class="readings">
+                <span class="reading"><svg class="icon icon--small" aria-hidden="true"><use href="#g-session-substitute"/></svg> Deadlift replaced by Kettlebell Swing</span>
+                <span class="reading"><svg class="icon icon--small" aria-hidden="true"><use href="#g-reading-held-position"/></svg> Plank hold <span class="reading__value">75</span> seconds</span>
+              </div>
+              <div class="capture">
+                <label class="field">
+                  <span class="field__label">Reading</span>
+                  <select class="select">
+                    <option>Heart rate</option>
+                    <option>Resting heart rate</option>
+                    <option selected>Plank hold</option>
+                    <option>Hollow hold</option>
+                    <option>Wall sit</option>
+                    <option>Dead hang</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span class="field__label">Value in seconds</span>
+                  <input class="input" type="text" inputmode="numeric" placeholder="e.g. 75">
+                </label>
+                <button type="button" class="btn btn--primary">Save against Sneha</button>
+              </div>
+              <label class="field">
+                <span class="field__label">Note for Sneha, this session</span>
+                <input class="input" type="text" value="Barbell not available, swung instead. Happy with it.">
+              </label>
+            </article>
+          </div>
+        </section>
+      </div>
+
+      <aside class="stack" aria-label="History and session detail">
+        <section class="card">
+          <div class="card__head">
+            <div>
+              <h2 class="card__title">Last time, Priya</h2>
+              <p class="card__sub">Same routine, Wednesday 15 July</p>
+            </div>
+          </div>
+          <div class="last-session">
+            <div class="last-session__row"><span>Band Pull Apart</span><span class="last-session__value">2 x 20</span></div>
+            <div class="last-session__row"><span>Deadlift</span><span class="last-session__value">3 x 6</span></div>
+            <div class="last-session__row"><span>Bent Over Row</span><span class="last-session__value">4 x 8</span></div>
+            <div class="last-session__row"><span>Lat Pulldown</span><span class="last-session__value">4 x 8</span></div>
+            <div class="last-session__row"><span>Single Arm Dumbbell Row</span><span class="last-session__value">4 x 8</span></div>
+            <div class="last-session__row"><span>Face Pull</span><span class="last-session__value">3 x 12</span></div>
+            <div class="last-session__row"><span>Barbell Biceps Curl</span><span class="last-session__value">3 x 12</span></div>
+            <div class="last-session__row"><span>Hammer Curl</span><span class="last-session__value">3 x 12</span></div>
+            <div class="last-session__row"><span>Dead Hang</span><span class="last-session__value">2 x 38 seconds</span></div>
+          </div>
+          <div class="readings">
+            <span class="reading"><svg class="icon icon--small" aria-hidden="true"><use href="#g-reading-heart-rate"/></svg> 142 bpm</span>
+            <span class="reading"><svg class="icon icon--small" aria-hidden="true"><use href="#g-reading-timer"/></svg> Dead hang 38 seconds</span>
+          </div>
+          <a class="btn btn--quiet" href="#client-record">
+            <svg class="icon icon--small" aria-hidden="true"><use href="#g-link-forward"/></svg>
+            Open Priya Menon's record
+          </a>
+        </section>
+
+        <section class="card">
+          <div class="card__head"><h2 class="card__title">This session</h2></div>
+          <div class="last-session">
+            <div class="last-session__row"><span>Routine</span><span class="last-session__value">Pull Deadlift Back and Biceps</span></div>
+            <div class="last-session__row"><span>Started</span><span class="last-session__value">18:04</span></div>
+            <div class="last-session__row"><span>Clients</span><span class="last-session__value">Priya, Arun, Sneha</span></div>
+            <div class="last-session__row"><span>Meeting link</span><span class="last-session__value">Ready</span></div>
+          </div>
+          <a class="btn btn--quiet" href="#session-runner">
+            <svg class="icon icon--small" aria-hidden="true"><use href="#g-link-forward"/></svg>
+            Open the routine in the library
+          </a>
+          <a class="btn btn--quiet" href="#session-runner">
+            <svg class="icon icon--small" aria-hidden="true"><use href="#g-link-back"/></svg>
+            Back to Wednesday 22 July
+          </a>
+        </section>
+
+        <section class="card">
+          <div class="card__head"><h2 class="card__title">If a pattern cannot be filled</h2></div>
+          <p class="prose">
+            A routine of nine exercises holds only so many at each level. If a shape you built
+            yourself asks for more hard work than this routine has, the session says plainly
+            which level ran short and what it put in the gap. It does not quietly substitute a
+            different intensity or hand you a shorter session than you asked for.
+          </p>
+        </section>
+      </aside>
+    </div>
+  </div>
+</div>
+
+        </div>
+      </div>
+      <div class="device device--phone">
+        <p class="device__caption">Phone</p>
+        <div class="device__screen app-viewport" data-clone-of="session"></div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- =====================================================================
+       THE CLIENT LIST
+       ===================================================================== -->
+  <section class="sheet-section" id="client-list" data-sheet-part>
+    <header class="sheet-section__head">
+      <h2 class="sheet-section__title">The client list</h2>
+      <p class="sheet-section__note">
+        A name, when they were last seen, when they are next in, and whether the programme has
+        to be adapted for them. Nothing else is collected: no email address, no phone number,
+        no address, no date of birth and no photograph, because data that is never collected
+        cannot leak.
+      </p>
+    </header>
+    <div class="frames">
+      <div class="device device--laptop">
+        <p class="device__caption">Laptop</p>
+        <div class="device__screen app-viewport">
+
+<div class="app" data-app="clients">
+  <nav class="nav" aria-label="Destinations">
+    <p class="nav__brand"><img class="nav__brand-mark" src="mark.svg" alt="" width="32" height="32"> Fit</p>
+    <ul class="nav__list">
+      <li><a class="nav__link" href="#client-list" aria-current="page"><svg class="icon" aria-hidden="true"><use href="#g-nav-clients"/></svg><span class="nav__label">Clients</span></a></li>
+      <li><a class="nav__link" href="#session-runner"><svg class="icon" aria-hidden="true"><use href="#g-nav-calendar"/></svg><span class="nav__label">Calendar</span></a></li>
+      <li><a class="nav__link" href="#session-runner"><svg class="icon" aria-hidden="true"><use href="#g-nav-routines"/></svg><span class="nav__label">Routines</span></a></li>
+      <li><a class="nav__link" href="#diet-week"><svg class="icon" aria-hidden="true"><use href="#g-nav-diet"/></svg><span class="nav__label">Diet</span></a></li>
+      <li><a class="nav__link" href="#sync-states"><svg class="icon" aria-hidden="true"><use href="#g-nav-admin"/></svg><span class="nav__label">Admin</span></a></li>
+    </ul>
+  </nav>
+
+  <header class="app__header">
+    <ol class="crumbs">
+      <li aria-current="page">Clients</li>
+    </ol>
+    <div class="header__title-row">
+      <div>
+        <h1 class="header__title">Clients</h1>
+        <p class="header__meta">Seven people &middot; six active</p>
+      </div>
+      <div class="header__actions">
+        <label class="field">
+          <span class="visually-hidden">Search clients</span>
+          <input class="input" type="search" placeholder="Search by name">
+        </label>
+        <button type="button" class="btn btn--primary"><svg class="icon icon--small" aria-hidden="true"><use href="#g-add"/></svg> Add a client</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="sync" data-state="pending" role="status">
+    <svg class="icon sync__icon" aria-hidden="true"><use href="#g-sync-pending"/></svg>
+    <span class="sync__text">Backed up 11 minutes ago. <span class="sync__count">Three changes waiting.</span></span>
+    <button type="button" class="btn btn--small sync__action">Back up now</button>
+  </div>
+
+  <div class="app__content">
+    <section class="card card--flush" aria-label="All clients">
+      <ul class="list">
+        <li>
+          <a class="row" href="#client-record">
+            <span class="row__main">
+              <span class="row__name">Priya Menon</span>
+              <span class="row__meta">Last session Wednesday 15 July &middot; next Wednesday 22 July</span>
+            </span>
+            <span class="row__trail">
+              <span class="chip"><svg class="icon icon--small" aria-hidden="true"><use href="#g-adaptation-flag"/></svg> Adaptation</span>
+              <svg class="icon icon--small" aria-hidden="true"><use href="#g-link-forward"/></svg>
+            </span>
+          </a>
+        </li>
+        <li>
+          <a class="row" href="#client-record">
+            <span class="row__main">
+              <span class="row__name">Arun Balakrishnan</span>
+              <span class="row__meta">Last session Monday 20 July &middot; next Wednesday 22 July</span>
+            </span>
+            <span class="row__trail"><svg class="icon icon--small" aria-hidden="true"><use href="#g-link-forward"/></svg></span>
+          </a>
+        </li>
+        <li>
+          <a class="row" href="#client-record">
+            <span class="row__main">
+              <span class="row__name">Sneha Iyer</span>
+              <span class="row__meta">Last session Friday 17 July &middot; next Wednesday 22 July</span>
+            </span>
+            <span class="row__trail">
+              <span class="chip"><svg class="icon icon--small" aria-hidden="true"><use href="#g-adaptation-flag"/></svg> Adaptation</span>
+              <svg class="icon icon--small" aria-hidden="true"><use href="#g-link-forward"/></svg>
+            </span>
+          </a>
+        </li>
+        <li>
+          <a class="row" href="#client-record">
+            <span class="row__main">
+              <span class="row__name">Vikram Rao</span>
+              <span class="row__meta">Last session Tuesday 21 July &middot; next Thursday 23 July</span>
+            </span>
+            <span class="row__trail"><svg class="icon icon--small" aria-hidden="true"><use href="#g-link-forward"/></svg></span>
+          </a>
+        </li>
+        <li>
+          <a class="row" href="#client-record">
+            <span class="row__main">
+              <span class="row__name">Meera Nair</span>
+              <span class="row__meta">Last session Saturday 18 July &middot; next Saturday 25 July</span>
+            </span>
+            <span class="row__trail"><svg class="icon icon--small" aria-hidden="true"><use href="#g-link-forward"/></svg></span>
+          </a>
+        </li>
+        <li>
+          <a class="row" href="#client-record">
+            <span class="row__main">
+              <span class="row__name">Joseph Thomas</span>
+              <span class="row__meta">Last session Monday 20 July &middot; next Thursday 23 July</span>
+            </span>
+            <span class="row__trail"><svg class="icon icon--small" aria-hidden="true"><use href="#g-link-forward"/></svg></span>
+          </a>
+        </li>
+        <li>
+          <a class="row" href="#client-record">
+            <span class="row__main">
+              <span class="row__name">Kavya Pillai</span>
+              <span class="row__meta">Last session Friday 6 June &middot; nothing booked</span>
+            </span>
+            <span class="row__trail">
+              <span class="chip chip--neutral">Not active</span>
+              <svg class="icon icon--small" aria-hidden="true"><use href="#g-link-forward"/></svg>
+            </span>
+          </a>
+        </li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <div class="card__head"><h2 class="card__title">From here you can also go to</h2></div>
+      <div class="now__controls">
+        <a class="btn btn--quiet" href="#session-runner"><svg class="icon icon--small" aria-hidden="true"><use href="#g-link-forward"/></svg> Wednesday's sessions</a>
+        <a class="btn btn--quiet" href="#diet-week"><svg class="icon icon--small" aria-hidden="true"><use href="#g-link-forward"/></svg> Diet plans</a>
+        <a class="btn btn--quiet" href="#client-record"><svg class="icon icon--small" aria-hidden="true"><use href="#g-link-forward"/></svg> Progress reports</a>
+      </div>
+    </section>
+  </div>
+</div>
+
+        </div>
+      </div>
+      <div class="device device--phone">
+        <p class="device__caption">Phone</p>
+        <div class="device__screen app-viewport" data-clone-of="clients"></div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- =====================================================================
+       ONE CLIENT RECORD
+       ===================================================================== -->
+  <section class="sheet-section" id="client-record" data-sheet-part>
+    <header class="sheet-section__head">
+      <h2 class="sheet-section__title">One client record</h2>
+      <p class="sheet-section__note">
+        A name, general notes, and a short non-clinical flag with a pointer to where the real
+        detail lives in the coach's own records. The clinical content itself is never shown
+        here and never typed here, and the pointer's label is protected too, because a file
+        name can be health information all by itself.
+      </p>
+    </header>
+    <div class="frames">
+      <div class="device device--laptop">
+        <p class="device__caption">Laptop</p>
+        <div class="device__screen app-viewport">
+
+<div class="app" data-app="client">
+  <nav class="nav" aria-label="Destinations">
+    <p class="nav__brand"><img class="nav__brand-mark" src="mark.svg" alt="" width="32" height="32"> Fit</p>
+    <ul class="nav__list">
+      <li><a class="nav__link" href="#client-list" aria-current="page"><svg class="icon" aria-hidden="true"><use href="#g-nav-clients"/></svg><span class="nav__label">Clients</span></a></li>
+      <li><a class="nav__link" href="#session-runner"><svg class="icon" aria-hidden="true"><use href="#g-nav-calendar"/></svg><span class="nav__label">Calendar</span></a></li>
+      <li><a class="nav__link" href="#session-runner"><svg class="icon" aria-hidden="true"><use href="#g-nav-routines"/></svg><span class="nav__label">Routines</span></a></li>
+      <li><a class="nav__link" href="#diet-week"><svg class="icon" aria-hidden="true"><use href="#g-nav-diet"/></svg><span class="nav__label">Diet</span></a></li>
+      <li><a class="nav__link" href="#sync-states"><svg class="icon" aria-hidden="true"><use href="#g-nav-admin"/></svg><span class="nav__label">Admin</span></a></li>
+    </ul>
+  </nav>
+
+  <header class="app__header">
+    <ol class="crumbs">
+      <li><a href="#client-list">Clients</a></li>
+      <li class="crumbs__sep" aria-hidden="true">/</li>
+      <li aria-current="page">Priya Menon</li>
+    </ol>
+    <a class="back-link" href="#client-list">
+      <svg class="icon icon--small" aria-hidden="true"><use href="#g-link-back"/></svg>
+      Back to all clients
+    </a>
+    <div class="header__title-row">
+      <div>
+        <h1 class="header__title">Priya Menon</h1>
+        <p class="header__meta">Training since March &middot; 31 sessions &middot; last seen Wednesday 15 July</p>
+      </div>
+      <div class="header__actions">
+        <button type="button" class="btn"><svg class="icon icon--small" aria-hidden="true"><use href="#g-edit"/></svg> Edit</button>
+        <button type="button" class="btn btn--primary"><svg class="icon icon--small" aria-hidden="true"><use href="#g-export"/></svg> Progress report</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="sync" data-state="backed-up" role="status">
+    <svg class="icon sync__icon" aria-hidden="true"><use href="#g-sync-backed-up"/></svg>
+    <span class="sync__text">Backed up 4 minutes ago. <span class="sync__count">Nothing waiting.</span></span>
+    <button type="button" class="btn btn--small sync__action">Back up now</button>
+  </div>
+
+  <div class="app__content">
+    <div class="with-aside">
+      <div class="stack">
+        <section class="card">
+          <div class="card__head"><h2 class="card__title">General notes</h2></div>
+          <label class="field">
+            <span class="visually-hidden">General notes about Priya Menon</span>
+            <textarea class="textarea" rows="4">Prefers early evening. Strong on hinge patterns, wants to work up to a full pull up by the end of the year. Travels for work most of August.</textarea>
+          </label>
+        </section>
+
+        <section class="card">
+          <div class="card__head">
+            <div>
+              <h2 class="card__title">Programme adaptation</h2>
+              <p class="card__sub">Only what changes the programme. Never a diagnosis.</p>
+            </div>
+            <span class="chip"><svg class="icon icon--small" aria-hidden="true"><use href="#g-adaptation-flag"/></svg> On file</span>
+          </div>
+
+          <label class="field">
+            <span class="field__label">Adaptation flag</span>
+            <input class="input" type="text" value="Right knee, avoid deep squats and box jumps">
+            <span class="field__hint">
+              Write what changes what you do with them, such as a knee injury meaning avoid deep
+              squats. Do not write a diagnosis, a medication, or anything from a doctor's note.
+            </span>
+          </label>
+
+          <!-- TOOLTIP TWO OF THREE, shown open. -->
+          <div class="tip tip-room" data-open="true">
+            <button type="button" class="tip__target" aria-expanded="true">
+              <svg class="icon icon--small" aria-hidden="true"><use href="#g-help-explain"/></svg>
+              Why can I not type the medical history here
+            </button>
+            <div class="tip__bubble" role="tooltip">
+              Because this application cannot keep it as safely as your own records can. It runs
+              in a browser and backs up to your own Google Drive, so anything typed here travels
+              there too. Keep the real detail where you already keep it, and put a short reminder
+              here plus a link to the file. You get one tap to what you need, and the sensitive
+              part never enters the application at all.
+            </div>
+          </div>
+
+          <div class="stack stack--tight">
+            <span class="field__label">Reference to your own records</span>
+            <div class="row">
+              <svg class="icon" aria-hidden="true"><use href="#g-protected-note"/></svg>
+              <span class="row__main">
+                <span class="row__name">Protected reference</span>
+                <span class="row__meta">Opens in your own records. The label and the link are both protected on this device and in your Drive.</span>
+              </span>
+              <span class="row__trail"><button type="button" class="btn btn--small">Open</button></span>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <aside class="stack" aria-label="Related">
+        <section class="card">
+          <div class="card__head"><h2 class="card__title">Where to next</h2></div>
+          <a class="btn btn--quiet" href="#session-runner"><svg class="icon icon--small" aria-hidden="true"><use href="#g-link-forward"/></svg> Priya's sessions</a>
+          <a class="btn btn--quiet" href="#diet-week"><svg class="icon icon--small" aria-hidden="true"><use href="#g-link-forward"/></svg> Priya's diet plan</a>
+          <a class="btn btn--quiet" href="#client-record"><svg class="icon icon--small" aria-hidden="true"><use href="#g-progress"/></svg> Priya's progress report</a>
+          <a class="btn btn--quiet" href="#client-list"><svg class="icon icon--small" aria-hidden="true"><use href="#g-link-back"/></svg> Back to all clients</a>
+        </section>
+
+        <section class="card">
+          <div class="card__head">
+            <div>
+              <h2 class="card__title">Dead hang</h2>
+              <p class="card__sub">Last eight sessions, in seconds</p>
+            </div>
+          </div>
+          <div class="trend" aria-hidden="true">
+            <span class="trend__bar" style="block-size: 40%"></span>
+            <span class="trend__bar" style="block-size: 46%"></span>
+            <span class="trend__bar" style="block-size: 44%"></span>
+            <span class="trend__bar" style="block-size: 58%"></span>
+            <span class="trend__bar" style="block-size: 62%"></span>
+            <span class="trend__bar" style="block-size: 60%"></span>
+            <span class="trend__bar" style="block-size: 76%"></span>
+            <span class="trend__bar" style="block-size: 84%"></span>
+          </div>
+          <p class="card__sub">22 seconds in March, 42 seconds on Wednesday.</p>
+        </section>
+
+        <section class="card">
+          <div class="card__head"><h2 class="card__title">Attendance</h2></div>
+          <div class="last-session">
+            <div class="last-session__row"><span>This month</span><span class="last-session__value">7 of 8</span></div>
+            <div class="last-session__row"><span>Last month</span><span class="last-session__value">8 of 8</span></div>
+            <div class="last-session__row"><span>Since March</span><span class="last-session__value">31 sessions</span></div>
+          </div>
+        </section>
+      </aside>
+    </div>
+  </div>
+</div>
+
+        </div>
+      </div>
+      <div class="device device--phone">
+        <p class="device__caption">Phone</p>
+        <div class="device__screen app-viewport" data-clone-of="client"></div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- =====================================================================
+       THE DIET WEEK CHART
+       ===================================================================== -->
+  <section class="sheet-section" id="diet-week" data-sheet-part>
+    <header class="sheet-section__head">
+      <h2 class="sheet-section__title">The diet week</h2>
+      <p class="sheet-section__note">
+        The other genuinely dense screen, and the one where a week grid usually collapses on a
+        phone. Ledger does not shrink the words and does not drop a day. On a laptop it is the
+        whole grid by hour and by day. On a phone it is one day at a time with the whole week
+        permanently in reach above it, and the full grid is still one tap away in a scroller
+        with the hour column pinned. The synchronisation strip is showing the offline state
+        here, which is the application working exactly as designed rather than a fault.
+      </p>
+    </header>
+    <div class="frames">
+      <div class="device device--laptop">
+        <p class="device__caption">Laptop</p>
+        <div class="device__screen app-viewport">
+
+<div class="app" data-app="diet">
+  <nav class="nav" aria-label="Destinations">
+    <p class="nav__brand"><img class="nav__brand-mark" src="mark.svg" alt="" width="32" height="32"> Fit</p>
+    <ul class="nav__list">
+      <li><a class="nav__link" href="#client-list"><svg class="icon" aria-hidden="true"><use href="#g-nav-clients"/></svg><span class="nav__label">Clients</span></a></li>
+      <li><a class="nav__link" href="#session-runner"><svg class="icon" aria-hidden="true"><use href="#g-nav-calendar"/></svg><span class="nav__label">Calendar</span></a></li>
+      <li><a class="nav__link" href="#session-runner"><svg class="icon" aria-hidden="true"><use href="#g-nav-routines"/></svg><span class="nav__label">Routines</span></a></li>
+      <li><a class="nav__link" href="#diet-week" aria-current="page"><svg class="icon" aria-hidden="true"><use href="#g-nav-diet"/></svg><span class="nav__label">Diet</span></a></li>
+      <li><a class="nav__link" href="#sync-states"><svg class="icon" aria-hidden="true"><use href="#g-nav-admin"/></svg><span class="nav__label">Admin</span></a></li>
+    </ul>
+  </nav>
+
+  <header class="app__header">
+    <ol class="crumbs">
+      <li><a href="#diet-week">Diet</a></li>
+      <li class="crumbs__sep" aria-hidden="true">/</li>
+      <li><a href="#client-record">Priya Menon</a></li>
+      <li class="crumbs__sep" aria-hidden="true">/</li>
+      <li aria-current="page">Weeknight plan</li>
+    </ol>
+    <a class="back-link" href="#client-record">
+      <svg class="icon icon--small" aria-hidden="true"><use href="#g-link-back"/></svg>
+      Back to Priya Menon
+    </a>
+    <div class="header__title-row">
+      <div>
+        <h1 class="header__title">Weeknight plan</h1>
+        <p class="header__meta">Current since 1 July &middot; transcribed from Lakshmi's plan</p>
+      </div>
+      <div class="header__actions">
+        <span class="chip chip--success">Current</span>
+        <button type="button" class="btn"><svg class="icon icon--small" aria-hidden="true"><use href="#g-edit"/></svg> Edit</button>
+        <button type="button" class="btn"><svg class="icon icon--small" aria-hidden="true"><use href="#g-export"/></svg> Export chart</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="sync" data-state="offline" role="status">
+    <svg class="icon sync__icon" aria-hidden="true"><use href="#g-sync-offline"/></svg>
+    <span class="sync__text">Working from this device. <span class="sync__count">No connection. Everything is saved here and will back up when you are online.</span></span>
+  </div>
+
+  <div class="app__content">
+    <div class="phone-only">
+      <div class="stack stack--tight">
+        <span class="field__label">Day</span>
+        <div class="week-days" role="group" aria-label="Day of the week">
+          <button type="button" class="week-day" data-day="mon" aria-pressed="true">Mon<span class="week-day__count">5</span></button>
+          <button type="button" class="week-day" data-day="tue" aria-pressed="false">Tue<span class="week-day__count">5</span></button>
+          <button type="button" class="week-day" data-day="wed" aria-pressed="false">Wed<span class="week-day__count">5</span></button>
+          <button type="button" class="week-day" data-day="thu" aria-pressed="false">Thu<span class="week-day__count">5</span></button>
+          <button type="button" class="week-day" data-day="fri" aria-pressed="false">Fri<span class="week-day__count">5</span></button>
+          <button type="button" class="week-day" data-day="sat" aria-pressed="false">Sat<span class="week-day__count">5</span></button>
+          <button type="button" class="week-day" data-day="sun" aria-pressed="false">Sun<span class="week-day__count">4</span></button>
+        </div>
+      </div>
+    </div>
+
+    <section class="card card--flush day-plan" data-day-plan="mon">
+      <div class="card__head"><h2 class="card__title">Monday</h2></div>
+      <ul class="list">
+        <li><div class="row"><span class="row__index">07:00</span><span class="row__main"><span class="row__name">Breakfast</span><span class="row__meta">Two idli, sambar, one boiled egg</span></span></div></li>
+        <li><div class="row"><span class="row__index">10:30</span><span class="row__main"><span class="row__name">Mid morning</span><span class="row__meta">Banana, ten almonds</span></span></div></li>
+        <li><div class="row"><span class="row__index">13:00</span><span class="row__main"><span class="row__name">Lunch</span><span class="row__meta">Two rotis, dal, cabbage poriyal, curd</span></span></div></li>
+        <li><div class="row"><span class="row__index">16:30</span><span class="row__main"><span class="row__name">Before training</span><span class="row__meta">Black coffee, one date</span></span></div></li>
+        <li><div class="row"><span class="row__index">20:00</span><span class="row__main"><span class="row__name">Dinner</span><span class="row__meta">Grilled fish, sauteed beans, half cup rice</span></span></div></li>
+      </ul>
+    </section>
+    <section class="card card--flush day-plan" data-day-plan="tue" hidden>
+      <div class="card__head"><h2 class="card__title">Tuesday</h2></div>
+      <ul class="list">
+        <li><div class="row"><span class="row__index">07:00</span><span class="row__main"><span class="row__name">Breakfast</span><span class="row__meta">Oats with milk, handful of berries</span></span></div></li>
+        <li><div class="row"><span class="row__index">10:30</span><span class="row__main"><span class="row__name">Mid morning</span><span class="row__meta">Buttermilk, roasted chana</span></span></div></li>
+        <li><div class="row"><span class="row__index">13:00</span><span class="row__main"><span class="row__name">Lunch</span><span class="row__meta">Brown rice, rasam, beetroot thoran, curd</span></span></div></li>
+        <li><div class="row"><span class="row__index">16:30</span><span class="row__main"><span class="row__name">Before training</span><span class="row__meta">Green tea, two dates</span></span></div></li>
+        <li><div class="row"><span class="row__index">20:00</span><span class="row__main"><span class="row__name">Dinner</span><span class="row__meta">Paneer bhurji, two rotis, cucumber salad</span></span></div></li>
+      </ul>
+    </section>
+    <section class="card card--flush day-plan" data-day-plan="wed" hidden>
+      <div class="card__head"><h2 class="card__title">Wednesday</h2></div>
+      <ul class="list">
+        <li><div class="row"><span class="row__index">07:00</span><span class="row__main"><span class="row__name">Breakfast</span><span class="row__meta">Three egg white omelette, two slices brown bread</span></span></div></li>
+        <li><div class="row"><span class="row__index">10:30</span><span class="row__main"><span class="row__name">Mid morning</span><span class="row__meta">Apple, ten walnuts</span></span></div></li>
+        <li><div class="row"><span class="row__index">13:00</span><span class="row__main"><span class="row__name">Lunch</span><span class="row__meta">Two rotis, rajma, mixed vegetable, curd</span></span></div></li>
+        <li><div class="row"><span class="row__index">16:30</span><span class="row__main"><span class="row__name">Before training</span><span class="row__meta">Black coffee, one banana</span></span></div></li>
+        <li><div class="row"><span class="row__index">20:00</span><span class="row__main"><span class="row__name">Dinner</span><span class="row__meta">Chicken curry, half cup rice, spinach</span></span></div></li>
+      </ul>
+    </section>
+    <section class="card card--flush day-plan" data-day-plan="thu" hidden>
+      <div class="card__head"><h2 class="card__title">Thursday</h2></div>
+      <ul class="list">
+        <li><div class="row"><span class="row__index">07:00</span><span class="row__main"><span class="row__name">Breakfast</span><span class="row__meta">Two idli, sambar, one boiled egg</span></span></div></li>
+        <li><div class="row"><span class="row__index">10:30</span><span class="row__main"><span class="row__name">Mid morning</span><span class="row__meta">Buttermilk, roasted chana</span></span></div></li>
+        <li><div class="row"><span class="row__index">13:00</span><span class="row__main"><span class="row__name">Lunch</span><span class="row__meta">Brown rice, dal, cabbage poriyal, curd</span></span></div></li>
+        <li><div class="row"><span class="row__index">16:30</span><span class="row__main"><span class="row__name">Before training</span><span class="row__meta">Green tea, one date</span></span></div></li>
+        <li><div class="row"><span class="row__index">20:00</span><span class="row__main"><span class="row__name">Dinner</span><span class="row__meta">Grilled fish, sauteed beans, half cup rice</span></span></div></li>
+      </ul>
+    </section>
+    <section class="card card--flush day-plan" data-day-plan="fri" hidden>
+      <div class="card__head"><h2 class="card__title">Friday</h2></div>
+      <ul class="list">
+        <li><div class="row"><span class="row__index">07:00</span><span class="row__main"><span class="row__name">Breakfast</span><span class="row__meta">Oats with milk, handful of berries</span></span></div></li>
+        <li><div class="row"><span class="row__index">10:30</span><span class="row__main"><span class="row__name">Mid morning</span><span class="row__meta">Banana, ten almonds</span></span></div></li>
+        <li><div class="row"><span class="row__index">13:00</span><span class="row__main"><span class="row__name">Lunch</span><span class="row__meta">Two rotis, rajma, beetroot thoran, curd</span></span></div></li>
+        <li><div class="row"><span class="row__index">16:30</span><span class="row__main"><span class="row__name">Before training</span><span class="row__meta">Black coffee, two dates</span></span></div></li>
+        <li><div class="row"><span class="row__index">20:00</span><span class="row__main"><span class="row__name">Dinner</span><span class="row__meta">Paneer bhurji, two rotis, cucumber salad</span></span></div></li>
+      </ul>
+    </section>
+    <section class="card card--flush day-plan" data-day-plan="sat" hidden>
+      <div class="card__head"><h2 class="card__title">Saturday</h2></div>
+      <ul class="list">
+        <li><div class="row"><span class="row__index">08:00</span><span class="row__main"><span class="row__name">Breakfast</span><span class="row__meta">Two dosa, chutney, one boiled egg</span></span></div></li>
+        <li><div class="row"><span class="row__index">11:00</span><span class="row__main"><span class="row__name">Mid morning</span><span class="row__meta">Apple, ten walnuts</span></span></div></li>
+        <li><div class="row"><span class="row__index">13:30</span><span class="row__main"><span class="row__name">Lunch</span><span class="row__meta">Half cup rice, chicken curry, mixed vegetable</span></span></div></li>
+        <li><div class="row"><span class="row__index">17:00</span><span class="row__main"><span class="row__name">Before training</span><span class="row__meta">Green tea, one banana</span></span></div></li>
+        <li><div class="row"><span class="row__index">20:30</span><span class="row__main"><span class="row__name">Dinner</span><span class="row__meta">Vegetable soup, two rotis, curd</span></span></div></li>
+      </ul>
+    </section>
+    <section class="card card--flush day-plan" data-day-plan="sun" hidden>
+      <div class="card__head"><h2 class="card__title">Sunday</h2></div>
+      <ul class="list">
+        <li><div class="row"><span class="row__index">08:30</span><span class="row__main"><span class="row__name">Breakfast</span><span class="row__meta">Two idli, sambar, one boiled egg</span></span></div></li>
+        <li><div class="row"><span class="row__index">13:30</span><span class="row__main"><span class="row__name">Lunch</span><span class="row__meta">Family meal, one plate, no second helping</span></span></div></li>
+        <li><div class="row"><span class="row__index">17:00</span><span class="row__main"><span class="row__name">Evening</span><span class="row__meta">Buttermilk, roasted chana</span></span></div></li>
+        <li><div class="row"><span class="row__index">20:30</span><span class="row__main"><span class="row__name">Dinner</span><span class="row__meta">Vegetable soup, two rotis</span></span></div></li>
+      </ul>
+    </section>
+
+    <div class="phone-only">
+      <button type="button" class="btn" data-week-toggle aria-expanded="false">
+        <span data-week-toggle-label>Show the whole week as a grid</span>
+      </button>
+    </div>
+
+    <section class="card card--flush week-card" aria-label="The whole week">
+      <div class="card__head">
+        <div>
+          <h2 class="card__title">The whole week</h2>
+          <p class="card__sub">By hour and by day. The plan repeats, so what repeats is said once.</p>
+        </div>
+        <!-- TOOLTIP THREE OF THREE, shown open. -->
+        <div class="tip tip--end tip-room" data-open="true">
+          <button type="button" class="tip__target" aria-expanded="true">
+            <svg class="icon icon--small" aria-hidden="true"><use href="#g-help-explain"/></svg>
+            Same as Monday
+          </button>
+          <div class="tip__bubble" role="tooltip">
+            The plan repeats across the week, so where a day is identical to an earlier one it
+            says so instead of printing the same meal again. Tap any cell to break the repeat
+            and write something different for that day only. Nothing is hidden from you: the
+            exported chart writes every day out in full.
+          </div>
+        </div>
+      </div>
+      <div class="week">
+        <table class="week__grid">
+          <caption class="visually-hidden">Weeknight plan for Priya Menon, by hour and by day</caption>
+          <thead>
+            <tr>
+              <th scope="col"><span class="visually-hidden">Time</span></th>
+              <th scope="col">Mon</th><th scope="col">Tue</th><th scope="col">Wed</th>
+              <th scope="col">Thu</th><th scope="col">Fri</th><th scope="col">Sat</th><th scope="col">Sun</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">07:00</th>
+              <td><div class="meal"><span class="meal__label">Breakfast</span><ul class="meal__items"><li>Two idli, sambar</li><li>One boiled egg</li></ul></div></td>
+              <td><div class="meal"><span class="meal__label">Breakfast</span><ul class="meal__items"><li>Oats with milk</li><li>Handful of berries</li></ul></div></td>
+              <td><div class="meal"><span class="meal__label">Breakfast</span><ul class="meal__items"><li>Three egg white omelette</li><li>Two slices brown bread</li></ul></div></td>
+              <td><span class="meal--repeat">Same as Monday</span></td>
+              <td><span class="meal--repeat">Same as Tuesday</span></td>
+              <td><div class="meal"><span class="meal__label">08:00 Breakfast</span><ul class="meal__items"><li>Two dosa, chutney</li><li>One boiled egg</li></ul></div></td>
+              <td><div class="meal"><span class="meal__label">08:30 Breakfast</span><ul class="meal__items"><li>Two idli, sambar</li><li>One boiled egg</li></ul></div></td>
+            </tr>
+            <tr>
+              <th scope="row">10:30</th>
+              <td><div class="meal"><span class="meal__label">Mid morning</span><ul class="meal__items"><li>Banana</li><li>Ten almonds</li></ul></div></td>
+              <td><div class="meal"><span class="meal__label">Mid morning</span><ul class="meal__items"><li>Buttermilk</li><li>Roasted chana</li></ul></div></td>
+              <td><div class="meal"><span class="meal__label">Mid morning</span><ul class="meal__items"><li>Apple</li><li>Ten walnuts</li></ul></div></td>
+              <td><span class="meal--repeat">Same as Tuesday</span></td>
+              <td><span class="meal--repeat">Same as Monday</span></td>
+              <td><div class="meal"><span class="meal__label">11:00 Mid morning</span><ul class="meal__items"><li>Apple</li><li>Ten walnuts</li></ul></div></td>
+              <td><span class="meal--repeat">Nothing planned</span></td>
+            </tr>
+            <tr>
+              <th scope="row">13:00</th>
+              <td><div class="meal"><span class="meal__label">Lunch</span><ul class="meal__items"><li>Two rotis, dal</li><li>Cabbage poriyal, curd</li></ul></div></td>
+              <td><div class="meal"><span class="meal__label">Lunch</span><ul class="meal__items"><li>Brown rice, rasam</li><li>Beetroot thoran, curd</li></ul></div></td>
+              <td><div class="meal"><span class="meal__label">Lunch</span><ul class="meal__items"><li>Two rotis, rajma</li><li>Mixed vegetable, curd</li></ul></div></td>
+              <td><div class="meal"><span class="meal__label">Lunch</span><ul class="meal__items"><li>Brown rice, dal</li><li>Cabbage poriyal, curd</li></ul></div></td>
+              <td><div class="meal"><span class="meal__label">Lunch</span><ul class="meal__items"><li>Two rotis, rajma</li><li>Beetroot thoran, curd</li></ul></div></td>
+              <td><div class="meal"><span class="meal__label">13:30 Lunch</span><ul class="meal__items"><li>Half cup rice, chicken curry</li><li>Mixed vegetable</li></ul></div></td>
+              <td><div class="meal"><span class="meal__label">13:30 Lunch</span><ul class="meal__items"><li>Family meal, one plate</li><li>No second helping</li></ul></div></td>
+            </tr>
+            <tr>
+              <th scope="row">16:30</th>
+              <td><div class="meal"><span class="meal__label">Before training</span><ul class="meal__items"><li>Black coffee</li><li>One date</li></ul></div></td>
+              <td><div class="meal"><span class="meal__label">Before training</span><ul class="meal__items"><li>Green tea</li><li>Two dates</li></ul></div></td>
+              <td><div class="meal"><span class="meal__label">Before training</span><ul class="meal__items"><li>Black coffee</li><li>One banana</li></ul></div></td>
+              <td><span class="meal--repeat">Same as Monday</span></td>
+              <td><span class="meal--repeat">Same as Tuesday</span></td>
+              <td><div class="meal"><span class="meal__label">17:00 Before training</span><ul class="meal__items"><li>Green tea</li><li>One banana</li></ul></div></td>
+              <td><div class="meal"><span class="meal__label">17:00 Evening</span><ul class="meal__items"><li>Buttermilk</li><li>Roasted chana</li></ul></div></td>
+            </tr>
+            <tr>
+              <th scope="row">20:00</th>
+              <td><div class="meal"><span class="meal__label">Dinner</span><ul class="meal__items"><li>Grilled fish</li><li>Sauteed beans, half cup rice</li></ul></div></td>
+              <td><div class="meal"><span class="meal__label">Dinner</span><ul class="meal__items"><li>Paneer bhurji, two rotis</li><li>Cucumber salad</li></ul></div></td>
+              <td><div class="meal"><span class="meal__label">Dinner</span><ul class="meal__items"><li>Chicken curry, half cup rice</li><li>Spinach</li></ul></div></td>
+              <td><span class="meal--repeat">Same as Monday</span></td>
+              <td><span class="meal--repeat">Same as Tuesday</span></td>
+              <td><div class="meal"><span class="meal__label">20:30 Dinner</span><ul class="meal__items"><li>Vegetable soup, two rotis</li><li>Curd</li></ul></div></td>
+              <td><div class="meal"><span class="meal__label">20:30 Dinner</span><ul class="meal__items"><li>Vegetable soup</li><li>Two rotis</li></ul></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card__head"><h2 class="card__title">From here you can also go to</h2></div>
+      <div class="now__controls">
+        <a class="btn btn--quiet" href="#client-record"><svg class="icon icon--small" aria-hidden="true"><use href="#g-link-forward"/></svg> Priya Menon's record</a>
+        <a class="btn btn--quiet" href="#diet-week"><svg class="icon icon--small" aria-hidden="true"><use href="#g-link-forward"/></svg> Her earlier plans</a>
+        <a class="btn btn--quiet" href="#session-runner"><svg class="icon icon--small" aria-hidden="true"><use href="#g-link-forward"/></svg> Her sessions</a>
+      </div>
+    </section>
+  </div>
+</div>
+
+        </div>
+      </div>
+      <div class="device device--phone">
+        <p class="device__caption">Phone</p>
+        <div class="device__screen app-viewport" data-clone-of="diet"></div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- =====================================================================
+       NAVIGATION, LAPTOP
+       ===================================================================== -->
+  <section class="sheet-section" id="navigation-laptop" data-sheet-part>
+    <header class="sheet-section__head">
+      <h2 class="sheet-section__title">The navigation surface, laptop</h2>
+      <p class="sheet-section__note">
+        Two layers that never overlap, shown working together rather than separately. The
+        permanent sidebar carries the five destinations, always expanded, never collapsible,
+        with the current one filled and marked by a 3px bar down its leading edge so the
+        selection is a shape as well as a tint. Inside the content, the contextual layer
+        carries the to-and-fro: a breadcrumb saying where you are and a way back that says
+        where it goes. A destination never appears in the contextual layer and a contextual
+        action never appears in the sidebar, so the two never disagree about where you are.
+      </p>
+    </header>
+    <div class="frames">
+      <div class="device device--laptop device--pinned">
+        <p class="device__caption">Laptop, 248px sidebar</p>
+        <div class="device__screen app-viewport" data-clone-of="client"></div>
+      </div>
+    </div>
+    <p class="sheet-note">
+      Every screen here reaches every other one. The labelled way back and the contextual
+      links at the foot of each screen mean the browser back button is never the only way out
+      of anywhere, and no screen is a dead end.
+    </p>
+  </section>
+
+
+  <!-- =====================================================================
+       NAVIGATION, PHONE
+       ===================================================================== -->
+  <section class="sheet-section" id="navigation-phone" data-sheet-part>
+    <header class="sheet-section__head">
+      <h2 class="sheet-section__title">The navigation surface, phone</h2>
+      <p class="sheet-section__note">
+        The same five destinations, the same order and the same words, as a 56px bottom bar
+        with the icon above the label and room reserved beneath it for the home indicator. The
+        selected marker moves to the top edge of the destination but stays the same 3px accent
+        bar, because the shape half of the selected state must not change between devices. The
+        synchronisation strip sits directly above the bar, where it is impossible to miss and
+        still blocks nothing.
+      </p>
+    </header>
+    <div class="frames">
+      <div class="device device--phone device--pinned">
+        <p class="device__caption">Phone, 56px bottom bar</p>
+        <div class="device__screen app-viewport" data-clone-of="client"></div>
+      </div>
+      <div class="device device--phone device--pinned">
+        <p class="device__caption">The same session runner at 390px</p>
+        <div class="device__screen app-viewport" data-clone-of="session"></div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- =====================================================================
+       THE SYNCHRONISATION STATES
+       ===================================================================== -->
+  <section class="sheet-section" id="sync-states" data-sheet-part>
+    <header class="sheet-section__head">
+      <h2 class="sheet-section__title">The synchronisation indicator, every state</h2>
+      <p class="sheet-section__note">
+        Permanently visible, never a modal, and it never blocks anything. Five of these are
+        rungs on a time ladder and they resolve themselves. The sixth is not a rung at all: a
+        rejected change is a difference of kind rather than of degree, because a delay resolves
+        itself when a connection or a sign-in returns, and a rejection resolves itself never
+        and needs a person. Folding it into the ladder would leave a permanently lost change
+        sitting at the bottom of the ladder reading as perfectly healthy.
+      </p>
+    </header>
+
+    <div class="state-grid">
+      <article class="state-card">
+        <h3 class="state-card__name">Backed up</h3>
+        <div class="sync" data-state="backed-up" role="status">
+          <svg class="icon sync__icon" aria-hidden="true"><use href="#g-sync-backed-up"/></svg>
+          <span class="sync__text">Backed up 4 minutes ago. <span class="sync__count">Nothing waiting.</span></span>
+        </div>
+        <p class="state-card__why">A solid bar, a filled cloud with a tick, and the time in words. The calm state still says when, because a coach who cannot see when is a coach guessing.</p>
+      </article>
+
+      <article class="state-card">
+        <h3 class="state-card__name">Waiting</h3>
+        <div class="sync" data-state="pending" role="status">
+          <svg class="icon sync__icon" aria-hidden="true"><use href="#g-sync-pending"/></svg>
+          <span class="sync__text">Backed up 11 minutes ago. <span class="sync__count">Three changes waiting.</span></span>
+        </div>
+        <p class="state-card__why">Ordinary and not an alarm. The queue glyph is a set of lines moving out, and the count is named rather than implied.</p>
+      </article>
+
+      <article class="state-card">
+        <h3 class="state-card__name">Waiting long enough to notice</h3>
+        <div class="sync" data-state="warning" role="status">
+          <svg class="icon sync__icon" aria-hidden="true"><use href="#g-sync-pending-warning"/></svg>
+          <span class="sync__text">Not backed up for 8 hours. <span class="sync__count">Twelve changes waiting.</span></span>
+          <button type="button" class="btn btn--small sync__action">Back up now</button>
+        </div>
+        <p class="state-card__why">From six hours. The strip fills, the marker widens by half, and the glyph becomes a bell. Three things change, not one.</p>
+      </article>
+
+      <article class="state-card">
+        <h3 class="state-card__name">Waiting long enough to act on</h3>
+        <div class="sync" data-state="overdue" role="alert">
+          <svg class="icon sync__icon" aria-hidden="true"><use href="#g-sync-pending-overdue"/></svg>
+          <span class="sync__text">Not backed up for 2 days. <span class="sync__count">Forty one changes waiting.</span></span>
+          <button type="button" class="btn btn--small sync__action">Back up now</button>
+        </div>
+        <p class="state-card__why">From twenty four hours. A triangle, the widest marker, and the loudest fill. It recurs on every screen and it still never blocks the application, because an app that refuses to open loses the very session it was protecting.</p>
+      </article>
+
+      <article class="state-card">
+        <h3 class="state-card__name">Working without a connection</h3>
+        <div class="sync" data-state="offline" role="status">
+          <svg class="icon sync__icon" aria-hidden="true"><use href="#g-sync-offline"/></svg>
+          <span class="sync__text">Working from this device. <span class="sync__count">No connection. Everything is saved here.</span></span>
+        </div>
+        <p class="state-card__why">This is the application working as designed, not a fault. The local copy is the primary one. The marker is a broken bar rather than a filled one, the glyph is a device rather than a warning, and nothing here is red. A coach training in a basement gym on an ordinary Tuesday must not be told something is broken, or he stops reading the strip on the day it matters.</p>
+      </article>
+
+      <article class="state-card">
+        <h3 class="state-card__name">Refused, and not on the ladder</h3>
+        <div class="sync" data-state="rejected" role="alert">
+          <svg class="icon sync__icon" aria-hidden="true"><use href="#g-sync-failed"/></svg>
+          <span class="sync__text">One change was refused and will not retry. <span class="sync__count">Wednesday's session note for Sneha Iyer.</span></span>
+          <button type="button" class="btn btn--small sync__action">Show me</button>
+        </div>
+        <p class="state-card__why">A different kind rather than a worse degree, so it is drawn differently: an outlined strip with a rule above and below rather than a fill, a crossed-out glyph, and the refused item named. It says what will not happen and what it was, because a rejection needs a person and a count will never tell him that.</p>
+      </article>
+    </div>
+
+    <h3 class="section-title">The same six with the colour taken away</h3>
+    <p class="sheet-note">
+      This is how they are read on a greyscale screenshot, on a phone in bright sunlight, over
+      a compressed video call, and by someone who cannot tell green from amber. If two of them
+      were hard to tell apart here, the set would have failed however it looked in colour.
+    </p>
+    <div class="silhouettes">
+      <span class="silhouette"><svg class="icon" aria-hidden="true"><use href="#g-sync-backed-up"/></svg> Backed up</span>
+      <span class="silhouette"><svg class="icon" aria-hidden="true"><use href="#g-sync-pending"/></svg> Waiting</span>
+      <span class="silhouette"><svg class="icon" aria-hidden="true"><use href="#g-sync-pending-warning"/></svg> Notice</span>
+      <span class="silhouette"><svg class="icon" aria-hidden="true"><use href="#g-sync-pending-overdue"/></svg> Act on</span>
+      <span class="silhouette"><svg class="icon" aria-hidden="true"><use href="#g-sync-offline"/></svg> Offline</span>
+      <span class="silhouette"><svg class="icon" aria-hidden="true"><use href="#g-sync-failed"/></svg> Refused</span>
+    </div>
+  </section>
+
+
+  <!-- =====================================================================
+       TOOLTIPS
+       ===================================================================== -->
+  <section class="sheet-section" id="tooltips" data-sheet-part>
+    <header class="sheet-section__head">
+      <h2 class="sheet-section__title">Tooltips, open</h2>
+      <p class="sheet-section__note">
+        Below the target, on the raised surface, eight pixel corners, no arrow, and flat like
+        everything else in Ledger. Two hundred milliseconds to open and none to close, and they
+        open on keyboard focus as well as on hover. They are written in the coach's words and
+        they say what the thing does for him. Nothing needed to finish a task ever lives only
+        inside one. All three below are shown open here and each is also shown open in place on
+        the screen it belongs to.
+      </p>
+    </header>
+    <div class="tip-gallery">
+      <div class="tip-case">
+        <p class="tip-case__label">On the session runner, beside the intensity patterns.</p>
+        <div class="tip tip-room" data-open="true">
+          <button type="button" class="tip__target" aria-expanded="true">
+            <svg class="icon icon--small" aria-hidden="true"><use href="#g-help-explain"/></svg>
+            What does pressing one of these do
+          </button>
+          <div class="tip__bubble" role="tooltip">
+            It rebuilds today's session to follow that shape. The exercises move into a new
+            order and the repetitions, timers and rest change with them. Nothing is saved until
+            you accept it, and you can still change any single value afterwards. It never
+            suggests a heavier weight, because that is your call and not the application's.
+          </div>
+        </div>
+      </div>
+
+      <div class="tip-case">
+        <p class="tip-case__label">On a client record, beside the adaptation flag.</p>
+        <div class="tip tip-room" data-open="true">
+          <button type="button" class="tip__target" aria-expanded="true">
+            <svg class="icon icon--small" aria-hidden="true"><use href="#g-help-explain"/></svg>
+            Why can I not type the medical history here
+          </button>
+          <div class="tip__bubble" role="tooltip">
+            Because this application cannot keep it as safely as your own records can. It runs
+            in a browser and backs up to your own Google Drive, so anything typed here travels
+            there too. Keep the real detail where you already keep it, and put a short reminder
+            here plus a link to the file. You get one tap to what you need, and the sensitive
+            part never enters the application at all.
+          </div>
+        </div>
+      </div>
+
+      <div class="tip-case">
+        <p class="tip-case__label">On the synchronisation strip, on every screen.</p>
+        <div class="tip tip-room" data-open="true">
+          <button type="button" class="tip__target" aria-expanded="true">
+            <svg class="icon icon--small" aria-hidden="true"><use href="#g-what-leaves"/></svg>
+            What does backed up mean
+          </button>
+          <div class="tip__bubble" role="tooltip">
+            Everything you do is saved on this device the moment you do it, whether you have a
+            connection or not. Backed up means a copy has also reached your own Google Drive.
+            It happens when you open the app, when you leave it, when a session ends, and
+            whenever you tap the button. If it has not happened for a while the strip will say
+            so and get louder, but it will never stop you working.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- =====================================================================
+       THE APPLICATION MARK
+       ===================================================================== -->
+  <section class="sheet-section" id="mark" data-sheet-part>
+    <header class="sheet-section__head">
+      <h2 class="sheet-section__title">The application mark</h2>
+      <p class="sheet-section__note">
+        Ledger's own candidate mark rather than one shared between the three directions, because
+        the mark is the first and smallest piece of the look: it sits on a home screen beside
+        the coach's other applications long before he opens anything. A ruled line with three
+        rising marks standing on it, drawn flat in the direction's own burnt sienna and warm
+        paper. Two colours, one silhouette and no fine detail, so it survives the sixteen pixel
+        size a browser tab actually uses.
+      </p>
+    </header>
+    <div class="mark-row">
+      <span class="mark-sample"><img src="mark.svg" alt="The Fit application mark at 16 pixels" width="16" height="16"> 16</span>
+      <span class="mark-sample"><img src="mark.svg" alt="The Fit application mark at 32 pixels" width="32" height="32"> 32</span>
+      <span class="mark-sample"><img src="mark.svg" alt="The Fit application mark at 48 pixels" width="48" height="48"> 48</span>
+      <span class="mark-sample"><img src="mark.svg" alt="The Fit application mark at 64 pixels" width="64" height="64"> 64</span>
+      <span class="mark-sample mark-sample--home"><img src="mark.svg" alt="The Fit application mark at 120 pixels, the iPhone home screen size" width="120" height="120"> 120, home screen</span>
+      <span class="mark-sample mark-sample--home"><img src="mark.svg" alt="The Fit application mark at 180 pixels, the iPhone home screen size at three times scale" width="180" height="180"> 180, home screen</span>
+      <span class="mark-sample"><img src="mark.svg" alt="The Fit application mark at 256 pixels" width="256" height="256"> 256</span>
+    </div>
+    <p class="sheet-note">
+      The two home screen samples sit on the raised surface rather than on the page floor, so
+      the mark can be judged against something other than its own background. It is a single
+      file at every size: an operating system renders an installable icon with no stylesheet
+      loaded, which is why this one file carries its two colours literally instead of reading
+      them from the token layer the way every screen above does.
+    </p>
+  </section>
+
+</main>
+
+<script src="demo.js"></script>
+</body>
+</html>

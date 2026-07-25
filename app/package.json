@@ -12,10 +12,11 @@
     "build": "vite build && node tools/finish-build.mjs",
     "preview": "vite preview",
     "test": "node tools/run-core-tests.mjs",
-    "test:shell": "node --test src/platform/storage-persistence.test.ts src/shell/navigation.test.ts",
-    "test:tools": "node --test tools/source-stamp.test.mjs",
+    "test:shell": "node tools/run-suite-tests.mjs shell",
+    "test:tools": "node tools/run-suite-tests.mjs tools",
     "typecheck": "tsc -p tsconfig.json",
-    "icons": "node tools/make-placeholder-icons.mjs",
+    "icons": "node tools/make-icons.mjs",
+    "glyphs": "node tools/make-glyphs.mjs",
     "check:stale": "node tools/check-stale.mjs"
   },
   "dependencies": {

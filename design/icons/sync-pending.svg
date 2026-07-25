@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+  <title>Synchronisation pending</title>
+  <path d="M3 7h11M3 12h16M3 17h11"/>
+  <path d="m15 8 4 4-4 4"/>
+</svg>

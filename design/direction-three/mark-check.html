@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<!--
+  THE MARK, AT THE SIZES IT HAS TO SURVIVE.
+
+  Not decoration and not a second sheet: an installable icon is rasterised by the operating
+  system at sizes nobody here controls, so the only honest way to judge one is to look at it
+  small. Sixteen and thirty-two pixels are where a mark that looked considered at five hundred
+  turns to mud, and the greyscale row is what a colour-blind reader, a phone in sunlight and a
+  compressed video call are left with.
+
+  This page earned its place rather than being scaffolding. The first version of the mark passed
+  every mechanical check and read as a PLUS SIGN at every size below 120 pixels, and nothing but
+  rendering it here said so.
+
+  It uses the shared token layer like everything else, so it carries no colour of its own.
+-->
+<html lang="en-GB" data-palette="ink-neutral">
+<head>
+<meta charset="utf-8">
+<title>The Roster mark at real sizes</title>
+<link rel="stylesheet" href="../tokens/base.css">
+<link rel="stylesheet" href="../tokens/palettes.css">
+<style>
+  body {
+    margin: 0;
+    padding: var(--space-5);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-6);
+    align-items: flex-end;
+    /*
+     * Deliberately a mid surface rather than the page floor. A home-screen icon is composited
+     * against an unknown wallpaper, so judging one on a pale page flatters it.
+     */
+    background: var(--fill-neutral);
+    color: var(--text-on-neutral);
+    font-family: ui-monospace, "Cascadia Mono", "Segoe UI Mono", monospace;
+    font-size: var(--type-meta);
+  }
+
+  figure {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    align-items: center;
+  }
+
+  .greyscale img {
+    filter: grayscale(1);
+  }
+</style>
+</head>
+<body>
+  <figure><img src="mark.svg" width="256" height="256" alt="The Roster application mark at 256 pixels"><figcaption>256</figcaption></figure>
+  <figure><img src="mark.svg" width="180" height="180" alt=""><figcaption>180 iPhone</figcaption></figure>
+  <figure><img src="mark.svg" width="120" height="120" alt=""><figcaption>120</figcaption></figure>
+  <figure><img src="mark.svg" width="64" height="64" alt=""><figcaption>64</figcaption></figure>
+  <figure><img src="mark.svg" width="32" height="32" alt=""><figcaption>32 tab</figcaption></figure>
+  <figure><img src="mark.svg" width="16" height="16" alt=""><figcaption>16</figcaption></figure>
+  <figure class="greyscale"><img src="mark.svg" width="64" height="64" alt=""><figcaption>64 greyscale</figcaption></figure>
+  <figure class="greyscale"><img src="mark.svg" width="16" height="16" alt=""><figcaption>16 greyscale</figcaption></figure>
+</body>
+</html>

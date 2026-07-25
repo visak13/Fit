@@ -30,11 +30,13 @@
  *
  * ## Who reads these
  *
- * - `vite.config.ts`      — `base` and `build.outDir`.
+ * - `vite.config.ts`      — `base`, `build.outDir`, and the one directory outside this application
+ *                              that the bundler is allowed to read from.
  * - `tools/finish-build.mjs` — where to write the build record and the service worker.
  * - `tools/check-stale.mjs`  — where to find the build record to compare against.
  * - `tools/source-stamp.mjs` — which directory to EXCLUDE from the stamp, since the artefact must
- *                              never be an input to the hash that judges it.
+ *                              never be an input to the hash that judges it; and which files
+ *                              OUTSIDE this application feed it.
  *
  * Plain ECMAScript with no imports, so both the TypeScript config file and the plain-Node tools
  * can read it without a build step standing between them.
@@ -68,3 +70,71 @@ export const BASE_PATH = '/Fit/';
  * @type {string}
  */
 export const BUNDLER_MANIFEST_FILE = '.vite/manifest.json';
+
+/**
+ * THE TOKEN LAYER — the one place the application's visual vocabulary is defined, and it lives
+ * OUTSIDE this application.
+ *
+ * `design/tokens/` is shared: three visual directions were built against it and a contrast harness
+ * measures it as a whole. The application consumes it from there. It is NOT copied in, and the
+ * reason is the failure mode rather than the tidiness: a copy is a second source of truth, and
+ * `design/contrast.mjs` measures the ORIGINAL. The harness would go on passing at 390 of 390 while
+ * the application drifted away from the values it was measuring, and every signal would stay green.
+ *
+ * Path is relative to the application root, in POSIX form, because both the bundler config and the
+ * plain-Node tools join it against that root.
+ *
+ * @type {string}
+ */
+export const TOKEN_LAYER_DIRECTORY = '../design/tokens';
+
+/**
+ * THE GLYPH FAMILY'S ONE HOME — forty-nine SVGs, also OUTSIDE this application.
+ *
+ * `design/icons/` is shared in the same sense `design/tokens/` is: it was drawn once, against all
+ * three directions, and `design/icons/index.html` is the family sheet it was reviewed on. The
+ * application does not read it at runtime and the bundler never sees it. `tools/make-glyphs.mjs`
+ * reads it at AUTHORING time and writes `src/design/glyphs.generated.ts`, which is what ships.
+ *
+ * ## Why this is NOT in `TOKEN_LAYER_FILES`, and it is a deliberate answer rather than an omission
+ *
+ * The rule this project learned the hard way is that a shared layer consumed from its one home must
+ * be added to the freshness marker in the same change, or the one-home decision quietly creates the
+ * failure it was meant to prevent. That rule is about files the BUILD READS: a token can change and
+ * the committed artefact goes on claiming to be fresh, because nothing hashed changed.
+ *
+ * These do not have that shape. Editing an SVG here cannot alter a byte of the artefact — the
+ * artefact is derived from the GENERATED module, which lives under `src/` and is hashed like any
+ * other source file. Adding these to the stamp would report `dist/` stale for an edit that provably
+ * did not reach it, which is the cries-wolf failure the stamp's own header warns about.
+ *
+ * What could still go wrong is different, so it is guarded differently: an SVG edited without the
+ * generator being re-run. That is a DRIFT between two files, not a stale artefact, and
+ * `src/design/glyphs.test.ts` re-derives the module from this directory on every `npm run
+ * test:shell` and fails if a single byte differs.
+ *
+ * Path is relative to the application root, in POSIX form, for the same reason the token layer's is.
+ *
+ * @type {string}
+ */
+export const GLYPH_SOURCE_DIRECTORY = '../design/icons';
+
+/**
+ * The token files the bundle actually contains, relative to the application root.
+ *
+ * Only the two stylesheets are listed, and deliberately: they are what the build reads and what
+ * ships. `palettes.mjs` generates `palettes.css` and `README.md` documents the layer, but neither
+ * can alter a byte of the artefact — and `design/contrast.mjs` already fails if the generated
+ * stylesheet has drifted from its source, so nothing is left unguarded by leaving them out. A
+ * freshness marker that fires on a README edit is a marker people learn to ignore.
+ *
+ * Read by `tools/source-stamp.mjs`, so that editing a token makes `dist/` report STALE. Without
+ * this the application could ship a rebuilt bundle whose colours came from an older token layer
+ * and `npm run check:stale` would answer FRESH.
+ *
+ * @type {readonly string[]}
+ */
+export const TOKEN_LAYER_FILES = Object.freeze([
+  `${TOKEN_LAYER_DIRECTORY}/base.css`,
+  `${TOKEN_LAYER_DIRECTORY}/palettes.css`,
+]);

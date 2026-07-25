@@ -18,10 +18,13 @@ import { mkdtemp, mkdir, rm, writeFile, rename } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import { OUTPUT_DIRECTORY } from './build-config.mjs';
+import { OUTPUT_DIRECTORY, TOKEN_LAYER_FILES } from './build-config.mjs';
 import { computeSourceStamp, listSourceFiles } from './source-stamp.mjs';
 
 let root;
+/** The temporary directory the stand-in application is rooted INSIDE, so it has a parent to reach
+ * into. The token layer lives outside the application, so a tree with no parent cannot test it. */
+let workspace;
 
 /** A minimal stand-in for the application's own layout. */
 async function buildTree(at) {
@@ -37,7 +40,7 @@ async function buildTree(at) {
   await writeFile(path.join(at, 'core', 'model', 'model.test.js'), 'import "node:test";\n');
   await writeFile(path.join(at, 'core', 'model', 'index.js'), 'import "./model.test.js";\n');
   await writeFile(path.join(at, 'public', 'manifest.webmanifest'), '{"name":"Fit"}\n');
-  await writeFile(path.join(at, 'public', 'icons', 'placeholder-192.png'), 'not really a png');
+  await writeFile(path.join(at, 'public', 'icons', 'icon-192.png'), 'not really a png');
   await writeFile(path.join(at, 'index.html'), '<!doctype html>\n');
   await writeFile(path.join(at, 'package.json'), '{"name":"fit-app"}\n');
   await writeFile(path.join(at, 'node_modules', 'somewhere', 'lib.js'), 'export const d = 4;\n');
@@ -45,12 +48,22 @@ async function buildTree(at) {
 }
 
 before(async () => {
-  root = await mkdtemp(path.join(tmpdir(), 'fit-stamp-'));
+  workspace = await mkdtemp(path.join(tmpdir(), 'fit-stamp-'));
+  // The application sits one level down, exactly as it does in the repository, so the token layer
+  // beside it can be written and changed the way the real one is.
+  root = path.join(workspace, 'app');
+  await mkdir(root, { recursive: true });
   await buildTree(root);
+
+  for (const file of TOKEN_LAYER_FILES) {
+    const absolute = path.join(root, file);
+    await mkdir(path.dirname(absolute), { recursive: true });
+    await writeFile(absolute, ':root { --token: 1px; }\n');
+  }
 });
 
 after(async () => {
-  await rm(root, { recursive: true, force: true });
+  await rm(workspace, { recursive: true, force: true });
 });
 
 describe('the source stamp', () => {
@@ -79,6 +92,25 @@ describe('the source stamp', () => {
     await writeFile(path.join(root, 'public', 'manifest.webmanifest'), '{"name":"Fit!"}\n');
     const after = await computeSourceStamp(root);
     assert.notEqual(after.stamp, before.stamp);
+  });
+
+  it('MOVES WHEN THE SHARED TOKEN LAYER CHANGES, which is the input the walk cannot reach', async () => {
+    // The token layer is bundled from its one home OUTSIDE this application rather than copied in,
+    // so no amount of walking src/, core/, public/ and tools/ will ever see it. If it were left out
+    // of the stamp, a colour changed in the shared layer would rebuild the bundle and leave
+    // `check:stale` answering FRESH over an artefact painted from older values — the freshness
+    // marker reporting green at precisely the moment it exists to report red.
+    const before = await computeSourceStamp(root);
+    await writeFile(path.join(root, TOKEN_LAYER_FILES[0]), ':root { --token: 2px; }\n');
+    const after = await computeSourceStamp(root);
+    assert.notEqual(after.stamp, before.stamp);
+  });
+
+  it('counts every token file rather than only the first one', async () => {
+    const files = await listSourceFiles(root);
+    for (const file of TOKEN_LAYER_FILES) {
+      assert.ok(files.includes(file), `the stamp does not read ${file}`);
+    }
   });
 
   it('moves on a rename even when no content changed at all', async () => {

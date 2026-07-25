@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+  <title>Sign out and erase this device</title>
+  <rect x="4" y="3" width="16" height="14" rx="var(--glyph-radius, 2)"/>
+  <path d="M4 17 2 21h20l-2-4"/>
+  <path d="m8 7 8 6M16 7l-8 6"/>
+</svg>

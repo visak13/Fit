@@ -1,0 +1,963 @@
+<!doctype html>
+<html lang="en-GB" data-theme="light" data-screen="session-runner" data-width="laptop" data-layout="side-by-side">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Choose how the application looks</title>
+<!--
+  THE COMPARISON PACKET.
+
+  This is not a report about the design work. It is the instrument the choice is made with,
+  and it is the only thing from this phase of the project that gets looked at directly.
+
+  WHAT IT DELIBERATELY IS NOT. It is not a fourth design. Everything below is grey, the type
+  is whatever the machine already uses, and there is no styling idea anywhere in it. That is
+  the point: three directions shown inside a strongly styled frame are three directions being
+  judged through that frame, and the frame would win. If this page ever starts looking
+  designed, it has broken.
+
+  HOW IT WORKS. The three directions are real, working documents sitting beside this file.
+  They are not screenshots and they are not descriptions - each panel below is the actual
+  document, loaded, rendered live by the browser. A screenshot can drift away from the thing
+  it depicts; this cannot, because it IS the thing. All three answer the same three
+  parameters in their address - which screen, which theme, which width - so the control bar
+  drives all three at once and the comparison is always like with like.
+
+  NO BUILD STEP AND NO DEPENDENCY. Open it by double-clicking it. The only file it needs
+  besides the three directions is contrast-summary.js, which is generated out of the measured
+  contrast report by design/build-contrast-summary.mjs so that no contrast figure on this page
+  was ever typed by a person.
+
+  ORDER. The three are in alphabetical order by name. That is a deliberately arbitrary rule,
+  chosen because any other order would be an opinion, and the only opinion this page is
+  allowed to express is the one under the heading that says it is an opinion.
+-->
+<script src="contrast-summary.js"></script>
+<style>
+/*
+ * The whole visual vocabulary of this page, and it is intentionally almost nothing: a page,
+ * a slightly raised surface, a hairline, two weights of grey text, and one restrained blue
+ * that appears only on links and focus rings. No accent, no brand, no character.
+ */
+:root {
+  --page: #f4f4f5;
+  --surface: #ffffff;
+  --surface-sunken: #ebebed;
+  --line: #d3d3d7;
+  /* Carries the boundary of every control on this page — the theme, width and show buttons,
+   * the screen select, and the recommendation panel. It is therefore a meaningful boundary
+   * under WCAG 2.2 SC 1.4.11 and needs 3:1, not a hairline's licence. The previous #9b9ba1
+   * measured 2.51:1 on --page and 2.76:1 on --surface, so the controls a non-designer has to
+   * find in order to use this page were the one set of pairs on it that nothing measured.
+   * This value clears 3:1 on all four grounds it can land on: page 3.29, surface 3.62,
+   * sunken 3.04, note-ground 3.29. Same hue relationship as before, only darker. */
+  --line-strong: #86868c;
+  --text: #1c1c1e;
+  --text-quiet: #56565c;
+  --link: #245a8d;
+  --focus: #245a8d;
+  --note-ground: #f7f4ec;
+  --note-line: #b9ab8a;
+
+  --gap: 20px;
+  --radius: 6px;
+
+  color-scheme: light;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+:root[data-theme='dark'] {
+  --page: #171718;
+  --surface: #202022;
+  --surface-sunken: #101011;
+  --line: #37373b;
+  --line-strong: #74747c;
+  --text: #ececed;
+  --text-quiet: #a9a9b0;
+  --link: #8dbde6;
+  --focus: #8dbde6;
+  --note-ground: #232019;
+  --note-line: #7a6c4d;
+
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+/*
+ * A DEFECT FOUND IN THIS PAGE BY LOOKING AT IT, and it is worth the comment because it is
+ * the third time the same shape has appeared in this step. The user agent hides [hidden]
+ * elements with `display: none`, but that is a user-agent rule and ANY author rule setting
+ * `display` beats it. So `.control { display: flex }` quietly kept the "Which one" control on
+ * screen with the attribute correctly set: the markup was right, the script was right, the
+ * DOM inspected as correct, and the control was visible anyway.
+ *
+ * It is a class of fault that reading the code cannot find, because nothing in the code is
+ * wrong. Only rendering it and looking at it finds it.
+ */
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  padding: 0 0 72px;
+  color: var(--text);
+  background: var(--page);
+}
+
+h1, h2, h3 { margin: 0 0 8px; line-height: 1.25; font-weight: 600; }
+h1 { font-size: 1.6rem; }
+h2 { font-size: 1.25rem; }
+h3 { font-size: 1rem; }
+p { margin: 0 0 12px; }
+p:last-child { margin-bottom: 0; }
+
+/* Reading measure. Long lines are the one typographic mistake this page could still make. */
+.read { max-width: 68ch; }
+
+a { color: var(--link); }
+a:focus-visible,
+button:focus-visible,
+select:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+.wrap { max-width: 1560px; margin: 0 auto; padding: 0 24px; }
+
+/* ── The masthead ──────────────────────────────────────────────────────────────────────── */
+.masthead { padding: 32px 0 20px; }
+.masthead p { color: var(--text-quiet); }
+
+/* ── The control bar. It drives all three panels at once, which is the whole trick. ─────── */
+.controls {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  align-items: flex-end;
+  padding: 12px 24px;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.control { display: flex; flex-direction: column; gap: 4px; }
+.control > span { font-size: 0.8125rem; color: var(--text-quiet); }
+.control-row { display: flex; gap: 6px; }
+
+/*
+ * 44px on every control. This page is a review sheet rather than the application, so it is
+ * not bound by the application's own floor - but a page whose job is to let someone judge
+ * whether targets are big enough should not itself be fiddly to press.
+ */
+button, select {
+  min-height: 44px;
+  padding: 0 14px;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+select { padding-right: 8px; }
+button[aria-pressed='true'] {
+  color: var(--surface);
+  background: var(--text);
+  border-color: var(--text);
+}
+
+/* ── Sections ──────────────────────────────────────────────────────────────────────────── */
+section { padding: 36px 0 8px; }
+section > .wrap > h2 { margin-bottom: 4px; }
+.section-lede { max-width: 68ch; margin-bottom: 20px; color: var(--text-quiet); }
+
+/* ── The three panels ──────────────────────────────────────────────────────────────────── */
+.panels {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--gap);
+  align-items: start;
+}
+:root[data-layout='one-at-a-time'] .panels { grid-template-columns: minmax(0, 1fr); }
+:root[data-layout='one-at-a-time'] .panel[data-visible='false'] { display: none; }
+
+.panel {
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.panel > header { padding: 16px 16px 12px; border-bottom: 1px solid var(--line); }
+.panel h3 { font-size: 1.125rem; }
+.panel .axis { margin: 0 0 10px; font-size: 0.8125rem; color: var(--text-quiet); }
+.panel .tradeoff { margin: 0; }
+
+/*
+ * THE STAGE. A direction is embedded at its own true width and then scaled down to fit the
+ * column, so what is on screen is a real rendering reduced rather than a redrawing. The scale
+ * is set from script because it depends on how wide the column turned out to be.
+ *
+ * Scaling is honest about SHAPE and dishonest about DENSITY - a reduced screen always looks
+ * calmer and roomier than it is. That is exactly why the full-size link below every panel is
+ * a requirement and not a convenience, and why it is said in words on the page too.
+ */
+.stage { position: relative; overflow: hidden; background: var(--surface-sunken); }
+.stage iframe {
+  display: block;
+  border: 0;
+  transform-origin: 0 0;
+  transform: scale(var(--stage-scale, 1));
+}
+.panel > footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-top: 1px solid var(--line);
+}
+.open-full {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 14px;
+  color: var(--surface);
+  text-decoration: none;
+  background: var(--text);
+  border-radius: var(--radius);
+}
+.open-full:focus-visible { outline-offset: 3px; }
+
+/*
+ * A NOTE THAT IS A PRICE TAG RATHER THAN A DEFECT REPORT. It is warm-tinted and ruled rather
+ * than red, because none of these is a fault - each is something true about that direction
+ * that the person choosing is entitled to know before choosing it, and colouring it as an
+ * error would tilt the choice this page exists not to tilt.
+ */
+.note {
+  padding: 12px 16px;
+  background: var(--note-ground);
+  border-top: 1px solid var(--line);
+  border-left: 4px solid var(--note-line);
+}
+.note h4 { margin: 0 0 6px; font-size: 0.9375rem; font-weight: 600; }
+.note p { font-size: 0.9375rem; }
+
+/* ── Marks ─────────────────────────────────────────────────────────────────────────────── */
+.mark-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--gap); }
+.mark-card { padding: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.mark-card h3 { margin-bottom: 12px; }
+.mark-ground { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; padding: 16px; border-radius: var(--radius); }
+.mark-ground + .mark-ground { margin-top: 12px; }
+.on-light { color: #1c1c1e; background: #ffffff; border: 1px solid var(--line); }
+.on-dark { color: #f2f2f3; background: #000000; border: 1px solid var(--line); }
+.mark-ground figure { margin: 0; text-align: center; }
+.mark-ground img { display: block; margin: 0 auto 6px; border-radius: 18%; }
+.mark-ground figcaption { font-size: 0.75rem; opacity: 0.8; }
+
+/* ── Evidence table ────────────────────────────────────────────────────────────────────── */
+.table-scroll { overflow-x: auto; }
+table { width: 100%; min-width: 720px; border-collapse: collapse; background: var(--surface); }
+caption { padding-bottom: 8px; color: var(--text-quiet); text-align: left; }
+th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 600; }
+tbody tr:last-child td { border-bottom: 0; }
+.numeric { font-variant-numeric: tabular-nums; white-space: nowrap; }
+code {
+  padding: 2px 6px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.9em;
+  background: var(--surface-sunken);
+  border-radius: 4px;
+}
+
+/* ── The recommendation. The one place on this page allowed to raise its voice. ─────────── */
+.recommendation {
+  padding: 20px 24px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-left: 8px solid var(--text);
+  border-radius: var(--radius);
+}
+.recommendation .label {
+  display: inline-block;
+  margin-bottom: 10px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--surface);
+  background: var(--text);
+  border-radius: 4px;
+}
+
+.plain-block { padding: 20px 24px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.plain-block + .plain-block { margin-top: var(--gap); }
+.plain-block h3 { margin-bottom: 6px; }
+
+.glyph-frame { width: 100%; height: 620px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+
+/*
+ * Below roughly a tablet the three panels stop being a comparison and become three
+ * unreadable slivers, so they stack. The page states this rather than letting it happen
+ * silently, because a three-way comparison viewed one above the other is a different and
+ * weaker thing than a three-way comparison viewed side by side.
+ */
+@media (max-width: 900px) {
+  .panels, .mark-grid { grid-template-columns: minmax(0, 1fr); }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap masthead">
+  <h1>Choose how the application looks</h1>
+  <p class="read">
+    Three complete visual directions were built for the coaching application. They are not three
+    colour schemes of the same thing: each one is laid out differently, moves differently and has
+    its own colours, and sitting in front of any two of them should feel like sitting in front of
+    two different applications. This page is here so you can look at all three doing the same job
+    and pick one.
+  </p>
+  <p class="read">
+    Everything below is live. Each panel is the real direction, loaded and drawn by the browser
+    as you look at it, not a picture of it. The controls drive all three at once, so whatever you
+    change, you are always comparing like with like.
+  </p>
+  <p class="read">
+    They are in alphabetical order. That is on purpose and it is not a ranking. There is a
+    recommendation further down and it says so in large letters.
+  </p>
+</div>
+
+<!--
+  THE CONTROL BAR. Everything it changes, it changes in all three panels at once by rewriting
+  the address each panel is loaded from. The three directions each honour the same three
+  parameters, which is what makes one bar able to drive three independent documents.
+-->
+<div class="controls" role="group" aria-label="What all three panels are showing">
+  <div class="control">
+    <span id="screen-label">Screen</span>
+    <select id="screen" aria-labelledby="screen-label">
+      <option value="session-runner" selected>Running a session</option>
+      <option value="client-list">The list of clients</option>
+      <option value="client-record">One client</option>
+      <option value="diet-week">A week of diet</option>
+      <option value="navigation-laptop">Getting around, on a laptop</option>
+      <option value="navigation-phone">Getting around, on a phone</option>
+      <option value="sync-states">Backup messages</option>
+      <option value="tooltips">Help text</option>
+      <option value="mark">The application mark</option>
+    </select>
+  </div>
+
+  <div class="control">
+    <span id="theme-label">Theme</span>
+    <div class="control-row" role="group" aria-labelledby="theme-label">
+      <button type="button" data-set="theme" data-value="light" aria-pressed="true">Light</button>
+      <button type="button" data-set="theme" data-value="dark" aria-pressed="false">Dark</button>
+    </div>
+  </div>
+
+  <div class="control">
+    <span id="width-label">Width</span>
+    <div class="control-row" role="group" aria-labelledby="width-label">
+      <button type="button" data-set="width" data-value="laptop" aria-pressed="true">Laptop</button>
+      <button type="button" data-set="width" data-value="phone" aria-pressed="false">Phone</button>
+    </div>
+  </div>
+
+  <div class="control">
+    <span id="layout-label">Show</span>
+    <div class="control-row" role="group" aria-labelledby="layout-label">
+      <button type="button" data-set="layout" data-value="side-by-side" aria-pressed="true">All three</button>
+      <button type="button" data-set="layout" data-value="one-at-a-time" aria-pressed="false">One at a time</button>
+    </div>
+  </div>
+
+  <div class="control" id="which-control" hidden>
+    <span id="which-label">Which one</span>
+    <div class="control-row" role="group" aria-labelledby="which-label">
+      <button type="button" data-set="which" data-value="console" aria-pressed="false">Console</button>
+      <button type="button" data-set="which" data-value="ledger" aria-pressed="true">Ledger</button>
+      <button type="button" data-set="which" data-value="roster" aria-pressed="false">Roster</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════════════════
+     THE COMPARISON ITSELF
+     ══════════════════════════════════════════════════════════════════════════════════ -->
+<section aria-labelledby="compare-heading">
+  <div class="wrap">
+    <h2 id="compare-heading">The same screen, three ways</h2>
+    <p class="section-lede">
+      Start with <strong>Running a session</strong>. That is the screen the whole application
+      exists for and it is where the three differ most. The panels are shrunk to fit beside each
+      other, which is fair about shape and misleading about how full a screen feels, so open at
+      least one of them full size before you decide. <strong>One at a time</strong> above shows a
+      single direction across the whole width, which is much closer to the real thing.
+    </p>
+
+    <div class="panels">
+
+      <!-- ───────────────────────────── CONSOLE ───────────────────────────── -->
+      <article class="panel" data-direction="console" data-visible="false" aria-labelledby="console-heading">
+        <header>
+          <h3 id="console-heading">Console</h3>
+          <p class="axis">Fits the most on a screen</p>
+          <p class="tradeoff">
+            Console shows you the most at once and needs the least scrolling, and the price is
+            that it looks busier the moment you open it and is more to take in at the start of a
+            long evening.
+          </p>
+        </header>
+        <div class="stage" data-stage="console"><iframe title="Console, live" loading="lazy"></iframe></div>
+        <div class="note">
+          <h4>One thing to know before choosing Console</h4>
+          <p>
+            Console fits more in by making its rows shorter. Some of those rows are forty pixels
+            tall, and this application set itself a floor of forty-four pixels for anything you tap
+            while a client is talking to you. A row that is itself a link cannot be both. This was
+            left as it is deliberately: making the rows taller would remove the one thing that makes
+            Console different and turn it into Ledger with other colours, which would leave you
+            comparing two of the same thing. Choosing Console means accepting that a few of the rows
+            you tap during a session are slightly smaller than the rest of the application promises.
+          </p>
+        </div>
+        <footer>
+          <a class="open-full" data-open="console" href="direction-two/index.html">Open Console full size</a>
+          <span class="axis">Opens in a new tab</span>
+        </footer>
+      </article>
+
+      <!-- ───────────────────────────── LEDGER ───────────────────────────── -->
+      <article class="panel" data-direction="ledger" data-visible="true" aria-labelledby="ledger-heading">
+        <header>
+          <h3 id="ledger-heading">Ledger</h3>
+          <p class="axis">Calmest to look at</p>
+          <p class="tradeoff">
+            Ledger is the calmest to look at for hours and the easiest to talk someone through, and
+            the price is that on a very full screen it separates one thing from the next a little
+            less sharply than the other two.
+          </p>
+        </header>
+        <div class="stage" data-stage="ledger"><iframe title="Ledger, live" loading="lazy"></iframe></div>
+        <div class="note">
+          <h4>One thing to know before choosing Ledger</h4>
+          <p>
+            Ledger has no shadows and no raised edges anywhere. Everything is held apart by lines,
+            by space, and by one small step in background colour. That is exactly what makes it
+            restful to sit in front of, and it is the same property that will make your fullest
+            screen harder to take in at a glance than either of the other two would. The session
+            screen is the densest thing in this application and it is the one you will be looking
+            at with a client waiting, so this is not a small point. It is a permanent property of
+            the direction rather than something that can be repaired later, and it is the price of
+            choosing Ledger in the same way the other two have theirs.
+          </p>
+          <p>
+            Separately, and unlike the two above, this one has been fixed. The worst single problem
+            found anywhere in this set was in Ledger: on a phone, one exercise name in the session
+            screen was breaking across four lines. You are looking at the repaired version. It is
+            named here rather than quietly left out, because a recommendation you can check is worth
+            more than one you cannot.
+          </p>
+        </div>
+        <footer>
+          <a class="open-full" data-open="ledger" href="direction-one/index.html">Open Ledger full size</a>
+          <span class="axis">Opens in a new tab</span>
+        </footer>
+      </article>
+
+      <!-- ───────────────────────────── ROSTER ───────────────────────────── -->
+      <article class="panel" data-direction="roster" data-visible="false" aria-labelledby="roster-heading">
+        <header>
+          <h3 id="roster-heading">Roster</h3>
+          <p class="axis">Fastest for moving between clients</p>
+          <p class="tradeoff">
+            Roster keeps the list of clients on screen the whole time so moving between people is
+            fastest and you never lose your place, and the price is a permanently narrower working
+            area on the laptop and one more moving part to learn.
+          </p>
+        </header>
+        <div class="stage" data-stage="roster"><iframe title="Roster, live" loading="lazy"></iframe></div>
+        <div class="note">
+          <h4>One thing to know before choosing Roster</h4>
+          <p>
+            The narrow strip of five icons down the left is almost colourless by design. Looked at on
+            a real screen it does read as part of the application rather than as grey furniture, but
+            only because one of the five is always lit up. Cover the lit one and it is five grey
+            shapes on a grey floor, so it would go flat on any screen where nothing is selected.
+            Roster's own specification says its icons are drawn slightly heavier to stop exactly
+            that; at real size that extra weight cannot be seen and is doing none of the work it was
+            given. It passes, and it passes on one thing.
+          </p>
+        </div>
+        <footer>
+          <a class="open-full" data-open="roster" href="direction-three/index.html">Open Roster full size</a>
+          <span class="axis">Opens in a new tab</span>
+        </footer>
+      </article>
+
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════════════════════
+     THE MARKS
+     ══════════════════════════════════════════════════════════════════════════════════ -->
+<section aria-labelledby="marks-heading">
+  <div class="wrap">
+    <h2 id="marks-heading">The icon on the home screen</h2>
+    <p class="section-lede">
+      Each direction has its own mark, and this is the part of the choice you will see most often
+      and think about least. On an iPhone home screen the icon is about sixty pixels across, which
+      is the smallest size shown here; the larger ones are what the phone stores and what appears
+      when the icon is being installed. Each is shown on white and on black because a phone
+      wallpaper can be either.
+    </p>
+
+    <div class="mark-grid">
+      <div class="mark-card">
+        <h3>Console</h3>
+        <div class="mark-ground on-light" data-marks="direction-two/mark.svg"></div>
+        <div class="mark-ground on-dark" data-marks="direction-two/mark.svg"></div>
+      </div>
+      <div class="mark-card">
+        <h3>Ledger</h3>
+        <div class="mark-ground on-light" data-marks="direction-one/mark.svg"></div>
+        <div class="mark-ground on-dark" data-marks="direction-one/mark.svg"></div>
+      </div>
+      <div class="mark-card">
+        <h3>Roster</h3>
+        <div class="mark-ground on-light" data-marks="direction-three/mark.svg"></div>
+        <div class="mark-ground on-dark" data-marks="direction-three/mark.svg"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════════════════════
+     MEASURED CONTRAST
+     ══════════════════════════════════════════════════════════════════════════════════ -->
+<section aria-labelledby="contrast-heading">
+  <div class="wrap">
+    <h2 id="contrast-heading">Every colour pair was measured, not judged by eye</h2>
+    <div class="section-lede read" id="contrast-lede"></div>
+    <div class="table-scroll">
+      <table id="contrast-table">
+        <caption id="contrast-caption"></caption>
+        <thead>
+          <tr>
+            <th scope="col">Direction</th>
+            <th scope="col">Its colours</th>
+            <th scope="col" class="numeric">Pairs measured</th>
+            <th scope="col" class="numeric">Passed</th>
+            <th scope="col" class="numeric">Failed</th>
+            <th scope="col">Its narrowest margin</th>
+          </tr>
+        </thead>
+        <tbody id="contrast-body"></tbody>
+      </table>
+    </div>
+    <p class="read" id="contrast-command" style="margin-top:16px"></p>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════════════════════
+     GLYPHS
+     ══════════════════════════════════════════════════════════════════════════════════ -->
+<section aria-labelledby="glyphs-heading">
+  <div class="wrap">
+    <h2 id="glyphs-heading">The small symbols, at the size they are actually used</h2>
+    <p class="section-lede">
+      All three directions share one set of symbols; they draw them at slightly different weights
+      but the shapes are the same, so this is not part of what you are choosing between. It is
+      here because the only useful way to judge a symbol is to look at it small. Every one is
+      below at sixteen, twenty-four and thirty-two pixels, on light and on dark. If a shape is
+      unrecognisable to you at the smallest size, that is worth saying now.
+    </p>
+    <p><a href="icons/index.html">Open the full symbol sheet in its own tab</a></p>
+    <iframe class="glyph-frame" src="icons/index.html" title="The shared symbol set at sixteen, twenty-four and thirty-two pixels, light and dark" loading="lazy"></iframe>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════════════════════
+     THE RECOMMENDATION
+     ══════════════════════════════════════════════════════════════════════════════════ -->
+<section aria-labelledby="recommendation-heading">
+  <div class="wrap">
+    <div class="recommendation">
+      <span class="label">A recommendation, not a decision</span>
+      <h2 id="recommendation-heading">If it were up to us, we would choose Ledger</h2>
+      <p class="read">
+        The way this application is most likely to fail is not by missing a feature. It is by
+        becoming tiring. A tired coach with a client waiting starts making small mistakes, and then
+        quietly stops using the thing. Ledger is the one built against that: warm rather than
+        clinical, roomy rather than tight, and the least glaring of the three in both themes. Its
+        dark theme sits on true black, which on the iPhone you would actually be using means the
+        screen in an evening session is genuinely dark rather than dark grey.
+      </p>
+      <p class="read">
+        It also asks the least of you. Nothing in it expands when the mouse passes over it, there
+        is no second permanent panel, and nothing behaves differently depending on where the
+        pointer happens to be. That matters more than it sounds, because you will be learning this
+        over a video call, and every moving part is something that has to be explained rather than
+        noticed.
+      </p>
+      <p class="read">
+        It is not free, and the note beside it above says so at full weight: the flatness that makes
+        Ledger restful is the same thing that makes its busiest screen harder to parse in a glance.
+        We think that is the right trade for a three-hour evening. You may not, and there are two
+        specific reasons to overrule us. <strong>Console</strong> is the right answer if, having
+        looked at the session screen and the diet week with real content in them, fitting more on
+        one screen looks like the real problem to solve. <strong>Roster</strong> is the right answer
+        if moving between clients turns out to be what you spend the day doing; it is clearly the
+        best of the three at that and the most expensive at everything else.
+      </p>
+      <p class="read">
+        One thing that is not a trade-off: the colours are swappable. If you like one direction's
+        shape and another's colours, that pairing is safe, because all three sets were measured and
+        all three pass. The layouts are not swappable, because each was drawn to suit the colours
+        it ships with.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════════════════════
+     THE HONEST PART
+     ══════════════════════════════════════════════════════════════════════════════════ -->
+<section aria-labelledby="honesty-heading">
+  <div class="wrap">
+    <h2 id="honesty-heading">Things you should know before you choose</h2>
+    <p class="section-lede">
+      None of these counts against any one direction. They are here because finding them out later
+      is worse than reading them now.
+    </p>
+
+    <div class="plain-block">
+      <h3>What has actually been checked, and what has not</h3>
+      <p class="read">
+        All three have been opened in a real browser, at a laptop width and at a phone width, in
+        both the light and the dark theme, first by the people who built them and then again by an
+        independent pass that went through all three and repaired eight problems. What that means
+        precisely: they were drawn on a screen and looked at. Nobody has run a real session in any
+        of them, and none of them is connected to anything.
+      </p>
+    </div>
+
+    <div class="plain-block">
+      <h3>A small text size that belongs to the set rather than to any one direction</h3>
+      <p class="read">
+        Ledger and Console both show a trail of small text at the top of the content telling you
+        where you are. That text is smaller than the size this application set for reading and
+        smaller than the size it set for tapping. Nothing is unreachable because of it: every
+        screen has a full-size labelled way back and that was checked on every screen. It was left
+        alone because fixing it in one direction and not the other would make those two differ on
+        something that is not part of the choice you are making. It is one type-size decision to
+        settle once you have chosen, and it counts against neither of them.
+      </p>
+    </div>
+
+    <div class="plain-block">
+      <h3>The icon the application installs with is still a placeholder</h3>
+      <p class="read">
+        If you install the application to a phone today you get a plain flat placeholder icon. That
+        is expected sequencing rather than something left unfinished: the real icon is generated
+        from whichever of the three marks above you pick, so it could not be made before this
+        choice. Nothing else in the application is waiting on it.
+      </p>
+    </div>
+
+    <div class="plain-block">
+      <h3>What happens next</h3>
+      <p class="read">
+        Nothing else gets built until you choose. That is deliberate, not a pause for approval.
+        Every remaining screen in the application - the clients, the calendar, the routines, the
+        diet week, the admin panel, the setup guide - is built inside whichever of these three you
+        pick. Changing it afterwards is not a small revision; it is repainting every screen in the
+        rest of the project. So take as long as you want over this one, and it is the last thing
+        anyone needs from you before the building resumes.
+      </p>
+    </div>
+  </div>
+</section>
+
+<script>
+/*
+ * THE PAGE'S ONLY BEHAVIOUR, and there is deliberately not much of it.
+ *
+ *   1. Keep one piece of state - which screen, which theme, which width, which layout - and
+ *      push it into all three panels by rebuilding the address each one is loaded from. The
+ *      three directions each answer the same parameters, so one control bar drives three
+ *      independent documents and they cannot drift out of step.
+ *   2. Scale each embedded direction down to fit its column.
+ *   3. Draw the marks and the measured contrast table.
+ *
+ * No framework, no dependency, nothing fetched. It runs from a double-clicked file.
+ */
+(function () {
+  'use strict';
+
+  var root = document.documentElement;
+
+  /* The three directions, in alphabetical order by name, which is the order they appear in.
+   * The folder names are historical - the order they were built in - and deliberately do not
+   * drive anything on this page. */
+  var DIRECTIONS = [
+    { key: 'console', name: 'Console', folder: 'direction-two', palette: 'slate-blue' },
+    { key: 'ledger', name: 'Ledger', folder: 'direction-one', palette: 'house-sepia' },
+    { key: 'roster', name: 'Roster', folder: 'direction-three', palette: 'ink-neutral' },
+  ];
+
+  /*
+   * The width a direction is loaded AT, before it is scaled down. Wide enough to hold that
+   * direction's own laptop or phone frame with its surrounding margin, so nothing inside is
+   * reflowed by the panel being narrow - the panel shows a real rendering reduced, never a
+   * rendering squeezed into a shape it was not drawn for.
+   */
+  var STAGE = {
+    laptop: { width: 1460, height: 1300 },
+    phone: { width: 470, height: 1300 },
+  };
+  /*
+   * The heights are generous on purpose, and the phone one is the reason. Each direction
+   * introduces its own screen with a paragraph or two before drawing it, which costs almost
+   * nothing at laptop width - the panel is reduced to under a third and the prose shrinks with
+   * it - but at phone width the reduction is barely any, so that same preamble eats the panel
+   * and pushes the phone itself below the fold. Measured by looking at it: at the height these
+   * started on, the phone comparison showed three headings and no telephone.
+   */
+
+  /* Sizes an iPhone actually uses for an application icon. The last is roughly how big it is
+   * on the home screen in front of you; the rest are what the phone stores and shows while
+   * installing. */
+  var MARK_SIZES = [
+    { px: 180, caption: 'stored' },
+    { px: 120, caption: 'installing' },
+    { px: 87, caption: 'in settings' },
+    { px: 60, caption: 'on the home screen' },
+  ];
+
+  var state = {
+    screen: 'session-runner',
+    theme: 'light',
+    width: 'laptop',
+    layout: 'side-by-side',
+    which: 'ledger',
+  };
+
+  /* ── Addresses ─────────────────────────────────────────────────────────────────────────
+   *
+   * `only` is what makes this a comparison rather than three documents side by side: it asks
+   * a direction for one named screen and nothing else. All three answer to it, and to the
+   * same screen names, which is why one selector can drive all three.
+   */
+  function embedUrl(direction) {
+    return direction.folder + '/index.html?only=' + encodeURIComponent(state.screen)
+      + '&theme=' + state.theme
+      + '&width=' + state.width;
+  }
+
+  /*
+   * Only the three shared parameters are passed, and that is a rule rather than an oversight.
+   * Each direction also has one or two controls of its own - whether a frame scrolls inside
+   * its own height or unrolls to its full length, for instance - and those are NOT the same
+   * from one direction to the next. Driving a control that only two of the three understand
+   * would leave the odd one out showing something different for a reason nothing on screen
+   * explains, which is the exact failure this page exists to avoid. If a control is not
+   * shared by all three, it does not belong on this bar.
+   */
+
+  /* The full-size link deliberately drops `only`, because opening a direction on its own is
+   * the moment to look around the rest of it. The fragment still lands on the screen being
+   * compared. */
+  function fullUrl(direction) {
+    return direction.folder + '/index.html?theme=' + state.theme
+      + '&width=' + state.width
+      + '#' + state.screen;
+  }
+
+  /* ── Applying state ───────────────────────────────────────────────────────────────────── */
+  function apply() {
+    root.setAttribute('data-theme', state.theme);
+    root.setAttribute('data-screen', state.screen);
+    root.setAttribute('data-width', state.width);
+    root.setAttribute('data-layout', state.layout);
+
+    document.getElementById('which-control').hidden = state.layout !== 'one-at-a-time';
+
+    DIRECTIONS.forEach(function (direction) {
+      var panel = document.querySelector('.panel[data-direction="' + direction.key + '"]');
+      var frame = panel.querySelector('iframe');
+      var link = panel.querySelector('[data-open="' + direction.key + '"]');
+      var visible = state.layout === 'side-by-side' || state.which === direction.key;
+
+      panel.setAttribute('data-visible', visible ? 'true' : 'false');
+      link.setAttribute('href', fullUrl(direction));
+      link.setAttribute('target', '_blank');
+      link.setAttribute('rel', 'noopener');
+
+      /* Only reload a frame when its address genuinely changed. Reassigning the same src
+       * reloads the document anyway, and three documents reloading on every control press
+       * makes the page flicker and lose its place. */
+      var wanted = embedUrl(direction);
+      if (frame.getAttribute('data-src') !== wanted) {
+        frame.setAttribute('data-src', wanted);
+        frame.setAttribute('src', wanted);
+      }
+    });
+
+    syncPressed();
+    resizeStages();
+  }
+
+  function syncPressed() {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-set]'), function (button) {
+      var key = button.getAttribute('data-set');
+      button.setAttribute('aria-pressed', String(state[key] === button.getAttribute('data-value')));
+    });
+  }
+
+  /* ── Scaling ──────────────────────────────────────────────────────────────────────────
+   *
+   * The frame is laid out at its true width and then reduced with a transform, which is why
+   * what is on screen is a real rendering made smaller rather than a layout redrawn narrow.
+   * The stage's own height has to be set from script to match, because a transform does not
+   * change how much room the browser reserves for the element.
+   */
+  function resizeStages() {
+    var size = STAGE[state.width];
+    Array.prototype.forEach.call(document.querySelectorAll('.stage'), function (stage) {
+      var available = stage.clientWidth;
+      if (!available) return;
+      var scale = available / size.width;
+      var frame = stage.querySelector('iframe');
+      frame.style.width = size.width + 'px';
+      frame.style.height = size.height + 'px';
+      frame.style.setProperty('--stage-scale', scale);
+      stage.style.height = Math.round(size.height * scale) + 'px';
+    });
+  }
+
+  /* ── The marks ────────────────────────────────────────────────────────────────────────── */
+  function drawMarks() {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-marks]'), function (ground) {
+      var source = ground.getAttribute('data-marks');
+      MARK_SIZES.forEach(function (size) {
+        var figure = document.createElement('figure');
+        var image = document.createElement('img');
+        image.src = source;
+        image.width = size.px;
+        image.height = size.px;
+        image.alt = '';
+        var caption = document.createElement('figcaption');
+        caption.textContent = size.px + 'px, ' + size.caption;
+        figure.appendChild(image);
+        figure.appendChild(caption);
+        ground.appendChild(figure);
+      });
+    });
+  }
+
+  /* ── The measured contrast evidence ───────────────────────────────────────────────────
+   *
+   * Every number here comes out of window.CONTRAST_SUMMARY, which is generated by
+   * design/build-contrast-summary.mjs out of design/contrast-report.json, which is written by
+   * design/contrast.mjs. Nothing on this page was typed by hand, and if the palettes change
+   * and nobody re-runs the script, the page says so rather than quoting a stale figure.
+   */
+  function drawContrast() {
+    var summary = window.CONTRAST_SUMMARY;
+    var lede = document.getElementById('contrast-lede');
+    var body = document.getElementById('contrast-body');
+    var caption = document.getElementById('contrast-caption');
+    var command = document.getElementById('contrast-command');
+
+    if (!summary) {
+      lede.textContent = 'The measured contrast figures could not be loaded, because '
+        + 'design/contrast-summary.js is missing. Rather than show numbers that might be wrong, '
+        + 'this page shows none. Run: node design/contrast.mjs && node design/build-contrast-summary.mjs';
+      document.getElementById('contrast-table').hidden = true;
+      return;
+    }
+
+    var verdict = summary.everyMeasuredPairPasses
+      ? 'Every one of them passes.'
+      : 'They do NOT all pass, and that is a defect rather than a trade-off.';
+
+    lede.innerHTML = '<p>One of these three directions uses colours other than the default set,'
+      + ' so it matters that the prettier option was held to the same bar rather than waved'
+      + ' through. It was. A script reads the colours out of the files the directions actually'
+      + ' use and calculates the difference between every pair of them a person will look at -'
+      + ' text on its background, the edge of a box against what is behind it, the focus ring'
+      + ' against both. ' + summary.totals.measured + ' pairs across all three directions in both'
+      + ' themes have a minimum they must clear. ' + verdict + '</p>'
+      + '<p>The measure is ' + summary.standard + '. Ordinary text must reach '
+      + summary.thresholds.text + ' times the brightness of its background; larger text and the'
+      + ' edges of controls must reach ' + summary.thresholds['non-text'] + '. A further '
+      + summary.totals.informational + ' pairs were calculated and recorded but have no minimum'
+      + ' to clear, because they are meant to recede rather than to be read.</p>';
+
+    caption.textContent = 'Measured contrast by direction. The narrowest margin is the tightest'
+      + ' single pair in that direction, which is the honest headline for it - a set of colours is'
+      + ' only as good as its closest call.';
+
+    DIRECTIONS.forEach(function (direction) {
+      var palette = null;
+      summary.palettes.forEach(function (candidate) {
+        if (candidate.id === direction.palette) palette = candidate;
+      });
+      var row = document.createElement('tr');
+      if (!palette) {
+        row.innerHTML = '<th scope="row">' + direction.name + '</th>'
+          + '<td colspan="5">No measurement found for this direction in the report.</td>';
+        body.appendChild(row);
+        return;
+      }
+      var tight = palette.tightest;
+      row.innerHTML = '<th scope="row">' + direction.name + '</th>'
+        + '<td>' + palette.name + '</td>'
+        + '<td class="numeric">' + palette.measured + '</td>'
+        + '<td class="numeric">' + palette.passed + '</td>'
+        + '<td class="numeric">' + palette.failed + '</td>'
+        + '<td><span class="numeric">' + tight.ratio + ' against a floor of ' + tight.threshold
+        + '</span><br>' + tight.context + ', ' + tight.theme + ' theme</td>';
+      body.appendChild(row);
+    });
+
+    command.innerHTML = 'None of this is anyone\'s opinion and none of it was typed in by hand.'
+      + ' You can recalculate the whole thing yourself: open a command prompt in <code>'
+      + summary.commandDirectory + '</code> and run <code>' + summary.command + '</code>.'
+      + ' It prints the full table, rewrites its report, and stops with an error if a single pair'
+      + ' falls short. The figures above are then copied out of that report into this page by'
+      + ' <code>node design/build-contrast-summary.mjs</code>.';
+  }
+
+  /* ── Wiring ───────────────────────────────────────────────────────────────────────────── */
+  Array.prototype.forEach.call(document.querySelectorAll('[data-set]'), function (button) {
+    button.addEventListener('click', function () {
+      state[button.getAttribute('data-set')] = button.getAttribute('data-value');
+      apply();
+    });
+  });
+
+  document.getElementById('screen').addEventListener('change', function (event) {
+    state.screen = event.target.value;
+    apply();
+  });
+
+  window.addEventListener('resize', resizeStages);
+
+  drawMarks();
+  drawContrast();
+  apply();
+}());
+</script>
+
+</body>
+</html>

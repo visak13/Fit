@@ -1,0 +1,1797 @@
+/*
+ * CONSOLE, IN THE APPLICATION — the structural layer every screen mounts on.
+ *
+ * The user looked at three directions and chose CONSOLE. His words are the acceptance bar: it keeps
+ * you engaged, it is minimalistic and shows what matters, a coach can actually make sense of it,
+ * and — decisively — it looks like a COMPANION RATHER THAN A BUSINESS. When a call here was
+ * ambiguous it was resolved toward that, never toward what looks more capable or more professional.
+ *
+ * ## What this file is, and what it is not
+ *
+ * `design/direction-two/console.css` is 1212 lines and it is a SPECIFICATION, not a file to copy.
+ * Roughly half of it styles the review sheet those mockups were compared on — frames with explicit
+ * device widths, a sticky sheet bar, a tooltip demonstration block that reserves room for three open
+ * bubbles at once. None of that is the application. What is ported here is the part that outlives
+ * the prototype: Console's own STRUCTURAL ROLES, and the primitives a screen is built out of.
+ *
+ * ## The one rule that makes the layer worth having
+ *
+ * Everything below either CONSUMES a shared token or names a NEW STRUCTURAL ROLE of its own. It
+ * never rebinds the VALUE of a shared role. Three directions were built against `design/tokens/` at
+ * once and the contrast harness measures that layer as a whole: a value changed here to suit Console
+ * would silently repaint work nobody has any reason to re-check, and the harness would keep passing
+ * because it is still measuring the layer rather than this file.
+ *
+ * Console needed no COLOUR role the shared layer did not already have. Neither should a screen. If
+ * you find yourself wanting one, that is a signal to re-read the layer, not to add to it.
+ *
+ * NO LITERAL COLOUR, SIZE, RADIUS OR DURATION APPEARS BELOW — only var(--token). That is grep-able,
+ * which is the entire point of it.
+ *
+ * Loaded third, after base.css and palettes.css. See src/design/design-system.ts for why the token
+ * layer is imported from its one home rather than copied, and app/DESIGN.md for the contract a
+ * screen mounts through.
+ */
+
+/* ─────────────────────────────────────────────────────────────────────────────────────
+ * CONSOLE'S OWN STRUCTURAL ROLES
+ *
+ * Named for the same reason the shared layer names its scales: a number that appears twice is a
+ * number that drifts. These are STRUCTURE rather than scale, which is why they belong to the
+ * application's direction and not to the shared layer.
+ * ───────────────────────────────────────────────────────────────────────────────────── */
+:root {
+  /*
+   * THE RAIL'S TWO WIDTHS. 76px at rest is what buys the horizontal room for a genuine two-column
+   * layout on the client and session screens; 248px is the expanded width. The rail itself belongs
+   * to the navigation frame; the widths are named here because the frame is not their only reader —
+   * anything that has to reason about the working width of the content column reads them too.
+   */
+  --rail-width: 76px;
+  --rail-width-expanded: 248px;
+
+  /*
+   * THE FRAME'S OWN HEIGHT. The application is exactly the viewport tall and only its CONTENT
+   * scrolls, which is what makes the rail, the bar and the synchronisation slot permanently visible
+   * rather than merely intended to be. `dvh` rather than `vh` because iOS changes the visible
+   * height as its toolbars come and go, and `vh` is the larger of the two — a bottom bar sized to
+   * it sits under the browser's own chrome exactly when the coach is reaching for it.
+   */
+  --frame-height: 100dvh;
+
+  /*
+   * THE NARROW SURFACE'S ITEM HEIGHT. 56px, plus the safe-area inset on the bar itself, which is
+   * Console's specified size and comfortably above the 44px this application holds a session
+   * target to.
+   */
+  --bar-item-height: 56px;
+
+  /*
+   * THE SAFE AREA UNDER THE NARROW BAR. The literal is the fallback `env()` itself requires for
+   * browsers that report no inset; it is not a size chosen here. Named once so the bar is the only
+   * thing that has to know about the notch.
+   */
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+
+  /*
+   * THE APPLICATION MARK IN THE CONTENT HEADER. A structural size rather than a type size: it is a
+   * picture, and it is the one place in the interface where the application says its own name.
+   */
+  --brand-mark-size: 32px;
+
+  /* The width of the marker drawn beside the destination the coach is on. */
+  --current-marker: var(--focus-band);
+
+  /*
+   * THE SYNCHRONISATION INDICATOR'S SILHOUETTES — five sizes, one per rung of the escalation
+   * ladder, and they are STRUCTURE rather than decoration.
+   *
+   * A rung is a different OUTLINE before it is a different fill, because colour is the first thing
+   * lost to a colour-blind reader, to sunlight on a phone, to a greyscale screenshot and to the
+   * compression of the video call this application will actually be introduced over. So the five
+   * differ in PROPORTION — wide, upright, square — and not merely in size, since a set that only
+   * grew would be a single shape at five scales and unreadable without something beside it to
+   * compare against. Nothing on the screen is ever beside it.
+   *
+   * THE 44 AND THE 20 ARE THE MEASUREMENT THE COLLAPSED RAIL IS BUILT ON. The widest silhouette is
+   * 44px, the count needs 20px, and a 76px rail has 60px inside its padding: 44 + 20 exceeds it, so
+   * the two STACK. Both ways of making them fit side by side are defeats — shrinking the shape
+   * destroys the one property that survives greyscale, and dropping the number turns the
+   * accountability signal into decoration. Change either number and that arithmetic has to be redone
+   * rather than assumed.
+   */
+  --sync-shape-disc: 32px; /* up to date — a disc, the only cornerless shape and the calm one */
+  --sync-shape-pill-width: 40px; /* not backed up — a wide pill; wide because its glyph is wide */
+  --sync-shape-pill-height: 26px;
+  --sync-shape-upright-width: 28px; /* overdue — upright, taller than it is wide */
+  --sync-shape-upright-height: 36px;
+  --sync-shape-square: 36px; /* severely overdue — hard corners, and plainly heavier */
+  --sync-shape-widest: 44px; /* the ceiling — the widest in the set, and the only hollow one */
+  --sync-shape-bar-height: 36px;
+
+  /* The count's own column. The 20 above, named once so the arithmetic has one place to read. */
+  --sync-count-width: 20px;
+
+  /*
+   * A MARK, WHICH IS NOT A RUNG. Working offline and something-is-stopped are conditions that are
+   * present or absent, so they are drawn beside the silhouette rather than as a step of it — small,
+   * hollow, and never able to hide the rung or each other. Two of them side by side are 56px inside
+   * the rail's 60, which is why they may sit in a row where the shape and the count may not.
+   */
+  --sync-mark-size: 24px;
+
+  /*
+   * THE ELEVATION LADDER — Console's tonal weight, and the highest of the three directions. Cards
+   * lift off the page, the sticky header lifts off the cards, and anything overlaying a live session
+   * lifts off everything. Bound as roles rather than written at each site so the whole ladder can be
+   * read in one place, and so a screen says WHAT a surface is rather than how high it sits.
+   *
+   * Its failure mode is benign by construction. The shared elevations are composed with `color-mix`,
+   * and where that is unsupported they resolve to nothing and the interface renders FLAT. Nothing
+   * becomes unreadable, because every boundary that carries MEANING is a measured border or a fill
+   * and never a shadow. Decoration is allowed to fail; meaning is not.
+   */
+  --lift-card: var(--elevation-1);
+  --lift-sticky: var(--elevation-2);
+  --lift-popover: var(--elevation-2);
+  --lift-over-session: var(--elevation-3);
+
+  /*
+   * THE STACKING ORDER, as the same three names the elevation ladder uses.
+   *
+   * Elevation says what a surface LOOKS like; these say what it sits in FRONT of, and the two have
+   * to agree or a shadow says "above" while the thing it is above paints over it. Naming them
+   * together is what keeps them agreeing: a `z-index` written at the site that needs it is a number
+   * chosen against whatever that author happened to be looking at, and the next one is chosen
+   * higher, which is how an interface ends up with a 9999 in it.
+   *
+   * Spaced rather than consecutive so something can be slid between two of them without renumbering
+   * the rest. Nothing in this application needs a layer above the last.
+   */
+  --layer-sticky: 20;
+  --layer-popover: 30;
+  --layer-over-session: 40;
+
+  /*
+   * THE TOOLTIP'S OWN STRUCTURE. The rest of it — its surface, its border, its elevation, its delay
+   * — is bound from the shared layer at `.tip-bubble` below.
+   *
+   * The width is a `min()` rather than a single number, and that is the belt to the JavaScript's
+   * braces: the placement code clamps a bubble into the viewport, and this makes a bubble that could
+   * not be clamped impossible to author in the first place. A tooltip that opens off the edge of a
+   * phone is a tooltip the coach cannot read, and on a device with no pointer he has no way to make
+   * it happen again to look at it.
+   */
+  --tip-max-width: min(300px, calc(100vw - var(--space-8)));
+  --tip-gap: var(--space-2);
+  --tip-viewport-margin: var(--space-2);
+  --tip-open-delay: var(--motion-base);
+
+  /*
+   * GLYPH OPTICAL WEIGHT, and it was measured rather than chosen.
+   *
+   * The shared family is drawn on a 24-unit canvas at a 2-unit stroke. Console draws it slightly
+   * tighter inside that canvas so it still reads at rail size — and because scaling geometry scales
+   * the stroke with it, the authored stroke is reduced by the same factor so the RENDERED stroke
+   * lands back on 2px. The glyph is bigger; the line is not heavier.
+   *
+   * THE CORRECTION IS ARITHMETIC HERE RATHER THAN THE PAIR OF NUMBERS THE PROTOTYPE SHIPPED, and
+   * that is the whole point of this block. The prototype wrote `--glyph-stroke: 1.85` beside
+   * `--glyph-optical-scale: 1.08`, which is correct at 24px and at no other size: ask that same
+   * family for a 32px glyph and the line arrives at 2.67px, ask for 16px and it arrives at 1.33px.
+   * Nobody would report either. A heavier line reads as a heavier glyph, not a bigger one, and the
+   * family stops looking like one family without a single value being wrong on the screen it was
+   * chosen on.
+   *
+   * So the authored stroke is DERIVED from the size instead of fixed, such that what lands on the
+   * screen is `--glyph-rendered-stroke` at every size, including one nobody has asked for yet. At
+   * rail size the arithmetic returns 2 / 1.08 = 1.8518, which is the 1.85 the prototype measured —
+   * the same number, now with the reason attached to it rather than a comment beside it.
+   *
+   * Everything a glyph is drawn with is below and nowhere else. `src/design/Glyph.tsx` sets no
+   * colour, no stroke and no width, so a size the application has not thought of still arrives
+   * correct. --glyph-canvas and --glyph-rendered-stroke are also stated in `glyph-family.ts`, and
+   * `glyphs.test.ts` fails if the two ever disagree.
+   */
+  --glyph-canvas: 24;
+  --glyph-rendered-stroke: 2;
+  --glyph-optical-scale: 1.08;
+
+  /*
+   * The sizes the family is asked for, as MULTIPLES of its canvas rather than as lengths. The
+   * multiple is what the arithmetic above needs; the pixels it lands on are in the comment rather
+   * than in a second token that could disagree with it.
+   */
+  --glyph-scale-dense: calc(16 / var(--glyph-canvas)); /* 16px — the size the family was proven legible at */
+  --glyph-scale-inline: calc(20 / var(--glyph-canvas)); /* 20px — inside a row, beside its words */
+  --glyph-scale-rail: 1; /* 24px — the rail, and the default */
+  --glyph-scale-lead: calc(32 / var(--glyph-canvas)); /* 32px — a glyph that leads a card */
+
+  /*
+   * THE INTERFACE TYPEFACE. The shared layer sizes type and does not choose a face, deliberately:
+   * the face is part of a direction's character. Console asks for the platform's own user-interface
+   * font, so the application looks like it belongs on the coach's phone rather than like a page that
+   * shipped its own personality — companion, not business. Named as a role for the same reason
+   * everything else here is: so it is bound in one place.
+   */
+  --font-ui: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+
+  /*
+   * THE FACE FOR A LITERAL MACHINE ANSWER. A build stamp and the raw value the browser returned are
+   * things the coach reads back over a video call character by character, so the face has to keep
+   * `l` apart from `1` and `O` apart from `0`. It is the ONLY place in the application a second face
+   * appears, and it is a role rather than a spelling at each site because the fallback chain is long
+   * and getting one entry of it wrong somewhere is invisible until it lands on a device that needs
+   * that entry.
+   */
+  --font-code: ui-monospace, SFMono-Regular, 'Cascadia Mono', Menlo, Consolas, monospace;
+
+  /*
+   * THE CAP ON A LABEL'S COLUMN — a CAP, not a width. `.pairs` sizes the label column to its own
+   * content, so four short labels take four short labels' worth of room and the values line up
+   * against them; this is where that stops. Past it a label has stopped being a label and become a
+   * sentence, and it wraps inside its column rather than pushing the value it belongs to off the
+   * side of a card. At 16px this is around thirty characters, which is longer than any label the
+   * application has needed.
+   */
+  --pair-label-column: 240px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────────
+ * THE DOCUMENT FOUNDATION. Element-level, and deliberately small: the frame and the screens carry
+ * the structure, and everything they can inherit they should.
+ * ───────────────────────────────────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--surface-page);
+  color: var(--text-primary);
+}
+
+body {
+  font-family: var(--font-ui);
+  font-size: var(--type-body);
+  line-height: var(--leading-body);
+  /* The coach's own text-size setting is honoured; iOS is otherwise free to inflate text on
+   * rotation, which moves a layout the screens were measured at. */
+  -webkit-text-size-adjust: 100%;
+}
+
+/*
+ * FOCUS IS THE TWO-BAND INDICATOR, and this is the only place it is composed.
+ *
+ * Never a single-colour outline. Thirty pairs failed the harness's first run and all thirty were one
+ * fact: no single colour clears 3:1 against both a pale page and a mid-tone filled button. The inner
+ * band sits inside the control's edge and makes focus visible ON a filled button; the outer band
+ * sits outside it and makes focus visible on a surface. A single-colour version looks perfectly
+ * correct on every screen you would think to test it on, and disappears on the primary action.
+ */
+:focus-visible {
+  box-shadow: var(--focus-indicator);
+  outline: none;
+}
+
+/*
+ * HEADINGS CARRY NO SIZE OF THEIR OWN.
+ *
+ * The ELEMENT says how deep the heading sits in the document outline, which is what a screen reader
+ * announces and navigates by; the CLASS says how large it is. Keeping the two separate is what lets
+ * a card's title be an `h3` on one screen and an `h4` on another without either of them changing
+ * size. See app/DESIGN.md for which class goes with which level.
+ */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin: 0;
+  font-size: inherit;
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+}
+
+p {
+  margin: 0;
+}
+
+/*
+ * A LINK IS THE ACCENT ROLE, BOUND AT THE ELEMENT.
+ *
+ * Not tidiness: an unstyled anchor is painted by the browser's own blue, and once visited by its
+ * own purple. Neither is in the palette, neither was measured against these surfaces, and neither
+ * changes with the theme — a browser-default link on the dark theme is the one piece of an
+ * otherwise measured interface that nobody checked. Six screens are being written by six authors
+ * and the first bare `<a>` would ship it, so the default is bound here rather than left to each of
+ * them to remember. Visited is deliberately the same colour: where a link goes is not a fact about
+ * this application's data, and a second accent would be a colour role the layer does not have.
+ */
+a {
+  color: var(--text-accent);
+}
+
+/*
+ * `small` CARRIES NO SIZE EITHER, and this one is a floor being defended rather than a preference.
+ *
+ * The browser draws `<small>` at about 13px. Reading text in this application is never below 16px
+ * and the cost of breaking that is paid over a three-hour evening, arriving as mistakes rather than
+ * as complaints — so an element whose DEFAULT violates the floor is exactly the kind of thing six
+ * separately authored screens will ship without anyone deciding to. Measured on the placeholder
+ * screen: a bare `<small>` rendering at 13.33px, with every gate green.
+ *
+ * The element keeps its meaning — an aside, a qualification — and gives up only its size. Text that
+ * genuinely is a timestamp, a unit or a record identifier asks for that explicitly with `.meta`.
+ */
+small {
+  font-size: inherit;
+}
+
+/*
+ * `code` DOES NOT SHRINK EITHER, and it is the SAME defect as `small` above arriving through a
+ * different door — found on the admin screen, which is the one screen that shows literal machine
+ * values and therefore the one screen that uses this element.
+ *
+ * The mechanism is worth writing down because nothing in the markup looks wrong. A browser that
+ * resolves the generic family `monospace` applies its own monospace default size rather than the
+ * inherited one — the historical correction for monospace faces running optically large — and the
+ * element lands at about 13px with `font-size` never mentioned by anybody. So a build stamp the
+ * coach is being asked to read back over a video call is drawn SMALLER than the words telling him
+ * to read it, in the face chosen precisely because it is unambiguous character by character.
+ *
+ * Naming a real face ahead of the generic is what disarms it, and the explicit `inherit` is the
+ * belt: neither alone can be relied on across every browser this is served to.
+ */
+code,
+kbd,
+samp {
+  font-family: var(--font-code);
+  font-size: inherit;
+}
+
+/*
+ * THE `hidden` ATTRIBUTE ACTUALLY HIDES, and this one line is here because the alternative has
+ * already cost this build four separate defects in one step.
+ *
+ * The user agent supplies `[hidden] { display: none }` at the lowest possible priority, so ANY
+ * author rule that sets `display` on the same element beats it. Script sets `element.hidden = true`,
+ * the attribute lands, the DOM inspects as correct, and the element stays on screen — with nothing
+ * wrong in the markup and nothing wrong in the script, because the fault is in the interaction
+ * between a stylesheet rule written elsewhere and a default nobody thinks about.
+ *
+ * It belongs in the foundation rather than in each component so that a later screen cannot
+ * reintroduce it by adding a `display` rule of its own.
+ */
+[hidden] {
+  display: none !important;
+}
+
+/* The three sizes a heading is allowed to be, plus the one a value is. */
+.title-screen {
+  font-size: var(--type-title);
+}
+
+.title-section {
+  font-size: var(--type-lead);
+}
+
+.title-block {
+  font-size: var(--type-body);
+}
+
+/* The one number a screen exists to show — a load, a count, a duration. Tabular so a column of
+ * them does not shift width as the digits change. */
+.value-display {
+  font-size: var(--type-display);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────────
+ * THE APPLICATION FRAME.
+ *
+ * FOUR AREAS AND ONE BREAKPOINT. `rail`, `content`, `status`, `bar`. At 840px and above the frame
+ * is the rail beside the content with the status slot at the rail's foot; below 840 it is the
+ * content above the status slot above the bar. There is no third arrangement, and the 840 is
+ * `EXPANDED_VIEWPORT_MIN` in `viewport.ts` — `viewport.test.ts` reads this file and fails on any
+ * width query that is not one of the named classes, because a media query cannot read a token and
+ * this is the one number in the visual system that can drift.
+ *
+ * WHY THE STATUS SLOT IS A GRID AREA AND NOT A CHILD OF THE RAIL. The permanent synchronisation
+ * indicator has to sit at the foot of the rail on one surface and immediately above the bar on the
+ * other, and it must never be a descendant of anything that can scroll away, collapse or hide. A
+ * grid area gives both placements to ONE element: two elements would mean two live regions
+ * announcing the same state, with a rule that only one of them counts which nothing could check.
+ * The slot is a child of `.app`, beside the rail and beside the content, never inside either.
+ *
+ * WHY THE FRAME IS EXACTLY THE VIEWPORT TALL. Only `.content` scrolls. If the page scrolled
+ * instead, the rail would be as tall as the CONTENT rather than as tall as the window, and the
+ * status chip at its foot would sit below the fold on the longest screen in the application — with
+ * every computed check on it green, because "permanently visible" is a claim about the viewport
+ * and a computed check is a claim about the element.
+ * ───────────────────────────────────────────────────────────────────────────────────── */
+.app {
+  display: grid;
+  block-size: var(--frame-height);
+  background: var(--surface-page);
+
+  /* The wide surface. The content column spans both rows, so the status slot sits under the rail
+   * rather than beside it. */
+  grid-template-columns: var(--rail-width) 1fr;
+  grid-template-rows: 1fr auto;
+  grid-template-areas:
+    'rail content'
+    'status content';
+  transition: grid-template-columns var(--motion-base) var(--ease-standard);
+}
+
+/*
+ * THE RAIL EXPANDS BY WIDENING ITS COLUMN, not by widening itself.
+ *
+ * The rail fills its track, so the track is the single place its width is decided — which is also
+ * what carries the status slot out with it, since the slot is in the same column and Console
+ * specifies that the chip expands with the rail to read its wording. A rail that grew inside a
+ * fixed track would expand alone and leave the chip at 76px.
+ *
+ * Where `:has` is unsupported the track never widens and the rail simply stays at its resting
+ * width: the full labels are then never painted, the micro-labels and the accessible names are
+ * untouched, and every destination is still reachable. Degraded, not broken.
+ */
+.app:has(.rail:hover),
+.app:has(.rail:focus-within) {
+  grid-template-columns: var(--rail-width-expanded) 1fr;
+}
+
+.rail {
+  grid-area: rail;
+  display: flex;
+  flex-direction: column;
+  inline-size: 100%;
+  min-inline-size: 0;
+  /* The rail itself never scrolls away; its LIST scrolls if a later step ever adds a sixth
+   * destination at a text size that needs it. That is the distinction the status slot depends on. */
+  overflow: hidden;
+  padding: var(--space-3) var(--space-2);
+  background: var(--surface-raised);
+  border-inline-end: var(--border-hairline) solid var(--line-divider);
+}
+
+.bar {
+  grid-area: bar;
+  background: var(--surface-raised);
+  border-block-start: var(--border-hairline) solid var(--line-divider);
+  padding-block-end: var(--safe-area-bottom);
+}
+
+/*
+ * THE SYNCHRONISATION INDICATOR'S SLOT. Empty until the next action fills it — the frame owns
+ * WHERE it goes, and that is all this rule is.
+ *
+ * It carries the rail's surface and edge on the wide layout so the column reads as one thing, and
+ * it clips rather than widening: the track's width is the rail's, and a chip that pushed it wider
+ * would move the whole content column.
+ */
+.frame-status {
+  grid-area: status;
+  min-inline-size: 0;
+  overflow: hidden;
+  background: var(--surface-raised);
+  border-inline-end: var(--border-hairline) solid var(--line-divider);
+}
+
+/*
+ * An EMPTY slot draws nothing. Until the next action fills it, the edge that continues the rail —
+ * and, on the narrow surface, the one above the bar — would be a hairline with nothing on either
+ * side of it: measured at 390px as a 0.8px line sitting directly on the bar's own top border.
+ * The slot is a PLACEMENT, and a placement with nothing in it should be invisible.
+ */
+.frame-status:empty {
+  border: none;
+}
+
+/* ── THE NARROW SURFACE. One boundary, and everything about the rail stops here. ───────── */
+@media (max-width: 839px) {
+  .app {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr auto auto;
+    grid-template-areas:
+      'content'
+      'status'
+      'bar';
+  }
+
+  /* Not merely unused — REMOVED, so nothing that depends on where a pointer is can reach a device
+   * that may not have one. */
+  .rail {
+    display: none;
+  }
+
+  /* Full width above the bar, and it is the bar's neighbour rather than the rail's. */
+  .frame-status {
+    border-inline-end: none;
+    border-block-start: var(--border-hairline) solid var(--line-divider);
+  }
+}
+
+@media (min-width: 840px) {
+  .bar {
+    display: none;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────────
+ * THE PERMANENT SYNCHRONISATION INDICATOR.
+ *
+ * WHAT IS DRAWN IS THREE FACTS, NOT ONE LADDER OF SIX. `src/shell/sync-indicator.ts` carries the
+ * reasoning in full and is worth reading before changing anything here. In short: the SILHOUETTE
+ * carries the rung and only the rung — five of them, all driven by time — while *working offline*
+ * and *something is stopped* are MARKS beside it, because neither is a rung. Both can be present at
+ * once with the rung still fully readable, which a single ranked list could not do: it would hide a
+ * refusal behind a dropped connection, and the refusal is the one that never resolves by itself.
+ *
+ * FOUR CHANNELS, AND COLOUR IS THE LAST OF THEM. Outline, then glyph, then word, then fill. The
+ * first three survive a colour-blind reader, sunlight on a phone, a greyscale screenshot and the
+ * compression of the video call this application will actually be introduced over. Anything that
+ * can only be told by its tint is not yet drawn.
+ *
+ * WORKING OFFLINE IS NOT A FAULT AND IS NOT DRAWN AS ONE. Local is the primary copy and the remote
+ * is the backup, so a basement gym on a Tuesday is the application working exactly as intended. Its
+ * mark is the quietest thing in the set — hollow and dashed, no fill, no danger role — because an
+ * indicator that cries wolf on an ordinary Tuesday is one he stops reading.
+ *
+ * IT IS NEVER A MODAL, however loud it gets. The ceiling of the ladder escalates by being wider,
+ * heavier and hollow; it never gates, never covers and never asks for an answer.
+ * ───────────────────────────────────────────────────────────────────────────────────── */
+
+/*
+ * THE ROW FORM IS THE DEFAULT because it is what the narrow surface always uses: a slim,
+ * always-visible bar immediately above the bottom bar, full width, never dismissible. The wide
+ * surface overrides it into the collapsed column below.
+ */
+.sync {
+  display: flex;
+  /*
+   * WRAPPING IS ON, AND THE WORDS COLUMN IS WHAT MAKES IT SAFE. A flex item whose BASIS is 0 can
+   * never be the item that starts a new line, so `.sync-words` below shrinks and wraps its own text
+   * — which is what a column of text is for — while a mark that genuinely does not fit is free to
+   * drop to the next row rather than squeezing the sentence to nothing. Measured at 390px: with the
+   * words on `auto` instead, a full sentence's longest word set the min-content width, the words
+   * were pushed onto a line of their own, and the slim bar above the bottom bar became three rows
+   * taken out of the session runner.
+   */
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: var(--control-height);
+  padding: var(--space-1) var(--space-3);
+  background: var(--surface-card);
+  color: var(--text-primary);
+}
+
+/*
+ * THE SILHOUETTE. Its width and height are set as width and height and never as a flex BASIS: this
+ * element is laid out in a ROW on one surface and in a COLUMN on the other, and a basis means width
+ * in the first and height in the second — which silently squares the shape off in the second, taking
+ * away the one property that has to survive greyscale. The base rule is the calm rung; each of the
+ * other four restates the proportion it needs.
+ */
+.sync-shape {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  inline-size: var(--sync-shape-disc);
+  block-size: var(--sync-shape-disc);
+  border-radius: var(--radius-2);
+  background: var(--fill-success);
+  color: var(--text-on-success);
+}
+
+/*
+ * Everything is backed up, and a real synchronisation put it there. A DISC — the only rung with no
+ * corners at all, and the only one on which there is nothing to do.
+ *
+ * IT WAS A ROUNDED SQUARE UNTIL THE GREYSCALE CHECK WAS ACTUALLY RUN. Against the hard square four
+ * rungs above it, a rounded square read as the same dark block: with the colour gone, the success
+ * fill and the danger fill both resolve to a mid-grey, and an 8px difference in size plus a corner
+ * radius is not a channel that survives a compressed video call or a phone in sunlight. A disc
+ * against a square survives all of it. Measured, not chosen — and the specific reason the silhouette
+ * set is checked in greyscale rather than reasoned about.
+ */
+.sync[data-silhouette='disc'] .sync-shape {
+  border-radius: var(--radius-pill);
+}
+
+/* Something is saved here and not away yet. Ordinary, not yet a fault — a wide pill, and wide
+ * because the glyph inside it is wide; a silhouette that crops its own glyph is not a silhouette. */
+.sync[data-silhouette='wide-pill'] .sync-shape {
+  inline-size: var(--sync-shape-pill-width);
+  block-size: var(--sync-shape-pill-height);
+  border-radius: var(--radius-pill);
+  background: var(--fill-neutral);
+  color: var(--text-on-neutral);
+}
+
+/* Long enough to say so plainly. The profile turns UPRIGHT — taller than it is wide — so the change
+ * is a change of proportion rather than of tint. */
+.sync[data-silhouette='upright-rectangle'] .sync-shape {
+  inline-size: var(--sync-shape-upright-width);
+  block-size: var(--sync-shape-upright-height);
+  border-radius: var(--radius-1);
+  background: var(--fill-warning);
+  color: var(--text-on-warning);
+}
+
+/* Longer than a day. Hard corners and the largest filled area so far: more serious by SHAPE, since
+ * the colour is the first thing a greyscale screenshot or a compressed call takes away. */
+.sync[data-silhouette='hard-square'] .sync-shape {
+  inline-size: var(--sync-shape-square);
+  block-size: var(--sync-shape-square);
+  border-radius: var(--radius-flat);
+  background: var(--fill-danger);
+  color: var(--text-on-danger);
+}
+
+/*
+ * THE CEILING — more than three days. The widest silhouette in the set and the only HOLLOW one, so
+ * it is unmistakable against the four filled shapes below it even with every colour removed.
+ *
+ * This is what the maximum escalation looks like, and it is the whole of it: a persistent,
+ * unmissable warning that never blocks. `core/status` makes that a property of the data —
+ * `blocks_application` is a frozen false and every rung declares `blocks: false` — and this rule is
+ * the interface keeping the same promise. It gets louder; it never gets in the way.
+ */
+.sync[data-silhouette='wide-hollow-bar'] .sync-shape {
+  inline-size: var(--sync-shape-widest);
+  block-size: var(--sync-shape-bar-height);
+  border-radius: var(--radius-flat);
+  background: var(--surface-card);
+  color: var(--text-danger);
+  border: var(--border-strong) solid var(--text-danger);
+}
+
+/* The chip's own edge climbs with the last two rungs, so the escalation is visible at the size of
+ * the whole chip and not only at the size of the shape inside it. */
+.sync[data-rung='severely_overdue'],
+.sync[data-rung='persistent_warning'] {
+  border-inline-start: var(--border-strong) solid var(--text-danger);
+}
+
+/*
+ * THE COUNT. Never a bare dot — the number is what makes a collapsed chip information rather than
+ * decoration, so it is painted at full size on every surface, including the zero when everything is
+ * away. Tabular so it does not shift width as the digits change.
+ */
+.sync-count {
+  flex: none;
+  min-inline-size: var(--sync-count-width);
+  text-align: center;
+  font-size: var(--type-body);
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The marks sit together and take no room at all when there are none. */
+.sync-marks {
+  display: flex;
+  flex: none;
+  gap: var(--space-1);
+}
+
+.sync-marks:empty {
+  display: none;
+}
+
+.sync-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-block-size: var(--sync-mark-size);
+  padding-inline: var(--space-1);
+  border-radius: var(--radius-2);
+}
+
+/*
+ * OFFLINE: hollow and DASHED, and deliberately the quietest mark in the set. A dashed edge reads as
+ * a condition rather than as a step, which is exactly what this is — the application working from
+ * its own copy, which is what it is designed to do. It carries no danger role and never raises the
+ * live region from status to alert.
+ */
+.sync-mark-offline {
+  border: var(--border-control) dashed var(--line-control);
+  color: var(--text-muted);
+}
+
+/*
+ * STOPPED: hollow with a SOLID heavy edge. A delay resolves itself when a connection or a sign-in
+ * returns; a rejection resolves itself never, and the two must not look alike. Solid against dashed
+ * is that difference drawn rather than tinted.
+ */
+.sync-mark-stopped {
+  border: var(--border-strong) solid var(--text-danger);
+  border-radius: var(--radius-flat);
+  color: var(--text-danger);
+}
+
+.sync-words {
+  display: flex;
+  /* Basis 0: see the note on `.sync` — this is the declaration that keeps the bar slim. */
+  flex: 1 1 0;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+
+.sync-words strong {
+  font-weight: var(--weight-medium);
+}
+
+.sync-words small {
+  color: var(--text-muted);
+}
+
+/* ── THE WIDE SURFACE: the chip at the foot of the rail, collapsed with it and expanding with it. ── */
+@media (min-width: 840px) {
+  /*
+   * COLLAPSED, THE SHAPE AND THE NUMBER STACK, and that was measured rather than chosen: the widest
+   * silhouette is 44px, the count needs 20px, and a 76px rail has 60px inside its padding. Side by
+   * side they do not fit, and both ways of making them fit are defeats — shrinking the shape
+   * destroys the one property that survives greyscale, and dropping the number turns the
+   * accountability signal into decoration. Stacked, both keep full size, and it borrows the rail's
+   * own idiom, which is already a glyph above a label.
+   */
+  .sync {
+    flex-direction: column;
+    gap: var(--space-1);
+    padding-inline: var(--space-1);
+  }
+
+  /* The words are what collapse. The shape, the number and the marks never do. */
+  .sync-words {
+    display: none;
+  }
+
+  /*
+   * EXPANDED — with the rail, on hover or on keyboard focus, driven by the same `:has` on the frame
+   * that widens the column. The chip is in the rail's COLUMN rather than in the rail, so it cannot
+   * listen for the rail's own hover; the frame is what both of them share.
+   *
+   * Where `:has` is unsupported the track never widens and this never fires: the chip simply stays
+   * collapsed, still showing its shape and its number, and the whole statement is still announced
+   * from the hidden sentence. Degraded, not broken.
+   */
+  .app:has(.rail:hover) .sync,
+  .app:has(.rail:focus-within) .sync {
+    flex-direction: row;
+    /* Wrapping ON here, unlike the narrow bar: 248px minus the shape, the count and up to two marks
+     * leaves the wording a column too narrow to read, so it takes a line of its own instead. */
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    padding-inline: var(--space-2);
+  }
+
+  .app:has(.rail:hover) .sync-words,
+  .app:has(.rail:focus-within) .sync-words {
+    /*
+     * The wording takes its own line rather than a column of leftovers. The rail is the one place
+     * with a hard width, and a status surface that cuts its own sentence off mid-word is the
+     * specific failure this whole surface exists to avoid: "backed up 4 minutes" and "backed up 4
+     * minutes ago" are the same words, and only one of them is a complete statement.
+     */
+    display: flex;
+    flex-basis: 100%;
+  }
+
+}
+
+/* ── THE CONTENT COLUMN. The only region in the application that scrolls. ──────────────── */
+.content {
+  grid-area: content;
+  display: flex;
+  flex-direction: column;
+  /* Without this a grid item refuses to shrink below its content and the PAGE scrolls instead,
+   * which is the exact failure the frame's fixed height exists to prevent. */
+  min-block-size: 0;
+  min-inline-size: 0;
+  overflow-y: auto;
+}
+
+/*
+ * THE STICKY CONTENT HEADER. It carries the application's name and the contextual layer, and it is
+ * sticky so the breadcrumb survives scrolling on a long session screen — which is the whole reason
+ * the breadcrumb is pinned into it rather than written at the top of each screen.
+ */
+.content-header {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: var(--layer-sticky);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-2) var(--gutter);
+  background: var(--surface-card);
+  border-block-end: var(--border-hairline) solid var(--line-divider);
+  box-shadow: var(--lift-sticky);
+}
+
+.content-body {
+  padding: var(--gutter);
+  min-inline-size: 0;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-block-size: var(--target-touch);
+}
+
+.brand-mark {
+  inline-size: var(--brand-mark-size);
+  block-size: var(--brand-mark-size);
+  border-radius: var(--radius-2);
+  flex: none;
+}
+
+.brand-name {
+  font-size: var(--type-lead);
+}
+
+/* ── A DESTINATION, ON EITHER SURFACE. ─────────────────────────────────────────────────── */
+.nav-list {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-inline-size: 0;
+}
+
+.rail .nav-list {
+  flex-direction: column;
+  gap: var(--space-1);
+  overflow-y: auto;
+}
+
+/* The tooltip's trigger is what the list item actually contains, so it has to be the thing that
+ * fills the row. A wrapper that stayed inline would leave its destination narrower than the four
+ * beside it, for no reason but that it has help attached. */
+.rail .nav-list .tip {
+  display: flex;
+  min-inline-size: 0;
+}
+
+.rail .nav-list li,
+.rail .nav-list .tip {
+  flex: none;
+}
+
+.rail .nav-item {
+  inline-size: 100%;
+}
+
+/*
+ * The five items share the narrow bar equally, and the rule is on the LIST ITEM because that is
+ * what the flex container lays out. The same declaration on the link computes correctly, reads
+ * correctly and does nothing — which once gave the shortest label a 37px target while every check
+ * stayed green.
+ */
+.bar .nav-list > li {
+  flex: 1 1 0;
+  display: flex;
+  min-inline-size: 0;
+}
+
+.nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-block-size: var(--target-touch);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-1);
+  color: var(--text-muted);
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.nav-item:hover {
+  background: var(--surface-selected);
+  color: var(--text-primary);
+}
+
+/*
+ * WHERE THE COACH IS. A tinted surface AND a marker, never colour alone: the tint is a step off the
+ * page that survives being looked at in sunlight, and the marker is the part that survives not
+ * seeing colour at all.
+ */
+.nav-item[aria-current='page'] {
+  background: var(--surface-selected);
+  color: var(--text-primary);
+  font-weight: var(--weight-medium);
+}
+
+.nav-item[aria-current='page']::before {
+  content: '';
+  position: absolute;
+  border-radius: var(--radius-pill);
+  background: var(--fill-accent);
+}
+
+.nav-item-rail[aria-current='page']::before {
+  inset-inline-start: 0;
+  inset-block: var(--space-1);
+  inline-size: var(--current-marker);
+}
+
+.nav-item-bar[aria-current='page']::before {
+  inset-block-start: 0;
+  inset-inline: 25%;
+  block-size: var(--current-marker);
+}
+
+/*
+ * ICON ABOVE A MICRO-LABEL, WHICH IS THE COLLAPSED FORM OF THE FULL ONE.
+ *
+ * The micro-label is 14px and DECORATIVE — `--type-meta` is for timestamps, units and record
+ * identifiers, so this is the collision Console resolves rather than a drift into it. The accessible
+ * name comes from `.nav-item-label`, which is 16px and present in the markup at every width; when it
+ * is not painted it is taken out of the picture and left in the accessibility tree, never
+ * `display: none`, which would take the name with it.
+ *
+ * The micro-label is allowed to WRAP. Pinning it to one line would trade a wrap for a clip, which is
+ * worse and invisible to every check — and at double text size a clip is what a 76px column gives.
+ */
+.nav-item-rail,
+.nav-item-bar {
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-1);
+  text-align: center;
+}
+
+/*
+ * THE COLLAPSED RAIL ITEM GIVES ITS WHOLE WIDTH TO THE MICRO-LABEL, and this was measured rather
+ * than chosen. The rail is 76px with 8px of padding each side, so an item has 60px; "Calendar" is
+ * the longest of the five and it is 56px at 14px. With the item's own 8px of horizontal padding it
+ * had 44px and broke across two lines as "Calen / dar" — no property was out of bounds and only
+ * looking at it said so. The padding comes back the moment the rail expands and the row has room.
+ */
+.nav-item-rail {
+  padding-inline: 0;
+}
+
+.rail:hover .nav-item-rail,
+.rail:focus-within .nav-item-rail {
+  padding-inline: var(--space-2);
+}
+
+.nav-item-micro {
+  font-size: var(--type-meta);
+  line-height: var(--leading-tight);
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
+}
+
+/*
+ * The same clip idiom as `.visually-hidden`, repeated rather than shared, and stated here so it is
+ * a decision rather than an oversight: the rail toggles this by STATE, not by markup, so the label
+ * cannot carry a class that something adds and removes. The two `1px` are the idiom's own unit —
+ * the technique needs a non-zero box to stay in the accessibility tree — and not a size choice.
+ */
+.nav-item-label {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ── THE RAIL, EXPANDED. On hover OR keyboard focus, and it HOLDS OPEN while focus is inside it —
+ * `:focus-within`, which is what makes the rail usable from a keyboard rather than a pointer-only
+ * affordance. That is the half a mouse never tests. ───────────────────────────────────── */
+.rail:hover .nav-item-rail,
+.rail:focus-within .nav-item-rail {
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: var(--space-3);
+  text-align: start;
+}
+
+/* One name per item, always: the micro-label IS the collapsed form of the full label, and the two
+ * on screen together read as the destination stuttering. */
+.rail:hover .nav-item-micro,
+.rail:focus-within .nav-item-micro {
+  display: none;
+}
+
+.rail:hover .nav-item-label,
+.rail:focus-within .nav-item-label {
+  position: static;
+  inline-size: auto;
+  block-size: auto;
+  margin: 0;
+  overflow: visible;
+  clip-path: none;
+}
+
+/* ── THE NARROW BAR'S ITEM. ────────────────────────────────────────────────────────────── */
+.nav-item-bar {
+  flex: 1 1 auto;
+  min-block-size: var(--bar-item-height);
+  min-inline-size: 0;
+  border-radius: 0;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────────
+ * THE CONTEXTUAL LAYER — the second navigation layer, pinned into the sticky header.
+ *
+ * A destination never appears here and a contextual action never appears in the rail or the bar.
+ * That rule is enforced in `trail.ts` rather than left to six screen authors to remember; this is
+ * only how it is drawn.
+ *
+ * THE CRUMBS ARE 16px, NOT 14. The prototype drew them at `--type-meta`, and everything else in
+ * this direction that had drifted there was raised back — a breadcrumb is a control label and a
+ * value the coach reads to decide where to go, which is exactly what that size is not for. The
+ * rail's micro-label is the one deliberate exception, and it is decorative.
+ * ───────────────────────────────────────────────────────────────────────────────────── */
+.crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+
+/* The labelled way back. Never an unlabelled arrow: the glyph is decoration beside the words, and
+ * the words are what tell the coach where "back" goes. */
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-block-size: var(--target-touch);
+  padding: 0 var(--space-3) 0 var(--space-2);
+  border-radius: var(--radius-1);
+  color: var(--text-accent);
+  font-weight: var(--weight-medium);
+  text-decoration: none;
+}
+
+.back-link:hover {
+  background: var(--surface-selected);
+  text-decoration: underline;
+}
+
+.crumb-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-muted);
+}
+
+/* The separator is drawn rather than written, so it is never read out as a word. */
+.crumb-list li + li::before {
+  content: '/';
+  padding-inline-end: var(--space-2);
+  color: var(--text-muted);
+}
+
+.crumb-list [aria-current='page'] {
+  color: var(--text-primary);
+  font-weight: var(--weight-medium);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────────
+ * THE SCREEN. What the router's outlet renders into: a column of sections at the shared
+ * section rhythm, so six screens written by six authors share one vertical rhythm.
+ * ───────────────────────────────────────────────────────────────────────────────────── */
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--section-gap);
+  min-width: 0;
+}
+
+.screen-intro {
+  max-width: var(--measure-read);
+  line-height: var(--leading-loose);
+  color: var(--text-muted);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────────
+ * SURFACES. Console says which surface you are working on with ELEVATION rather than with
+ * dividers — that is its structural axis, and the reason it reads as an instrument.
+ *
+ * Four surface roles and what each one means, so a screen picks by meaning rather than by tone:
+ *   --surface-page      the floor. The screen's background, never a card's.
+ *   --surface-card      where reading and working happens: one step off the floor.
+ *   --surface-raised    a header, a chip, a tooltip — something ON the card, not in it.
+ *   --surface-selected  the row or destination the coach is on. Never used for anything else.
+ * ───────────────────────────────────────────────────────────────────────────────────── */
+.card {
+  background: var(--surface-card);
+  border-radius: var(--radius-2);
+  box-shadow: var(--lift-card);
+  padding: var(--card-padding);
+  min-width: 0;
+}
+
+/* A card whose own children own the padding — a card of rows, or of a table. */
+.card-tight {
+  padding: 0;
+}
+
+/*
+ * A CARD'S HEADER WRAPS, and that was measured rather than anticipated.
+ *
+ * A header is a title, then whatever the card says about itself — a state chip, a count, a help
+ * control. It never had a wrap rule, and at 390px with the text size doubled the admin card's
+ * header ran 7px past the card that contains it: the title, the chip and the help control together
+ * are wider than the card, the chip carries `white-space: nowrap` because a two-word state broken
+ * across lines is worse than a wide chip, and a single-line flex row has nowhere to put the excess.
+ * Nothing was clipped and nothing errored — it simply hung over the edge, at the text size somebody
+ * who is having trouble reading has chosen.
+ *
+ * Wrapping is the same answer `.content-header` and `.crumbs` already use for the same reason. The
+ * `.spacer` keeps working across a wrap: it fills the first line and the controls take the second,
+ * which is the arrangement a person reading at that size wants anyway.
+ */
+.card-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--control-height);
+  padding: var(--space-2) var(--card-padding);
+  border-bottom: var(--border-hairline) solid var(--line-divider);
+}
+
+.card-header .spacer {
+  flex: 1 1 auto;
+}
+
+.card-body {
+  padding: var(--card-padding);
+}
+
+/*
+ * ANYTHING OVERLAYING A LIVE SESSION. The top of Console's ladder, and it carries a measured
+ * BORDER as well as the shadow: the shadow says "above", the border is what still says "separate"
+ * where color-mix is unsupported and the shadow resolves to nothing.
+ */
+.over-session {
+  box-shadow: var(--lift-over-session);
+  border: var(--border-hairline) solid var(--line-control);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────────
+ * GLYPHS — the whole of what the forty-nine share, in one rule.
+ *
+ * `src/design/Glyph.tsx` draws the geometry and sets none of this, deliberately. Colour comes from
+ * the text around it, so a glyph is the shape of the word beside it rather than a second decision
+ * about colour, and it is correct on both themes without either being mentioned.
+ *
+ * `--glyph-scale` is the ONE thing a size changes. Size and stroke are both derived from it here, on
+ * the element itself rather than at the root, so each glyph resolves them with its own scale — a
+ * custom property declared on `:root` would have frozen the scale at 1 for the whole document and
+ * the correction would have silently applied to nothing but the default size.
+ *
+ * That also means a screen needing a size this list does not have sets `--glyph-scale` and gets the
+ * corrected stroke with it. See the arithmetic in the root block for what is being corrected.
+ * ───────────────────────────────────────────────────────────────────────────────────── */
+.glyph {
+  --glyph-scale: var(--glyph-scale-rail);
+  --glyph-size: calc(var(--glyph-canvas) * var(--glyph-scale) * 1px);
+  --glyph-stroke: calc(
+    var(--glyph-rendered-stroke) / (var(--glyph-scale) * var(--glyph-optical-scale)) * 1px
+  );
+
+  inline-size: var(--glyph-size);
+  block-size: var(--glyph-size);
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: var(--glyph-stroke);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+
+  /* Console's optical correction: the artwork sits tighter in its canvas so it still reads at rail
+   * size. The layout box is unchanged, so nothing beside a glyph moves; only the paint grows. */
+  transform: scale(var(--glyph-optical-scale));
+  transform-origin: center;
+}
+
+/* The family's one solid shape — the play triangle inside `session-start`. Marked in the artwork
+ * rather than assumed here, so a second one cannot appear without the generator saying so. */
+.glyph [data-filled='true'] {
+  fill: currentColor;
+  stroke: none;
+}
+
+/* Must follow `.glyph`: same specificity, so the later rule is the one that wins. */
+.glyph-dense {
+  --glyph-scale: var(--glyph-scale-dense);
+}
+
+.glyph-inline {
+  --glyph-scale: var(--glyph-scale-inline);
+}
+
+.glyph-rail {
+  --glyph-scale: var(--glyph-scale-rail);
+}
+
+.glyph-lead {
+  --glyph-scale: var(--glyph-scale-lead);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────────
+ * SPACING PRIMITIVES. Every gap in the application is one of the shared scale's eight values, and
+ * these are the four shapes that consume them, so a screen never writes a gap of its own.
+ * ───────────────────────────────────────────────────────────────────────────────────── */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.stack-tight {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.inline-tight {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+}
+
+.spread {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────────
+ * CONTROLS. Every target stays at --target-touch in every density.
+ *
+ * --target-touch, NOT --target-minimum, and the difference has already been a real defect in this
+ * build. The shared layer ships both on purpose: --target-minimum is 24px, the accessibility
+ * standard's floor, and --target-touch is 44px, what this application holds anything tapped during
+ * a session to, because the coach taps while a client is talking to him. A rule that bound the
+ * standard's number read as considered, tokenised, magic-number-free code — and rendered the
+ * in-session Save button at 26px. Both numbers pass 24 and only one passes 44, so a gate set to the
+ * standard looks straight at that defect and returns green.
+ * ───────────────────────────────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--control-height);
+  min-width: var(--control-height);
+  padding: 0 var(--space-4);
+  border: var(--border-control) solid var(--line-control);
+  border-radius: var(--radius-1);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  font: inherit;
+  font-weight: var(--weight-medium);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.btn:hover {
+  background: var(--surface-selected);
+}
+
+.btn-primary {
+  background: var(--fill-accent);
+  border-color: var(--fill-accent);
+  color: var(--text-on-accent);
+}
+
+/* A filled button cannot darken on hover without leaving the measured pair, so it underlines
+ * instead: the change is visible and the contrast is the one that was measured. */
+.btn-primary:hover {
+  background: var(--fill-accent);
+  text-decoration: underline;
+}
+
+.btn-danger {
+  background: var(--fill-danger);
+  border-color: var(--fill-danger);
+  color: var(--text-on-danger);
+}
+
+.btn-quiet {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-accent);
+}
+
+.btn-quiet:hover {
+  background: var(--surface-selected);
+}
+
+/* Narrower, never shorter. Density is bought from padding; the target is not for sale. */
+.btn-sm {
+  min-height: var(--target-touch);
+  min-width: var(--target-touch);
+  padding: 0 var(--space-2);
+  font-size: var(--type-body);
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-height);
+  height: var(--control-height);
+  border: var(--border-control) solid var(--line-control);
+  border-radius: var(--radius-1);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.icon-btn:hover {
+  background: var(--surface-selected);
+}
+
+.icon-btn[aria-pressed='true'] {
+  background: var(--surface-selected);
+  border-color: var(--fill-accent);
+}
+
+button[disabled],
+.btn[disabled] {
+  background: var(--surface-disabled);
+  color: var(--text-disabled);
+  border-color: var(--line-control);
+  cursor: not-allowed;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────────
+ * FIELDS. A control the coach types into during a session is the last place in the application
+ * that should be the smallest target on the screen — which is exactly what happened once, to a
+ * heart-rate input that sat outside this block and inherited none of its sizing at 21px tall.
+ * Any input, anywhere, gets these sizes.
+ * ───────────────────────────────────────────────────────────────────────────────────── */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+/* 16px, not 14px: a field label is read to make a decision, so it is body text. --type-meta is for
+ * timestamps, units and record identifiers only. */
+.field > label {
+  font-size: var(--type-body);
+  font-weight: var(--weight-medium);
+  color: var(--text-muted);
+}
+
+.field input,
+.field textarea,
+.field select {
+  min-height: var(--control-height);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-control) solid var(--line-control);
+  border-radius: var(--radius-1);
+  background: var(--surface-input);
+  color: var(--text-primary);
+  font: inherit;
+}
+
+.field textarea {
+  min-height: calc(var(--control-height) * 2);
+  line-height: var(--leading-body);
+  resize: vertical;
+}
+
+.field input::placeholder,
+.field textarea::placeholder {
+  color: var(--text-placeholder);
+}
+
+.field-hint {
+  font-size: var(--type-meta);
+  color: var(--text-muted);
+  line-height: var(--leading-loose);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────────
+ * ROWS — the density axis made visible. 40px tall, no gap between them, separated by a hairline
+ * rather than by space. That is where Console's extra rows per screen come from, and none of it
+ * comes from smaller words.
+ * ───────────────────────────────────────────────────────────────────────────────────── */
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--row-gap);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--row-height);
+  padding: 0 var(--card-padding);
+  border: none;
+  border-bottom: var(--border-hairline) solid var(--line-divider);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.row:hover {
+  background: var(--surface-raised);
+}
+
+.row[aria-current='true'],
+.row[aria-selected='true'] {
+  background: var(--surface-selected);
+  font-weight: var(--weight-medium);
+}
+
+/* A row that reports rather than acts: the rhythm without the affordance. */
+.row-static {
+  cursor: default;
+}
+
+.row-static:hover {
+  background: transparent;
+}
+
+.row-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row-value {
+  font-size: var(--type-body);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.row-actions {
+  display: flex;
+  gap: var(--space-1);
+  flex: 0 0 auto;
+}
+
+/* A group of rows where the group itself is the control, rather than a card. */
+.rows-boxed {
+  border: var(--border-control) solid var(--line-control);
+  border-radius: var(--radius-1);
+  overflow: hidden;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────────
+ * PAIRS — a label and the value it names. The other half of `.rows`, and the half that was
+ * missing: a row is a THING you act on, wearing its value on the right, and it is a control. A pair
+ * is a FACT you read, and there is nothing to press.
+ *
+ * The three screens that need one are the client record, the session summary and admin, and they
+ * are the three that would otherwise each have invented it — which is why it is here rather than in
+ * any of them. It is a `<dl>`, because that is the element that says these two pieces of text are a
+ * name and its value; without it a screen reader is handed two unrelated runs of text and the
+ * relationship the layout is drawing exists only for the eye.
+ *
+ * THE LABEL COLUMN SIZES TO ITS OWN CONTENT rather than to a chosen width, so a card of four short
+ * labels does not carry a third of its width as empty column. `--pair-label-column` is the cap on
+ * that, and the comment beside it says why.
+ *
+ * ON THE NARROW SURFACE IT STACKS, and the spacing is what keeps it readable as pairs: a label sits
+ * TIGHT against its own value and the space goes BETWEEN pairs instead. Even spacing down a stacked
+ * list is what turns eight facts into sixteen unrelated lines. This is the one width boundary the
+ * application has; there is no third treatment.
+ * ───────────────────────────────────────────────────────────────────────────────────── */
+.pairs {
+  display: grid;
+  grid-template-columns: fit-content(var(--pair-label-column)) minmax(0, 1fr);
+  gap: var(--space-2) var(--space-4);
+  align-items: baseline;
+  margin: 0;
+  min-width: 0;
+}
+
+.pair-label {
+  min-width: 0;
+  color: var(--text-muted);
+  font-weight: var(--weight-medium);
+}
+
+/*
+ * `<dd>` carries a browser indent of its own — 40px, from the user agent's own margin — and inside
+ * a grid cell that indent is simply lost width with nothing saying where it went. The value also
+ * has to be free to break inside a long unbroken run, because two of the values this exists to show
+ * are a build stamp and a failure message, neither of which contains a space to break at.
+ */
+.pair-value {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 839px) {
+  .pairs {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-1);
+  }
+
+  /* The space between pairs, put back where the single column took it away. */
+  .pair-label + .pair-value + .pair-label {
+    margin-block-start: var(--space-3);
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────────
+ * CHIPS. Every state carries a WORD as well as a colour, so nothing depends on telling green from
+ * amber — or on seeing colour at all, through sunlight on a phone, a greyscale screenshot, or the
+ * compression of the video call this application will actually be introduced over.
+ * ───────────────────────────────────────────────────────────────────────────────────── */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--target-minimum);
+  padding: 0 var(--space-2);
+  border: var(--border-control) solid var(--line-control);
+  border-radius: var(--radius-1);
+  background: var(--surface-raised);
+  font-size: var(--type-body);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+}
+
+.chip-accent {
+  background: var(--fill-accent);
+  border-color: var(--fill-accent);
+  color: var(--text-on-accent);
+}
+
+.chip-success {
+  background: var(--fill-success);
+  border-color: var(--fill-success);
+  color: var(--text-on-success);
+}
+
+.chip-warning {
+  background: var(--fill-warning);
+  border-color: var(--fill-warning);
+  color: var(--text-on-warning);
+}
+
+.chip-danger {
+  background: var(--fill-danger);
+  border-color: var(--fill-danger);
+  color: var(--text-on-danger);
+}
+
+.chip-neutral {
+  background: var(--fill-neutral);
+  border-color: var(--fill-neutral);
+  color: var(--text-on-neutral);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────────
+ * NOTES THAT CARRY A CONSEQUENCE. A statement the coach must be able to act on — what a control
+ * will actually do, what a delay means, where a change has and has not reached. Marked by an edge
+ * and a surface rather than by a modal: a modal is for a decision that genuinely cannot proceed
+ * without an answer, and it gets dismissed reflexively, which makes the important message the one
+ * least likely to land.
+ * ───────────────────────────────────────────────────────────────────────────────────── */
+.note {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--surface-raised);
+  border-inline-start: var(--border-strong) solid var(--line-control);
+  border-radius: var(--radius-1);
+  line-height: var(--leading-loose);
+}
+
+/* The same shape, for the case that needs attention rather than only explanation. */
+.note-warning {
+  border-inline-start-color: var(--fill-warning);
+}
+
+.note-danger {
+  border-inline-start-color: var(--fill-danger);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────────
+ * TOOLTIPS, and the rule that shapes the whole thing: NOTHING NEEDED TO FINISH A TASK LIVES IN ONE.
+ *
+ * They exist so a non-technical person can unblock or clarify without getting lost. Anything he
+ * actually needs stays on the screen, permanently — which is exactly what lets a tooltip be safely
+ * unreachable on a device with no pointer, and this application is used on a phone half the time.
+ *
+ * Console's behaviour, ported: right of the target on a laptop where the rail is the most common
+ * trigger, below it on a phone, opening after `--tip-open-delay` and closing with none. It opens on
+ * KEYBOARD FOCUS as well as hover — that is the half that is usually forgotten and the half a
+ * keyboard user depends on, and it is why the open state is driven by `:focus-within` as well as by
+ * the component's own pointer handling.
+ *
+ * WHERE IT OPENS IS MEASURED, NOT DECLARED. `tooltip-placement.ts` is handed the target, the bubble
+ * and the viewport and returns a position that is inside the viewport AND outside the target, which
+ * is why the bubble is positioned against the viewport rather than against its trigger: a bubble
+ * placed relative to a rail that clips its overflow is a bubble nobody sees.
+ *
+ * The delay collapses to nothing for anyone who has asked their device for reduced motion, because
+ * it is bound to a shared motion token. That is a small loss — the delay is intent rather than
+ * animation — and it is accepted rather than bought with a duration written out here.
+ * ───────────────────────────────────────────────────────────────────────────────────── */
+.tip {
+  display: inline-flex;
+}
+
+.tip-bubble {
+  position: fixed;
+  inset-block-start: var(--tip-top);
+  inset-inline-start: var(--tip-left);
+  z-index: var(--layer-popover);
+
+  inline-size: max-content;
+  max-inline-size: var(--tip-max-width);
+  /* Set by the placement code to the room actually available on the side it chose, so a bubble can
+   * neither run off the screen nor be pushed over the thing it is describing. */
+  max-block-size: var(--tip-max-height);
+  overflow: auto;
+
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  border: var(--border-hairline) solid var(--line-control);
+  border-radius: var(--radius-2);
+  box-shadow: var(--lift-popover);
+  font-size: var(--type-body);
+  line-height: var(--leading-body);
+
+  opacity: 0;
+  visibility: hidden;
+  /* Closing is immediate. A bubble that lingers after the pointer or the focus has left reads as a
+   * stuck interface, and on a rail the next one is already opening underneath it. */
+  transition:
+    opacity var(--motion-fast) var(--ease-exit) var(--motion-instant),
+    visibility var(--motion-instant) linear var(--motion-fast);
+}
+
+.tip-bubble[data-open='true'] {
+  opacity: 1;
+  visibility: visible;
+  /* Opening waits, so a pointer crossing the rail on its way somewhere else does not trail five
+   * bubbles behind it. */
+  transition:
+    opacity var(--motion-fast) var(--ease-enter) var(--tip-open-delay),
+    visibility var(--motion-instant) linear var(--tip-open-delay);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────────
+ * PROGRESSIVE DISCLOSURE. The ONLY answer to a screen that holds more than fits. Not a smaller
+ * font, and not less information — the coach needs what he needs. A section collapses, and its
+ * summary keeps the count so what is hidden is still accounted for.
+ * ───────────────────────────────────────────────────────────────────────────────────── */
+details.disclose {
+  border-top: var(--border-hairline) solid var(--line-divider);
+}
+
+details.disclose > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-height);
+  padding: 0 var(--card-padding);
+  font-weight: var(--weight-medium);
+  list-style: none;
+  cursor: pointer;
+}
+
+details.disclose > summary::-webkit-details-marker {
+  display: none;
+}
+
+details.disclose > summary:hover {
+  background: var(--surface-raised);
+}
+
+details.disclose[open] > summary {
+  border-bottom: var(--border-hairline) solid var(--line-divider);
+}
+
+details.disclose > summary .count {
+  font-size: var(--type-body);
+  color: var(--text-muted);
+  margin-inline-start: auto;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────────
+ * UTILITIES. Deliberately few. A utility that says how something LOOKS belongs in a role; these
+ * say what something IS.
+ * ───────────────────────────────────────────────────────────────────────────────────── */
+.muted {
+  color: var(--text-muted);
+}
+
+/* Timestamps, units and record identifiers. Never a control label, never a value read to make a
+ * decision, and never body text — that is the one rule attached to --type-meta. */
+.meta {
+  font-size: var(--type-meta);
+  color: var(--text-muted);
+}
+
+/* Numbers in a column, so the column does not shift width as the digits change. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * A phrase that must not break across lines — a value and its unit, or a two-word state. Use it
+ * only where the phrase is known to FIT: it is not a licence to push text out of its box, which
+ * would trade a wrap defect for an overflow one. "Backed up 4 / minutes ago" was a real defect,
+ * and the fix was moving the break to the phrase boundary, not forbidding the wrap.
+ */
+.nowrap {
+  white-space: nowrap;
+}
+
+/* Anything read in paragraphs: capped measure, looser leading. Long lines lose the reader's place. */
+.read {
+  max-width: var(--measure-read);
+  line-height: var(--leading-loose);
+}
+
+/*
+ * Present to assistive technology, never painted. This is how a glyph-only control gets its name
+ * and how a decorative micro-label is kept out of the accessible one.
+ */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}

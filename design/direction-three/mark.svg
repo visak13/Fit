@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Accessible application mark title -->
+  <title>Fit application mark, Roster direction</title>
+
+  <!-- Light rounded tile ground -->
+  <rect x="0" y="0" width="512" height="512" rx="88" fill="#F4F4F2" />
+
+  <!-- Full height dark navigation band with rounded outer corners -->
+  <path d="M88 0 H174 V512 H88 A88 88 0 0 1 0 424 V88 A88 88 0 0 1 88 0 Z" fill="#131211" />
+
+  <!-- Upper unselected list row -->
+  <rect x="56" y="116" width="72" height="16" rx="8" fill="#F4F4F2" />
+
+  <!-- Lower unselected list row -->
+  <rect x="56" y="328" width="72" height="16" rx="8" fill="#F4F4F2" />
+
+  <!-- Selected row continuing asymmetrically into the detail field -->
+  <rect x="24" y="196" width="376" height="56" rx="12" fill="#00564F" />
+</svg>

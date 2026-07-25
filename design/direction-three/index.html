@@ -1,0 +1,2519 @@
+<!DOCTYPE html>
+<!--
+  DIRECTION THREE — ROSTER.
+
+  One of three competing visual directions for the coaching application, built to be sat in
+  front of and judged. The three only mean something as a comparable SET, so this one was
+  built to the specification in design/DIRECTIONS.md rather than to the taste of whoever
+  typed it.
+
+  ROSTER'S STRUCTURAL AXIS IS NAVIGATION SHAPE. It is the only direction where the persistent
+  surface carries a LIST as well as the destinations, which makes it a permanent
+  list-and-detail application: pick a client on the left, work on them on the right, never
+  lose the list. On a phone the same relationship becomes a push — the list is the screen,
+  selecting an item pushes the detail over it, and a labelled control returns. Same
+  information architecture, narrower width, never a second design.
+
+  HOW TO OPEN IT
+    index.html                                  light, everything, laptop and phone frames
+    index.html?theme=dark                       the same, dark
+    index.html?width=phone                      every frame reduced to the phone width
+    index.html?only=session-runner              one screen and nothing else
+    index.html?only=diet-week&theme=dark&width=phone
+
+  The colours come from the shared token layer under design/tokens and are measured rather
+  than chosen: run `node design/contrast.mjs` from C:\Projects\Fit. Nothing in that shared
+  layer was edited to build this direction, because two siblings are being built from it at
+  the same time and an edit there would have silently repainted both.
+
+  There is no build step, no framework and no third-party dependency. Nothing here imports
+  from the application source tree.
+-->
+<html lang="en-GB" data-palette="ink-neutral" data-density="compact">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Roster — direction three — Fit</title>
+<link rel="icon" href="mark.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../tokens/base.css">
+<link rel="stylesheet" href="../tokens/palettes.css">
+<link rel="stylesheet" href="roster.css">
+</head>
+<body>
+
+<!--
+  THE GLYPH FAMILY, inlined from design/icons.
+
+  Inlined rather than linked, and that is a requirement rather than a convenience: an <img>
+  pointing at an .svg gets no currentColor and no CSS custom property, so a glyph loaded that
+  way could neither take its colour from the surface it sits on nor take Roster's marginally
+  heavier destination weight. Inlining one geometry is what lets three directions render it
+  at three of their own weights. The markup below is the shared family's own, unaltered.
+-->
+<svg class="sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+  <symbol id="g-nav-clients" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="9" cy="7" r="3"/>
+    <path d="M3 20v-2a6 6 0 0 1 12 0v2"/>
+    <circle cx="17.5" cy="8.5" r="2.5"/>
+    <path d="M16 14.2a5 5 0 0 1 5 4.8v1"/>
+  </symbol>
+  <symbol id="g-nav-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="4" width="18" height="17" rx="var(--glyph-radius, 2)"/>
+    <path d="M7 2v4M17 2v4M3 9h18"/>
+    <path d="M7 13h2M12 13h2M17 13h.01M7 17h2M12 17h2"/>
+  </symbol>
+  <symbol id="g-nav-routines" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 5h6a3 3 0 0 1 3 3v12a4 4 0 0 0-4-3H3Z"/>
+    <path d="M21 5h-6a3 3 0 0 0-3 3v12a4 4 0 0 1 4-3h5Z"/>
+  </symbol>
+  <symbol id="g-nav-diet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="4" width="7" height="6" rx="var(--glyph-radius, 2)"/>
+    <rect x="14" y="4" width="7" height="6" rx="var(--glyph-radius, 2)"/>
+    <rect x="3" y="14" width="7" height="6" rx="var(--glyph-radius, 2)"/>
+    <rect x="14" y="14" width="7" height="6" rx="var(--glyph-radius, 2)"/>
+  </symbol>
+  <symbol id="g-nav-admin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="4" width="18" height="16" rx="var(--glyph-radius, 2)"/>
+    <path d="M7 9h10M7 15h10"/>
+    <circle cx="10" cy="9" r="1.5"/>
+    <circle cx="15" cy="15" r="1.5"/>
+  </symbol>
+
+  <symbol id="g-sync-backed-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M7 19C4.5 19 3 17.2 3 15c0-2.3 1.6-4.2 3.8-4.5C7.6 7.3 10.1 5 13.3 5c3.1 0 5.7 2.2 6.2 5.3 1.5.7 2.5 2.2 2.5 4.2 0 2.5-2 4.5-5 4.5Z"/>
+    <path d="m9 14 2 2 4-4"/>
+  </symbol>
+  <symbol id="g-sync-pending" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 7h11M3 12h16M3 17h11"/>
+    <path d="m15 8 4 4-4 4"/>
+  </symbol>
+  <symbol id="g-sync-pending-warning" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5 17h14l-2-3v-4c0-3-2-5-5-5s-5 2-5 5v4Z"/>
+    <path d="M10 20h4"/>
+  </symbol>
+  <symbol id="g-sync-pending-overdue" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 3 22 21H2Z"/>
+    <path d="M12 9v5M12 18h.01"/>
+  </symbol>
+  <symbol id="g-sync-offline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 8h7v8H3M6 8V5M9 8V5M10 12h3"/>
+    <path d="M15 12h2M17 7v10M20 9v6"/>
+  </symbol>
+  <symbol id="g-sync-failed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 6v12M20 6v12M4 8h16v8H4Z"/>
+    <path d="m7 8 4 8M13 8l4 8"/>
+  </symbol>
+
+  <symbol id="g-session-pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="9.5"/>
+    <path d="M9.5 8v8M14.5 8v8"/>
+  </symbol>
+  <symbol id="g-session-previous-exercise" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20 12H6M11 7l-5 5 5 5M3 6v12"/>
+  </symbol>
+  <symbol id="g-session-next-exercise" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 12h14M13 7l5 5-5 5M21 6v12"/>
+  </symbol>
+  <symbol id="g-session-skip-exercise" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m4 6 8 6-8 6ZM12 6l8 6-8 6ZM21 6v12"/>
+  </symbol>
+  <symbol id="g-session-repeat-exercise" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M19 8a8 8 0 0 0-13.5-2L3 8.5"/>
+    <path d="M3 4v4.5h4.5"/>
+    <path d="M5 16a8 8 0 0 0 13.5 2l2.5-2.5"/>
+    <path d="M21 20v-4.5h-4.5"/>
+  </symbol>
+  <symbol id="g-session-reorder-exercises" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 6h11M9 12h11M9 18h11"/>
+    <path d="M4 3v18M2 5l2-2 2 2M2 19l2 2 2-2"/>
+  </symbol>
+  <symbol id="g-session-substitute-exercise" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 8h14M15 5l3 3-3 3"/>
+    <path d="M20 16H6M9 13l-3 3 3 3"/>
+  </symbol>
+  <symbol id="g-session-finish" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="9.5"/>
+    <path d="m7.5 12 3 3 6-6"/>
+  </symbol>
+
+  <symbol id="g-reading-heart-rate" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 12h4l2-5 4 10 2-5h6"/>
+  </symbol>
+  <symbol id="g-reading-timer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="13" r="8.5"/>
+    <path d="M9 2h6M12 4.5V2M18.5 6.5 20 5"/>
+    <path d="M12 8v5l3 2"/>
+  </symbol>
+  <symbol id="g-reading-held-position" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="5" cy="7" r="2.5"/>
+    <path d="M7.5 11h9l3 5H9l-3-5"/>
+    <path d="M4 16h17M7 16v3M19 16v3"/>
+  </symbol>
+  <symbol id="g-rest-interval" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6 3h12M6 21h12M8 3c0 5 2 6 4 9-2 3-4 4-4 9M16 3c0 5-2 6-4 9 2 3 4 4 4 9"/>
+  </symbol>
+
+  <symbol id="g-note" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5 3h10l4 4v14H5Z"/>
+    <path d="M15 3v5h4M8 12h8M8 16h6"/>
+  </symbol>
+  <symbol id="g-help-explain" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 3h16v14H9l-5 4Z"/>
+    <path d="M12 10v4M12 7h.01"/>
+  </symbol>
+  <symbol id="g-link-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20 8v8M4 12h13M9 7l-5 5 5 5"/>
+  </symbol>
+  <symbol id="g-link-forward" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 8v8M20 12H7M15 7l5 5-5 5"/>
+  </symbol>
+  <symbol id="g-client-adaptation-flag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5 21V3"/>
+    <path d="M5 4h12l-2 4 2 4H5"/>
+    <path d="M9 7h4"/>
+  </symbol>
+  <symbol id="g-protected-clinical-note" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="4" y="10" width="16" height="11" rx="var(--glyph-radius, 2)"/>
+    <path d="M8 10V7a4 4 0 0 1 8 0v3M8 15h8M8 18h5"/>
+  </symbol>
+  <symbol id="g-progress-over-time" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 3v18h17"/>
+    <path d="m7 16 4-5 3 2 5-7"/>
+    <path d="M16 6h3v3"/>
+  </symbol>
+  <symbol id="g-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="10.5" cy="10.5" r="7"/>
+    <path d="m15.5 15.5 5 5"/>
+  </symbol>
+  <symbol id="g-add" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="9.5"/>
+    <path d="M12 7v10M7 12h10"/>
+  </symbol>
+  <symbol id="g-drag-handle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="8" cy="6" r="1"/>
+    <circle cx="16" cy="6" r="1"/>
+    <circle cx="8" cy="12" r="1"/>
+    <circle cx="16" cy="12" r="1"/>
+    <circle cx="8" cy="18" r="1"/>
+    <circle cx="16" cy="18" r="1"/>
+  </symbol>
+  <symbol id="g-export" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 3v12M8 7l4-4 4 4"/>
+    <path d="M5 12H3v9h18v-9h-2"/>
+  </symbol>
+  <symbol id="g-what-leaves-this-device" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="2" y="4" width="6" height="16" rx="var(--glyph-radius, 2)"/>
+    <rect x="16" y="4" width="6" height="16" rx="var(--glyph-radius, 2)"/>
+    <path d="M8 9h2M14 9h2M8 15h2M14 15h2"/>
+  </symbol>
+</svg>
+
+
+<div class="sheet">
+
+  <header class="sheet__head" data-sheet-part>
+    <div>
+      <h1 class="sheet__title">Roster</h1>
+      <p class="sheet__subtitle">Direction three of three. The structural axis is navigation shape.</p>
+      <p class="prose">
+        Roster is the only one of the three directions where the persistent surface carries a
+        <strong>list</strong> as well as the destinations. On a laptop it is a permanent
+        list-and-detail application: pick a client on the left, work on them on the right,
+        never lose the list. On a phone the same relationship becomes a push. Its palette is
+        near-achromatic and carries one accent, so colour appears only where it means
+        something.
+      </p>
+    </div>
+    <div class="sheet__controls">
+      <button class="btn" id="theme-toggle" type="button" aria-pressed="false">
+        <span data-role="theme-label">Switch to dark</span>
+      </button>
+      <button class="btn" id="width-toggle" type="button" aria-pressed="false">
+        <span data-role="width-label">Show everything at phone width</span>
+      </button>
+    </div>
+  </header>
+
+  <nav class="sheet-nav" aria-label="Screens on this sheet" data-sheet-part>
+    <a class="context-link" href="#session-runner">The session runner</a>
+    <a class="context-link" href="#client-list">The client list</a>
+    <a class="context-link" href="#client-record">One client record</a>
+    <a class="context-link" href="#diet-week">The diet week</a>
+    <a class="context-link" href="#navigation-laptop">Navigation, laptop</a>
+    <a class="context-link" href="#navigation-phone">Navigation, phone</a>
+    <a class="context-link" href="#sync-states">Synchronisation, all six states</a>
+    <a class="context-link" href="#tooltips">Tooltips, open</a>
+    <a class="context-link" href="#mark">The application mark</a>
+    <a class="context-link" href="#both-themes">Both themes at once</a>
+  </nav>
+
+
+  <!-- ══════════════════════════════════════════════════════════════════════════════════════
+       THE SESSION RUNNER
+
+       The screen the application exists for and the one used while a client is waiting, so it
+       carries the most weight of anything here. It is genuinely dense and the test it has to
+       pass is staying legible through hierarchy and progressive disclosure rather than by
+       throwing information away.
+
+       Every exercise, set, repetition, rest and coaching cue below is the real shipped seed
+       content from app/core/seed/content, not placeholder text. The clients, the loads and
+       the readings are invented, because the seed supplies no clients — and the loads are
+       invented as RECORDED OBSERVATIONS, never as a suggestion, because the shipped library
+       deliberately carries no weight values at all: prescribing a load is a training judgement
+       that belongs to the coach.
+       ═══════════════════════════════════════════════════════════════════════════════════════ -->
+  <section class="section" id="session-runner" data-sheet-part aria-labelledby="session-runner-title">
+    <div class="section__head">
+      <h2 class="section__title" id="session-runner-title">The session runner</h2>
+      <p class="section__note">
+        Real routine: <em>Pull Deadlift Back and Biceps</em>, day three of the shipped week.
+        Two clients in one session. The exercise jump list is deliberately drawn as a card
+        <em>inside the content</em> rather than as a third column, because Roster already
+        spends two columns on navigation and a third that looked like navigation but was not
+        would undo the distinction the whole direction rests on.
+      </p>
+    </div>
+
+    <div class="frames">
+      <div class="frame frame--laptop frame--full">
+        <p class="frame__caption">Laptop <span class="frame__width">1280px</span>
+          — laid out in full so nothing is hidden below the fold. In a real laptop window the
+          detail pane scrolls and the destination column and list pane stay put.</p>
+
+        <div class="app">
+          <div class="app__body">
+
+            <!-- LAYER ONE: the destinations. Movement BETWEEN parts of the application. -->
+            <nav class="destinations" aria-label="Go to">
+              <p class="destinations__heading">Go to</p>
+              <ul class="destinations__list">
+                <li>
+                  <a class="destination" href="#client-list">
+                    <svg class="glyph" aria-hidden="true"><use href="#g-nav-clients"/></svg>
+                    <span class="destination__label">Clients</span>
+                  </a>
+                </li>
+                <li>
+                  <a class="destination" href="#session-runner" aria-current="page">
+                    <svg class="glyph" aria-hidden="true"><use href="#g-nav-calendar"/></svg>
+                    <span class="destination__label">Calendar</span>
+                  </a>
+                </li>
+                <li>
+                  <a class="destination" href="#session-runner">
+                    <svg class="glyph" aria-hidden="true"><use href="#g-nav-routines"/></svg>
+                    <span class="destination__label">Routines</span>
+                  </a>
+                </li>
+                <li>
+                  <a class="destination" href="#diet-week">
+                    <svg class="glyph" aria-hidden="true"><use href="#g-nav-diet"/></svg>
+                    <span class="destination__label">Diet</span>
+                  </a>
+                </li>
+                <li>
+                  <a class="destination" href="#sync-states">
+                    <svg class="glyph" aria-hidden="true"><use href="#g-nav-admin"/></svg>
+                    <span class="destination__label">Admin</span>
+                  </a>
+                </li>
+              </ul>
+              <div class="destinations__foot">
+                <div class="tip-host">
+                  <button class="sync sync--column" type="button" data-state="pending" aria-describedby="tip-waiting">
+                    <svg class="glyph sync__glyph" aria-hidden="true"><use href="#g-sync-pending"/></svg>
+                    <span class="sync__text">
+                      <span class="visually-hidden">Waiting to back up. 3 changes waiting. Last backed up 1 hour ago.</span>
+                      <span class="sync__state" aria-hidden="true">Waiting</span>
+                      <span class="sync__detail" aria-hidden="true">3 waiting</span>
+                      <span class="sync__detail" aria-hidden="true">1h ago</span>
+                    </span>
+                  </button>
+                  <span class="tip tip--right" role="tooltip" id="tip-waiting">
+                    <strong class="tip__title">Waiting is normal</strong>
+                    Everything is already saved on this phone. Waiting means it has not reached
+                    your Google Drive backup yet. It goes on its own when you have a
+                    connection, and nothing is lost while it waits.
+                  </span>
+                </div>
+              </div>
+            </nav>
+
+            <!-- LAYER TWO: the list pane. Movement WITHIN the current destination. -->
+            <div class="list-pane">
+              <div class="list-pane__head">
+                <h3 class="list-pane__title">Calendar</h3>
+                <span class="list-pane__count">4 upcoming</span>
+              </div>
+              <div class="list-pane__search">
+                <label class="visually-hidden" for="session-search">Search sessions</label>
+                <input class="input" id="session-search" type="search" placeholder="Search sessions">
+              </div>
+              <ul class="list-pane__items">
+                <li>
+                  <button class="list-item" type="button" aria-current="true" data-push-detail>
+                    <span class="list-item__body">
+                      <span class="list-item__name">Today 19:00 — Pull day</span>
+                      <span class="list-item__meta">Priya Raghavan, Arjun Mehta — running</span>
+                    </span>
+                    <span class="list-item__trailing">
+                      <svg class="glyph" aria-hidden="true"><use href="#g-session-pause"/></svg>
+                      <span class="visually-hidden">Session running</span>
+                    </span>
+                  </button>
+                </li>
+                <li>
+                  <button class="list-item" type="button" data-push-detail>
+                    <span class="list-item__body">
+                      <span class="list-item__name">Tomorrow 07:00 — Interval Conditioning</span>
+                      <span class="list-item__meta">Farida Noor</span>
+                    </span>
+                  </button>
+                </li>
+                <li>
+                  <button class="list-item" type="button" data-push-detail>
+                    <span class="list-item__body">
+                      <span class="list-item__name">Thursday 18:30 — Chest and Shoulders</span>
+                      <span class="list-item__meta">Daniel Okonkwo, Meera Iyer</span>
+                    </span>
+                  </button>
+                </li>
+                <li>
+                  <button class="list-item" type="button" data-push-detail>
+                    <span class="list-item__body">
+                      <span class="list-item__name">Friday 06:30 — Legs Strength</span>
+                      <span class="list-item__meta">Arjun Mehta</span>
+                    </span>
+                  </button>
+                </li>
+              </ul>
+            </div>
+
+            <!-- THE DETAIL. The work. -->
+            <div class="detail">
+              <!--
+                The breadcrumb appears because the detail has drilled a level deeper than the
+                list pane: the list says which session, this says we are inside running it.
+                It names records, never destinations — a destination in this layer would make
+                the active state in the column opposite a lie.
+              -->
+              <nav class="breadcrumb" aria-label="Where you are">
+                <a class="back-link" href="#session-runner" data-push-list>
+                  <svg class="glyph" aria-hidden="true"><use href="#g-link-back"/></svg>
+                  Back to today's sessions
+                </a>
+                <span class="breadcrumb__sep" aria-hidden="true">/</span>
+                <span class="breadcrumb__current">Running: Pull Deadlift Back and Biceps</span>
+              </nav>
+
+              <div class="detail__scroll">
+                <div class="runner">
+
+                  <!-- Jump to any exercise. Never only forward. -->
+                  <section class="card" aria-labelledby="jump-heading">
+                    <div class="card__head">
+                      <h4 class="card__title" id="jump-heading">Jump to any exercise</h4>
+                    </div>
+                    <ol class="jump-list">
+                      <li>
+                        <button class="jump" type="button" data-position="done">
+                          <span class="jump__index">1</span>
+                          <span class="jump__name">Band Pull Apart</span>
+                          <span class="jump__state">done</span>
+                        </button>
+                      </li>
+                      <li>
+                        <button class="jump" type="button" data-position="done">
+                          <span class="jump__index">2</span>
+                          <span class="jump__name">Lat Pulldown</span>
+                          <span class="jump__state">done</span>
+                        </button>
+                      </li>
+                      <li>
+                        <button class="jump" type="button" data-position="current" aria-current="true">
+                          <span class="jump__index">3</span>
+                          <span class="jump__name">Deadlift</span>
+                          <span class="intensity" data-level="high">high</span>
+                        </button>
+                      </li>
+                      <li>
+                        <button class="jump" type="button" data-position="upcoming">
+                          <span class="jump__index">4</span>
+                          <span class="jump__name">Bent Over Row</span>
+                          <span class="intensity" data-level="high">high</span>
+                        </button>
+                      </li>
+                      <li>
+                        <button class="jump" type="button" data-position="upcoming">
+                          <span class="jump__index">5</span>
+                          <span class="jump__name">Single Arm Dumbbell Row</span>
+                          <span class="intensity" data-level="medium">medium</span>
+                        </button>
+                      </li>
+                      <li>
+                        <button class="jump" type="button" data-position="upcoming">
+                          <span class="jump__index">6</span>
+                          <span class="jump__name">Barbell Biceps Curl</span>
+                          <span class="intensity" data-level="medium">medium</span>
+                        </button>
+                      </li>
+                      <li>
+                        <button class="jump" type="button" data-position="upcoming">
+                          <span class="jump__index">7</span>
+                          <span class="jump__name">Hammer Curl</span>
+                          <span class="intensity" data-level="low">low</span>
+                        </button>
+                      </li>
+                      <li>
+                        <button class="jump" type="button" data-position="upcoming">
+                          <span class="jump__index">8</span>
+                          <span class="jump__name">Face Pull</span>
+                          <span class="intensity" data-level="low">low</span>
+                        </button>
+                      </li>
+                      <li>
+                        <button class="jump" type="button" data-position="upcoming">
+                          <span class="jump__index">9</span>
+                          <span class="jump__name">Dead Hang <span class="meta nowrap">2 x 45 s</span></span>
+                          <span class="intensity" data-level="low">low</span>
+                        </button>
+                      </li>
+                    </ol>
+                    <div class="divider"></div>
+                    <div class="btn-row">
+                      <button class="btn btn--quiet" type="button">
+                        <svg class="glyph" aria-hidden="true"><use href="#g-session-reorder-exercises"/></svg>
+                        Reorder
+                      </button>
+                      <button class="btn btn--quiet" type="button">
+                        <svg class="glyph" aria-hidden="true"><use href="#g-add"/></svg>
+                        Add one
+                      </button>
+                    </div>
+                  </section>
+
+                  <!-- The current exercise, and everything done to it. -->
+                  <div class="runner__now">
+
+                    <section class="card" aria-labelledby="now-heading">
+                      <div class="now-head">
+                        <div>
+                          <p class="meta">Now, exercise 3 of 9</p>
+                          <h4 class="now-exercise" id="now-heading" tabindex="-1" data-detail-heading>Deadlift</h4>
+                        </div>
+                        <span class="intensity" data-level="high">high</span>
+                      </div>
+
+                      <div class="now-prescription">
+                        <p class="prescription">
+                          <span class="display-value">4</span>
+                          <span class="prescription__unit">sets</span>
+                        </p>
+                        <p class="prescription">
+                          <span class="display-value">6</span>
+                          <span class="prescription__unit">repetitions</span>
+                        </p>
+                        <p class="prescription">
+                          <svg class="glyph" aria-hidden="true"><use href="#g-rest-interval"/></svg>
+                          <span class="display-value">2:00</span>
+                          <span class="prescription__unit">rest between sets</span>
+                        </p>
+                      </div>
+
+                      <p class="cue">
+                        Bar over the mid foot, flat back, push the floor away and lock out tall
+                        without leaning back.
+                      </p>
+
+                      <div class="up-next">
+                        <span class="up-next__label">Coming next</span>
+                        <span class="up-next__name">Bent Over Row</span>
+                        <span class="meta">4 x 8, 90 s rest</span>
+                        <span class="intensity" data-level="high">high</span>
+                      </div>
+
+                      <div class="divider"></div>
+
+                      <div class="btn-row" role="group" aria-label="Session controls">
+                        <button class="btn btn--session" type="button">
+                          <svg class="glyph" aria-hidden="true"><use href="#g-session-pause"/></svg>
+                          <span class="btn__label">Pause</span>
+                        </button>
+                        <button class="btn btn--session" type="button">
+                          <svg class="glyph" aria-hidden="true"><use href="#g-session-previous-exercise"/></svg>
+                          <span class="btn__label">Previous</span>
+                        </button>
+                        <button class="btn btn--session" type="button">
+                          <svg class="glyph" aria-hidden="true"><use href="#g-session-next-exercise"/></svg>
+                          <span class="btn__label">Next</span>
+                        </button>
+                        <button class="btn btn--session" type="button">
+                          <svg class="glyph" aria-hidden="true"><use href="#g-session-skip-exercise"/></svg>
+                          <span class="btn__label">Skip</span>
+                        </button>
+                        <button class="btn btn--session" type="button">
+                          <svg class="glyph" aria-hidden="true"><use href="#g-session-repeat-exercise"/></svg>
+                          <span class="btn__label">Repeat</span>
+                        </button>
+                        <div class="tip-host">
+                          <button class="btn btn--session" type="button" aria-describedby="tip-substitute">
+                            <svg class="glyph" aria-hidden="true"><use href="#g-session-substitute-exercise"/></svg>
+                            <span class="btn__label">Substitute</span>
+                          </button>
+                          <span class="tip" role="tooltip" id="tip-substitute">
+                            <strong class="tip__title">Swap this exercise</strong>
+                            Puts a different exercise in this slot for the rest of today only.
+                            Your saved routine is not changed. You can swap it for one client
+                            and leave the other on the original.
+                          </span>
+                        </div>
+                        <button class="btn btn--session btn--primary" type="button">
+                          <svg class="glyph" aria-hidden="true"><use href="#g-session-finish"/></svg>
+                          <span class="btn__label">Finish</span>
+                        </button>
+                      </div>
+                    </section>
+
+                    <!--
+                      MORE THAN ONE CLIENT IN ONE SESSION. One routine, a set of attending
+                      clients, and each one keeps their own readings, their own note, their own
+                      record of what was actually performed and their own history. He can adapt
+                      one exercise for one tired client while the other carries on.
+                    -->
+                    <section aria-labelledby="attendees-heading">
+                      <h4 class="card__title" id="attendees-heading">In this session</h4>
+                      <p class="meta">Two clients, one routine. Each is recorded separately.</p>
+                      <div class="attendees">
+
+                        <div class="card">
+                          <div class="attendee__head">
+                            <span class="attendee__name">Priya Raghavan</span>
+                            <span class="chip chip--adaptation">
+                              <svg class="glyph" aria-hidden="true"><use href="#g-client-adaptation-flag"/></svg>
+                              Adaptation
+                            </span>
+                          </div>
+
+                          <div class="reading-row">
+                            <span class="reading-row__kind">
+                              <svg class="glyph" aria-hidden="true"><use href="#g-reading-heart-rate"/></svg>
+                              Heart rate
+                            </span>
+                            <span class="reading-row__value">132</span>
+                            <span class="meta">bpm, 19:14</span>
+                          </div>
+                          <div class="reading-row">
+                            <span class="reading-row__kind">
+                              <svg class="glyph" aria-hidden="true"><use href="#g-reading-held-position"/></svg>
+                              Dead hang
+                            </span>
+                            <span class="reading-row__value">38</span>
+                            <span class="meta">seconds, 19:02</span>
+                          </div>
+
+                          <div class="divider"></div>
+
+                          <div class="capture">
+                            <p class="field">
+                              <label class="field__label" for="priya-kind">Record a reading</label>
+                              <select class="select" id="priya-kind">
+                                <option>Heart rate, bpm</option>
+                                <option>Resting heart rate, bpm</option>
+                                <option>Plank hold, seconds</option>
+                                <option>Hollow hold, seconds</option>
+                                <option>Wall sit, seconds</option>
+                                <option>Dead hang, seconds</option>
+                              </select>
+                            </p>
+                            <p class="field">
+                              <label class="field__label" for="priya-value">Value</label>
+                              <input class="input" id="priya-value" type="text" inputmode="numeric" placeholder="0">
+                            </p>
+                            <button class="btn" type="button">Add</button>
+                          </div>
+
+                          <div class="divider"></div>
+
+                          <p class="field">
+                            <label class="field__label" for="priya-load">Load used on this set</label>
+                            <input class="input" id="priya-load" type="text" placeholder="Not recorded">
+                            <span class="field__hint">
+                              Last time on this exercise: 45 kg. The app never suggests a load.
+                              That judgement is yours.
+                            </span>
+                          </p>
+
+                          <p class="field">
+                            <label class="field__label" for="priya-note">Note during the session</label>
+                            <textarea class="textarea" id="priya-note" placeholder="Anything worth remembering">Bar felt heavy on set two, dropped to 40 kg and it moved well.</textarea>
+                          </p>
+
+                          <div class="btn-row">
+                            <button class="btn btn--quiet" type="button">
+                              <svg class="glyph" aria-hidden="true"><use href="#g-session-substitute-exercise"/></svg>
+                              Substitute for Priya only
+                            </button>
+                          </div>
+                        </div>
+
+                        <div class="card">
+                          <div class="attendee__head">
+                            <span class="attendee__name">Arjun Mehta</span>
+                          </div>
+
+                          <div class="reading-row">
+                            <span class="reading-row__kind">
+                              <svg class="glyph" aria-hidden="true"><use href="#g-reading-heart-rate"/></svg>
+                              Heart rate
+                            </span>
+                            <span class="reading-row__value">145</span>
+                            <span class="meta">bpm, 19:15</span>
+                          </div>
+                          <div class="reading-row">
+                            <span class="reading-row__kind">
+                              <svg class="glyph" aria-hidden="true"><use href="#g-reading-held-position"/></svg>
+                              Dead hang
+                            </span>
+                            <span class="reading-row__value">52</span>
+                            <span class="meta">seconds, 19:03</span>
+                          </div>
+
+                          <div class="divider"></div>
+
+                          <div class="capture">
+                            <p class="field">
+                              <label class="field__label" for="arjun-kind">Record a reading</label>
+                              <select class="select" id="arjun-kind">
+                                <option>Heart rate, bpm</option>
+                                <option>Resting heart rate, bpm</option>
+                                <option>Plank hold, seconds</option>
+                                <option>Hollow hold, seconds</option>
+                                <option>Wall sit, seconds</option>
+                                <option>Dead hang, seconds</option>
+                              </select>
+                            </p>
+                            <p class="field">
+                              <label class="field__label" for="arjun-value">Value</label>
+                              <input class="input" id="arjun-value" type="text" inputmode="numeric" placeholder="0">
+                            </p>
+                            <button class="btn" type="button">Add</button>
+                          </div>
+
+                          <div class="divider"></div>
+
+                          <p class="field">
+                            <label class="field__label" for="arjun-load">Load used on this set</label>
+                            <input class="input" id="arjun-load" type="text" placeholder="Not recorded">
+                            <span class="field__hint">
+                              Last time on this exercise: 70 kg. The app never suggests a load.
+                              That judgement is yours.
+                            </span>
+                          </p>
+
+                          <p class="field">
+                            <label class="field__label" for="arjun-note">Note during the session</label>
+                            <textarea class="textarea" id="arjun-note" placeholder="Anything worth remembering"></textarea>
+                          </p>
+
+                          <div class="btn-row">
+                            <button class="btn btn--quiet" type="button">
+                              <svg class="glyph" aria-hidden="true"><use href="#g-session-substitute-exercise"/></svg>
+                              Substitute for Arjun only
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </section>
+
+                    <!--
+                      THE PREVIOUS SESSION AT A GLANCE, per client, so progress is visible
+                      across sessions. It shows what happened; it never proposes what happens
+                      next.
+                    -->
+                    <section class="card" aria-labelledby="previous-heading">
+                      <div class="card__head">
+                        <h4 class="card__title" id="previous-heading">Last time they did this routine</h4>
+                        <span class="meta">Tuesday 15 July</span>
+                      </div>
+                      <div class="attendees">
+                        <div>
+                          <p class="card__title">Priya Raghavan</p>
+                          <div class="previous">
+                            <p class="previous__row"><span>Deadlift</span><span class="previous__load">4 x 6 at 45 kg</span></p>
+                            <p class="previous__row"><span>Bent Over Row</span><span class="previous__load">4 x 8 at 25 kg</span></p>
+                            <p class="previous__row"><span>Dead Hang</span><span class="previous__load">2 x 38 s</span></p>
+                            <p class="previous__row"><span>Heart rate</span><span class="previous__load">128 bpm</span></p>
+                          </div>
+                          <div class="btn-row">
+                            <a class="context-link" href="#client-record">
+                              <svg class="glyph" aria-hidden="true"><use href="#g-progress-over-time"/></svg>
+                              Priya Raghavan's readings over time
+                            </a>
+                          </div>
+                        </div>
+                        <div>
+                          <p class="card__title">Arjun Mehta</p>
+                          <div class="previous">
+                            <p class="previous__row"><span>Deadlift</span><span class="previous__load">4 x 6 at 70 kg</span></p>
+                            <p class="previous__row"><span>Bent Over Row</span><span class="previous__load">4 x 8 at 40 kg</span></p>
+                            <p class="previous__row"><span>Dead Hang</span><span class="previous__load">3 x 45 s</span></p>
+                            <p class="previous__row"><span>Heart rate</span><span class="previous__load">141 bpm</span></p>
+                          </div>
+                          <div class="btn-row">
+                            <a class="context-link" href="#client-record">
+                              <svg class="glyph" aria-hidden="true"><use href="#g-progress-over-time"/></svg>
+                              Arjun Mehta's readings over time
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                    </section>
+
+                    <!--
+                      THE INTENSITY PATTERN CONTROLS. One press reshapes the whole session,
+                      both the order and the effort. All seven patterns below are the real
+                      shipped ones.
+
+                      The note under them is the honest-degradation rule, and it is the point
+                      of showing this control at all: a curve that asks for more hard work than
+                      the routine holds is told plainly which level ran short, rather than
+                      being silently given a different intensity or a shorter session.
+                    -->
+                    <section class="card" aria-labelledby="patterns-heading">
+                      <div class="card__head">
+                        <h4 class="card__title" id="patterns-heading">Shape of the session</h4>
+                        <div class="tip-host">
+                          <button class="tip-trigger" type="button" aria-describedby="tip-pattern">
+                            <svg class="glyph" aria-hidden="true"><use href="#g-help-explain"/></svg>
+                            <span class="visually-hidden">What these do</span>
+                          </button>
+                          <span class="tip tip--end" role="tooltip" id="tip-pattern">
+                            <strong class="tip__title">What one press does</strong>
+                            It reorders the exercises and adjusts repetitions, timers and rest
+                            so the session follows that shape. It never changes the weight. You
+                            see the result before anything starts, and you can change any part
+                            of it.
+                          </span>
+                        </div>
+                      </div>
+                      <div class="patterns" role="group" aria-label="Intensity pattern">
+                        <button class="btn" type="button" aria-pressed="false">Low Medium High Low</button>
+                        <button class="btn" type="button" aria-pressed="false">Low High Low High Low</button>
+                        <button class="btn" type="button" aria-pressed="false">Low Medium Low Medium Low</button>
+                        <button class="btn" type="button" aria-pressed="false">Steady Build</button>
+                        <button class="btn" type="button" aria-pressed="false">Descending Taper</button>
+                        <button class="btn" type="button" aria-pressed="false">Interval Alternation</button>
+                        <button class="btn" type="button" aria-pressed="true">Build And Hold</button>
+                      </div>
+                      <p class="pattern-note">
+                        <strong>Build And Hold ran short, and here is where.</strong>
+                        It climbs to the hardest work by exercise three and holds it. This
+                        routine holds two high-intensity exercises, so high ran out after
+                        exercise four. Exercises five to nine were filled with the next hardest
+                        work the routine has. Nothing was substituted quietly and the session
+                        was not shortened.
+                      </p>
+                      <p class="prose">
+                        The app proposes. You decide. Every value here can be changed by hand
+                        at any moment, and nothing is applied until you say so.
+                      </p>
+                    </section>
+
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+          <!--
+            THE PERSISTENT SURFACE AT A PHONE WIDTH, and it is a SIBLING of the two panes rather
+            than a child of the detail. That is a correctness requirement, not tidiness: it lived
+            inside the detail at first, so the phone push hid it, and the list screen ended up
+            with no way to reach any destination and no synchronisation indicator at all. A
+            surface that has to be permanent cannot be nested inside something that gets hidden.
+          -->
+          <nav class="bottom-bar" aria-label="Go to">
+            <ul class="bottom-bar__list">
+              <li><a class="destination" href="#client-list"><svg class="glyph" aria-hidden="true"><use href="#g-nav-clients"/></svg><span class="destination__label">Clients</span></a></li>
+              <li><a class="destination" href="#session-runner" aria-current="page"><svg class="glyph" aria-hidden="true"><use href="#g-nav-calendar"/></svg><span class="destination__label">Calendar</span></a></li>
+              <li><a class="destination" href="#session-runner"><svg class="glyph" aria-hidden="true"><use href="#g-nav-routines"/></svg><span class="destination__label">Routines</span></a></li>
+              <li><a class="destination" href="#diet-week"><svg class="glyph" aria-hidden="true"><use href="#g-nav-diet"/></svg><span class="destination__label">Diet</span></a></li>
+              <li><a class="destination" href="#sync-states"><svg class="glyph" aria-hidden="true"><use href="#g-nav-admin"/></svg><span class="destination__label">Admin</span></a></li>
+            </ul>
+          </nav>
+        </div>
+      </div>
+
+      <!-- The same screen, the same state, at a phone width. Same architecture. -->
+      <div class="frame frame--phone">
+        <p class="frame__caption">Phone <span class="frame__width">390px</span></p>
+        <div class="app" data-stage="detail">
+          <div class="app__body">
+            <div class="list-pane">
+              <div class="list-pane__head">
+                <h3 class="list-pane__title">Calendar</h3>
+                <span class="list-pane__count">4 upcoming</span>
+              </div>
+              <ul class="list-pane__items">
+                <li>
+                  <button class="list-item" type="button" aria-current="true" data-push-detail>
+                    <span class="list-item__body">
+                      <span class="list-item__name">Today 19:00 — Pull day</span>
+                      <span class="list-item__meta">Priya Raghavan, Arjun Mehta — running</span>
+                    </span>
+                  </button>
+                </li>
+                <li>
+                  <button class="list-item" type="button" data-push-detail>
+                    <span class="list-item__body">
+                      <span class="list-item__name">Tomorrow 07:00 — Interval Conditioning</span>
+                      <span class="list-item__meta">Farida Noor</span>
+                    </span>
+                  </button>
+                </li>
+              </ul>
+            </div>
+
+            <div class="detail">
+              <nav class="breadcrumb" aria-label="Where you are">
+                <a class="back-link" href="#session-runner" data-push-list>
+                  <svg class="glyph" aria-hidden="true"><use href="#g-link-back"/></svg>
+                  Back to today's sessions
+                </a>
+              </nav>
+              <div class="detail__scroll">
+                <div class="runner">
+                  <div class="runner__now">
+                    <section class="card" aria-labelledby="now-heading-phone">
+                      <div class="now-head">
+                        <div>
+                          <p class="meta">Now, exercise 3 of 9</p>
+                          <h4 class="now-exercise" id="now-heading-phone" tabindex="-1" data-detail-heading>Deadlift</h4>
+                        </div>
+                        <span class="intensity" data-level="high">high</span>
+                      </div>
+                      <div class="now-prescription">
+                        <p class="prescription"><span class="display-value">4</span><span class="prescription__unit">sets</span></p>
+                        <p class="prescription"><span class="display-value">6</span><span class="prescription__unit">reps</span></p>
+                        <p class="prescription">
+                          <svg class="glyph" aria-hidden="true"><use href="#g-rest-interval"/></svg>
+                          <span class="display-value">2:00</span>
+                          <span class="prescription__unit">rest</span>
+                        </p>
+                      </div>
+                      <p class="cue">
+                        Bar over the mid foot, flat back, push the floor away and lock out tall
+                        without leaning back.
+                      </p>
+                      <div class="up-next">
+                        <span class="up-next__label">Coming next</span>
+                        <span class="up-next__name">Bent Over Row</span>
+                      </div>
+                      <div class="divider"></div>
+                      <div class="btn-row" role="group" aria-label="Session controls">
+                        <button class="btn btn--session" type="button">
+                          <svg class="glyph" aria-hidden="true"><use href="#g-session-pause"/></svg>
+                          <span class="btn__label">Pause</span>
+                        </button>
+                        <button class="btn btn--session" type="button">
+                          <svg class="glyph" aria-hidden="true"><use href="#g-session-previous-exercise"/></svg>
+                          <span class="btn__label">Previous</span>
+                        </button>
+                        <button class="btn btn--session" type="button">
+                          <svg class="glyph" aria-hidden="true"><use href="#g-session-next-exercise"/></svg>
+                          <span class="btn__label">Next</span>
+                        </button>
+                        <button class="btn btn--session" type="button">
+                          <svg class="glyph" aria-hidden="true"><use href="#g-session-skip-exercise"/></svg>
+                          <span class="btn__label">Skip</span>
+                        </button>
+                        <button class="btn btn--session" type="button">
+                          <svg class="glyph" aria-hidden="true"><use href="#g-session-repeat-exercise"/></svg>
+                          <span class="btn__label">Repeat</span>
+                        </button>
+                        <button class="btn btn--session" type="button">
+                          <svg class="glyph" aria-hidden="true"><use href="#g-session-substitute-exercise"/></svg>
+                          <span class="btn__label">Swap</span>
+                        </button>
+                        <button class="btn btn--session" type="button">
+                          <svg class="glyph" aria-hidden="true"><use href="#g-session-reorder-exercises"/></svg>
+                          <span class="btn__label">Reorder</span>
+                        </button>
+                        <button class="btn btn--session btn--primary" type="button">
+                          <svg class="glyph" aria-hidden="true"><use href="#g-session-finish"/></svg>
+                          <span class="btn__label">Finish</span>
+                        </button>
+                      </div>
+                    </section>
+
+                    <section class="card" aria-labelledby="jump-heading-phone">
+                      <div class="card__head">
+                        <h4 class="card__title" id="jump-heading-phone">Jump to any exercise</h4>
+                      </div>
+                      <ol class="jump-list">
+                        <li><button class="jump" type="button" data-position="done"><span class="jump__index">1</span><span class="jump__name">Band Pull Apart</span><span class="jump__state">done</span></button></li>
+                        <li><button class="jump" type="button" data-position="done"><span class="jump__index">2</span><span class="jump__name">Lat Pulldown</span><span class="jump__state">done</span></button></li>
+                        <li><button class="jump" type="button" data-position="current" aria-current="true"><span class="jump__index">3</span><span class="jump__name">Deadlift</span><span class="intensity" data-level="high">high</span></button></li>
+                        <li><button class="jump" type="button" data-position="upcoming"><span class="jump__index">4</span><span class="jump__name">Bent Over Row</span><span class="intensity" data-level="high">high</span></button></li>
+                        <li><button class="jump" type="button" data-position="upcoming"><span class="jump__index">5</span><span class="jump__name">Single Arm Dumbbell Row</span><span class="intensity" data-level="medium">medium</span></button></li>
+                        <li><button class="jump" type="button" data-position="upcoming"><span class="jump__index">6</span><span class="jump__name">Barbell Biceps Curl</span><span class="intensity" data-level="medium">medium</span></button></li>
+                        <li><button class="jump" type="button" data-position="upcoming"><span class="jump__index">7</span><span class="jump__name">Hammer Curl</span><span class="intensity" data-level="low">low</span></button></li>
+                        <li><button class="jump" type="button" data-position="upcoming"><span class="jump__index">8</span><span class="jump__name">Face Pull</span><span class="intensity" data-level="low">low</span></button></li>
+                        <li><button class="jump" type="button" data-position="upcoming"><span class="jump__index">9</span><span class="jump__name">Dead Hang <span class="meta nowrap">2 x 45 s</span></span><span class="intensity" data-level="low">low</span></button></li>
+                      </ol>
+                    </section>
+
+                    <section class="card" aria-labelledby="attendees-heading-phone">
+                      <div class="card__head">
+                        <h4 class="card__title" id="attendees-heading-phone">In this session</h4>
+                      </div>
+                      <div class="attendee__head">
+                        <span class="attendee__name">Priya Raghavan</span>
+                        <span class="chip chip--adaptation">
+                          <svg class="glyph" aria-hidden="true"><use href="#g-client-adaptation-flag"/></svg>
+                          Adaptation
+                        </span>
+                      </div>
+                      <div class="reading-row">
+                        <span class="reading-row__kind">
+                          <svg class="glyph" aria-hidden="true"><use href="#g-reading-heart-rate"/></svg>
+                          Heart rate
+                        </span>
+                        <span class="reading-row__value">132</span>
+                        <span class="meta">bpm, 19:14</span>
+                      </div>
+                      <div class="capture">
+                        <p class="field">
+                          <label class="field__label" for="phone-kind">Record a reading</label>
+                          <select class="select" id="phone-kind">
+                            <option>Heart rate, bpm</option>
+                            <option>Plank hold, seconds</option>
+                            <option>Hollow hold, seconds</option>
+                            <option>Dead hang, seconds</option>
+                          </select>
+                        </p>
+                        <p class="field">
+                          <label class="field__label" for="phone-value">Value</label>
+                          <input class="input" id="phone-value" type="text" inputmode="numeric" placeholder="0">
+                        </p>
+                        <button class="btn" type="button">Add</button>
+                      </div>
+                      <div class="divider"></div>
+                      <div class="attendee__head">
+                        <span class="attendee__name">Arjun Mehta</span>
+                      </div>
+                      <div class="reading-row">
+                        <span class="reading-row__kind">
+                          <svg class="glyph" aria-hidden="true"><use href="#g-reading-heart-rate"/></svg>
+                          Heart rate
+                        </span>
+                        <span class="reading-row__value">145</span>
+                        <span class="meta">bpm, 19:15</span>
+                      </div>
+                    </section>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+          <!--
+            THE PERSISTENT SURFACE AT A PHONE WIDTH, and it is a SIBLING of the two panes rather
+            than a child of the detail. That is a correctness requirement, not tidiness: it lived
+            inside the detail at first, so the phone push hid it, and the list screen ended up
+            with no way to reach any destination and no synchronisation indicator at all. A
+            surface that has to be permanent cannot be nested inside something that gets hidden.
+          -->
+          <div>
+            <button class="sync sync--bar" type="button" data-state="pending">
+              <svg class="glyph sync__glyph" aria-hidden="true"><use href="#g-sync-pending"/></svg>
+              <span class="sync__text">
+                <span class="sync__state">Waiting to back up</span>
+                <span class="sync__detail">3 changes waiting. Saved on this phone 1 minute ago.</span>
+              </span>
+            </button>
+            <nav class="bottom-bar" aria-label="Go to">
+              <ul class="bottom-bar__list">
+                <li><a class="destination" href="#client-list"><svg class="glyph" aria-hidden="true"><use href="#g-nav-clients"/></svg><span class="destination__label">Clients</span></a></li>
+                <li><a class="destination" href="#session-runner" aria-current="page"><svg class="glyph" aria-hidden="true"><use href="#g-nav-calendar"/></svg><span class="destination__label">Calendar</span></a></li>
+                <li><a class="destination" href="#session-runner"><svg class="glyph" aria-hidden="true"><use href="#g-nav-routines"/></svg><span class="destination__label">Routines</span></a></li>
+                <li><a class="destination" href="#diet-week"><svg class="glyph" aria-hidden="true"><use href="#g-nav-diet"/></svg><span class="destination__label">Diet</span></a></li>
+                <li><a class="destination" href="#sync-states"><svg class="glyph" aria-hidden="true"><use href="#g-nav-admin"/></svg><span class="destination__label">Admin</span></a></li>
+              </ul>
+            </nav>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════════════════════════════════════════════
+       THE CLIENT LIST — shown with nothing selected yet, which is a real state of the screen
+       and not a dead end: the detail says what to do and offers the one action that makes
+       sense there.
+       ═══════════════════════════════════════════════════════════════════════════════════════ -->
+  <section class="section" id="client-list" data-sheet-part aria-labelledby="client-list-title">
+    <div class="section__head">
+      <h2 class="section__title" id="client-list-title">The client list</h2>
+      <p class="section__note">
+        The list pane is where Roster earns its name. Scanning is what it is for, so it is
+        compact; the detail beside it is roomy, because that is where he reads and types. An
+        adaptation flag is visible from the list without opening anyone.
+      </p>
+    </div>
+
+    <div class="frames">
+      <div class="frame frame--laptop">
+        <p class="frame__caption">Laptop <span class="frame__width">1280px</span> — nothing selected</p>
+        <div class="app">
+          <div class="app__body">
+            <nav class="destinations" aria-label="Go to">
+              <p class="destinations__heading">Go to</p>
+              <ul class="destinations__list">
+                <li><a class="destination" href="#client-list" aria-current="page"><svg class="glyph" aria-hidden="true"><use href="#g-nav-clients"/></svg><span class="destination__label">Clients</span></a></li>
+                <li><a class="destination" href="#session-runner"><svg class="glyph" aria-hidden="true"><use href="#g-nav-calendar"/></svg><span class="destination__label">Calendar</span></a></li>
+                <li><a class="destination" href="#session-runner"><svg class="glyph" aria-hidden="true"><use href="#g-nav-routines"/></svg><span class="destination__label">Routines</span></a></li>
+                <li><a class="destination" href="#diet-week"><svg class="glyph" aria-hidden="true"><use href="#g-nav-diet"/></svg><span class="destination__label">Diet</span></a></li>
+                <li><a class="destination" href="#sync-states"><svg class="glyph" aria-hidden="true"><use href="#g-nav-admin"/></svg><span class="destination__label">Admin</span></a></li>
+              </ul>
+              <div class="destinations__foot">
+                <button class="sync sync--column" type="button" data-state="backed-up">
+                  <svg class="glyph sync__glyph" aria-hidden="true"><use href="#g-sync-backed-up"/></svg>
+                  <span class="sync__text">
+                    <span class="visually-hidden">Backed up 4 minutes ago. Nothing waiting.</span>
+                    <span class="sync__state" aria-hidden="true">Synced</span>
+                    <span class="sync__detail" aria-hidden="true">4m ago</span>
+                    <span class="sync__detail" aria-hidden="true">0 waiting</span>
+                  </span>
+                </button>
+              </div>
+            </nav>
+
+            <div class="list-pane">
+              <div class="list-pane__head">
+                <h3 class="list-pane__title">Clients</h3>
+                <span class="list-pane__count">7 active</span>
+              </div>
+              <div class="list-pane__search">
+                <label class="visually-hidden" for="client-search">Search clients</label>
+                <input class="input" id="client-search" type="search" placeholder="Search clients">
+              </div>
+              <ul class="list-pane__items">
+                <li>
+                  <button class="list-item" type="button" data-push-detail>
+                    <span class="list-item__body">
+                      <span class="list-item__name">Arjun Mehta</span>
+                      <span class="list-item__meta">Pull day, twice a week</span>
+                    </span>
+                  </button>
+                </li>
+                <li>
+                  <button class="list-item" type="button" data-push-detail>
+                    <span class="list-item__body">
+                      <span class="list-item__name">Daniel Okonkwo</span>
+                      <span class="list-item__meta">Chest and shoulders, Thursdays</span>
+                    </span>
+                  </button>
+                </li>
+                <li>
+                  <button class="list-item" type="button" data-push-detail>
+                    <span class="list-item__body">
+                      <span class="list-item__name">Farida Noor</span>
+                      <span class="list-item__meta">Conditioning, mornings</span>
+                    </span>
+                    <span class="list-item__trailing">
+                      <svg class="glyph" aria-hidden="true"><use href="#g-client-adaptation-flag"/></svg>
+                      <span class="visually-hidden">Has an adaptation flag</span>
+                    </span>
+                  </button>
+                </li>
+                <li>
+                  <button class="list-item" type="button" data-push-detail>
+                    <span class="list-item__body">
+                      <span class="list-item__name">Meera Iyer</span>
+                      <span class="list-item__meta">Functional, Thursdays</span>
+                    </span>
+                  </button>
+                </li>
+                <li>
+                  <button class="list-item" type="button" data-push-detail>
+                    <span class="list-item__body">
+                      <span class="list-item__name">Priya Raghavan</span>
+                      <span class="list-item__meta">Pull day, Tuesdays and Fridays</span>
+                    </span>
+                    <span class="list-item__trailing">
+                      <svg class="glyph" aria-hidden="true"><use href="#g-client-adaptation-flag"/></svg>
+                      <span class="visually-hidden">Has an adaptation flag</span>
+                    </span>
+                  </button>
+                </li>
+                <li>
+                  <button class="list-item" type="button" data-push-detail>
+                    <span class="list-item__body">
+                      <span class="list-item__name">Rhea Kapoor</span>
+                      <span class="list-item__meta">Core and conditioning, Sundays</span>
+                    </span>
+                  </button>
+                </li>
+                <li>
+                  <button class="list-item" type="button" data-push-detail>
+                    <span class="list-item__body">
+                      <span class="list-item__name">Sunil Bhat</span>
+                      <span class="list-item__meta">Legs, Fridays</span>
+                    </span>
+                  </button>
+                </li>
+              </ul>
+            </div>
+
+            <div class="detail">
+              <div class="detail__scroll">
+                <div class="card">
+                  <h3 class="screen-title">Pick someone from the list</h3>
+                  <p class="prose">
+                    Their notes, their sessions, their readings and their diet plan all open
+                    here, and the list stays where it is so you never lose your place in it.
+                  </p>
+                  <div class="btn-row">
+                    <button class="btn btn--primary" type="button">
+                      <svg class="glyph" aria-hidden="true"><use href="#g-add"/></svg>
+                      Add a client
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!--
+            THE PERSISTENT SURFACE AT A PHONE WIDTH, and it is a SIBLING of the two panes rather
+            than a child of the detail. That is a correctness requirement, not tidiness: it lived
+            inside the detail at first, so the phone push hid it, and the list screen ended up
+            with no way to reach any destination and no synchronisation indicator at all. A
+            surface that has to be permanent cannot be nested inside something that gets hidden.
+          -->
+          <nav class="bottom-bar" aria-label="Go to">
+            <ul class="bottom-bar__list">
+              <li><a class="destination" href="#client-list" aria-current="page"><svg class="glyph" aria-hidden="true"><use href="#g-nav-clients"/></svg><span class="destination__label">Clients</span></a></li>
+              <li><a class="destination" href="#session-runner"><svg class="glyph" aria-hidden="true"><use href="#g-nav-calendar"/></svg><span class="destination__label">Calendar</span></a></li>
+              <li><a class="destination" href="#session-runner"><svg class="glyph" aria-hidden="true"><use href="#g-nav-routines"/></svg><span class="destination__label">Routines</span></a></li>
+              <li><a class="destination" href="#diet-week"><svg class="glyph" aria-hidden="true"><use href="#g-nav-diet"/></svg><span class="destination__label">Diet</span></a></li>
+              <li><a class="destination" href="#sync-states"><svg class="glyph" aria-hidden="true"><use href="#g-nav-admin"/></svg><span class="destination__label">Admin</span></a></li>
+            </ul>
+          </nav>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════════════════════════════════════════════
+       ONE CLIENT RECORD
+
+       A name, general notes, and a NON-CLINICAL adaptation flag with a reference pointer to
+       where the real detail lives elsewhere. The clinical detail itself is never shown or
+       typed here — the record holds a pointer to the coach's own private records, and even
+       the pointer's LABEL is protected, because a filename is health information too.
+       ═══════════════════════════════════════════════════════════════════════════════════════ -->
+  <section class="section" id="client-record" data-sheet-part aria-labelledby="client-record-title">
+    <div class="section__head">
+      <h2 class="section__title" id="client-record-title">One client record</h2>
+      <p class="section__note">
+        No email, no phone, no address, no date of birth, no photograph. The contextual links
+        under the name name <em>records</em> — "Priya Raghavan's diet plan" — never
+        destinations, because the moment a destination appears in this layer the two layers
+        start disagreeing about where you are.
+      </p>
+    </div>
+
+    <div class="frames">
+      <div class="frame frame--laptop frame--full">
+        <p class="frame__caption">Laptop <span class="frame__width">1280px</span>
+          — laid out in full; in a real laptop window the detail pane scrolls.</p>
+        <div class="app">
+          <div class="app__body">
+            <nav class="destinations" aria-label="Go to">
+              <p class="destinations__heading">Go to</p>
+              <ul class="destinations__list">
+                <li><a class="destination" href="#client-record" aria-current="page"><svg class="glyph" aria-hidden="true"><use href="#g-nav-clients"/></svg><span class="destination__label">Clients</span></a></li>
+                <li><a class="destination" href="#session-runner"><svg class="glyph" aria-hidden="true"><use href="#g-nav-calendar"/></svg><span class="destination__label">Calendar</span></a></li>
+                <li><a class="destination" href="#session-runner"><svg class="glyph" aria-hidden="true"><use href="#g-nav-routines"/></svg><span class="destination__label">Routines</span></a></li>
+                <li><a class="destination" href="#diet-week"><svg class="glyph" aria-hidden="true"><use href="#g-nav-diet"/></svg><span class="destination__label">Diet</span></a></li>
+                <li><a class="destination" href="#sync-states"><svg class="glyph" aria-hidden="true"><use href="#g-nav-admin"/></svg><span class="destination__label">Admin</span></a></li>
+              </ul>
+              <div class="destinations__foot">
+                <button class="sync sync--column" type="button" data-state="backed-up">
+                  <svg class="glyph sync__glyph" aria-hidden="true"><use href="#g-sync-backed-up"/></svg>
+                  <span class="sync__text">
+                    <span class="visually-hidden">Backed up 4 minutes ago. Nothing waiting.</span>
+                    <span class="sync__state" aria-hidden="true">Synced</span>
+                    <span class="sync__detail" aria-hidden="true">4m ago</span>
+                    <span class="sync__detail" aria-hidden="true">0 waiting</span>
+                  </span>
+                </button>
+              </div>
+            </nav>
+
+            <div class="list-pane">
+              <div class="list-pane__head">
+                <h3 class="list-pane__title">Clients</h3>
+                <span class="list-pane__count">7 active</span>
+              </div>
+              <div class="list-pane__search">
+                <label class="visually-hidden" for="client-search-2">Search clients</label>
+                <input class="input" id="client-search-2" type="search" placeholder="Search clients">
+              </div>
+              <ul class="list-pane__items">
+                <li><button class="list-item" type="button" data-push-detail><span class="list-item__body"><span class="list-item__name">Arjun Mehta</span><span class="list-item__meta">Pull day, twice a week</span></span></button></li>
+                <li><button class="list-item" type="button" data-push-detail><span class="list-item__body"><span class="list-item__name">Daniel Okonkwo</span><span class="list-item__meta">Chest and shoulders, Thursdays</span></span></button></li>
+                <li><button class="list-item" type="button" data-push-detail><span class="list-item__body"><span class="list-item__name">Farida Noor</span><span class="list-item__meta">Conditioning, mornings</span></span><span class="list-item__trailing"><svg class="glyph" aria-hidden="true"><use href="#g-client-adaptation-flag"/></svg><span class="visually-hidden">Has an adaptation flag</span></span></button></li>
+                <li><button class="list-item" type="button" data-push-detail><span class="list-item__body"><span class="list-item__name">Meera Iyer</span><span class="list-item__meta">Functional, Thursdays</span></span></button></li>
+                <li>
+                  <button class="list-item" type="button" aria-current="true" data-push-detail>
+                    <span class="list-item__body">
+                      <span class="list-item__name">Priya Raghavan</span>
+                      <span class="list-item__meta">Pull day, Tuesdays and Fridays</span>
+                    </span>
+                    <span class="list-item__trailing">
+                      <svg class="glyph" aria-hidden="true"><use href="#g-client-adaptation-flag"/></svg>
+                      <span class="visually-hidden">Has an adaptation flag</span>
+                    </span>
+                  </button>
+                </li>
+                <li><button class="list-item" type="button" data-push-detail><span class="list-item__body"><span class="list-item__name">Rhea Kapoor</span><span class="list-item__meta">Core and conditioning, Sundays</span></span></button></li>
+                <li><button class="list-item" type="button" data-push-detail><span class="list-item__body"><span class="list-item__name">Sunil Bhat</span><span class="list-item__meta">Legs, Fridays</span></span></button></li>
+              </ul>
+            </div>
+
+            <div class="detail">
+              <!--
+                No breadcrumb here, and that is deliberate rather than an omission: the list
+                pane already says which client is open, so a breadcrumb repeating it would be
+                noise. It appears only when the detail drills a level deeper — see the drilled
+                frame below.
+              -->
+              <div class="detail__scroll">
+                <div class="card">
+                  <div class="card__head">
+                    <h3 class="screen-title" tabindex="-1" data-detail-heading>Priya Raghavan</h3>
+                    <div class="btn-row">
+                      <a class="back-link phone-only" href="#client-record" data-push-list>
+                        <svg class="glyph" aria-hidden="true"><use href="#g-link-back"/></svg>
+                        Back to clients
+                      </a>
+                      <button class="btn" type="button">
+                        <svg class="glyph" aria-hidden="true"><use href="#g-export"/></svg>
+                        Export
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- The to-and-fro. Records, not destinations. No dead ends. -->
+                  <nav class="context-links" aria-label="Related to Priya Raghavan">
+                    <a class="context-link" href="#session-runner">
+                      <svg class="glyph" aria-hidden="true"><use href="#g-link-forward"/></svg>
+                      Priya Raghavan's sessions
+                    </a>
+                    <a class="context-link" href="#diet-week">
+                      <svg class="glyph" aria-hidden="true"><use href="#g-link-forward"/></svg>
+                      Priya Raghavan's diet plan
+                    </a>
+                    <a class="context-link" href="#client-record">
+                      <svg class="glyph" aria-hidden="true"><use href="#g-progress-over-time"/></svg>
+                      Priya Raghavan's progress report
+                    </a>
+                  </nav>
+
+                  <div class="divider"></div>
+
+                  <p class="field">
+                    <label class="field__label" for="record-notes">General notes</label>
+                    <textarea class="textarea" id="record-notes">Trains Tuesdays and Fridays at 19:00, usually with Arjun. Prefers the barbell work early. Travels for work most of August.</textarea>
+                  </p>
+
+                  <div class="divider"></div>
+
+                  <!--
+                    THE ADAPTATION FLAG. Plaintext, short, and about what changes the
+                    programme. The hint at the point of entry is the mechanism that keeps a
+                    case history from being typed in here, and the tooltip beside it exists
+                    because this is the single place a well-meaning professional is most
+                    likely to do the wrong thing.
+                  -->
+                  <p class="field">
+                    <span class="field__label-row">
+                      <label class="field__label" for="record-flag">Adaptation flag</label>
+                      <span class="tip-host">
+                        <button class="tip-trigger" type="button" aria-describedby="tip-adaptation">
+                          <svg class="glyph" aria-hidden="true"><use href="#g-help-explain"/></svg>
+                          <span class="visually-hidden">What to write here</span>
+                        </button>
+                        <span class="tip" role="tooltip" id="tip-adaptation">
+                          <strong class="tip__title">Write only what changes the exercise</strong>
+                          For example, "knee injury, avoid deep squats". Do not write a
+                          diagnosis, a medication or anything from a doctor's letter. Keep the
+                          real detail in your own records and put a link to it below.
+                        </span>
+                      </span>
+                    </span>
+                    <input class="input" id="record-flag" type="text" value="Right knee, avoid deep squats and jumping">
+                    <span class="field__hint">
+                      Record only what changes the programme, such as a knee injury meaning
+                      avoid deep squats. Never a diagnosis, a medication or a doctor's note.
+                    </span>
+                  </p>
+
+                  <div class="divider"></div>
+
+                  <!--
+                    THE REFERENCE POINTER. A link or a path to where the real detail lives in
+                    his own system, so it is one tap away and never inside this application.
+                    Its LABEL is protected along with it, because a filename can be health
+                    information on its own.
+                  -->
+                  <div class="field">
+                    <span class="field__label">Where the real detail lives</span>
+                    <p class="chip chip--protected">
+                      <svg class="glyph" aria-hidden="true"><use href="#g-protected-clinical-note"/></svg>
+                      A reference is set. Protected on this device.
+                    </p>
+                    <p class="field__hint">
+                      The app holds a pointer to your own records and nothing from inside them.
+                      Open it to see the detail in the place you keep it.
+                    </p>
+                    <div class="btn-row">
+                      <button class="btn" type="button">Open the reference</button>
+                      <button class="btn btn--quiet" type="button">
+                        <svg class="glyph" aria-hidden="true"><use href="#g-what-leaves-this-device"/></svg>
+                        What leaves this device
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="divider"></div>
+
+                  <h4 class="card__title">Recent sessions</h4>
+                  <div class="previous">
+                    <p class="previous__row">
+                      <a href="#client-record">Tuesday 22 July — Pull Deadlift Back and Biceps</a>
+                      <span class="meta">9 exercises, 2 readings</span>
+                    </p>
+                    <p class="previous__row">
+                      <a href="#client-record">Friday 18 July — Legs Strength</a>
+                      <span class="meta">8 exercises, 1 reading</span>
+                    </p>
+                    <p class="previous__row">
+                      <a href="#client-record">Tuesday 15 July — Pull Deadlift Back and Biceps</a>
+                      <span class="meta">9 exercises, 2 readings</span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!--
+            THE PERSISTENT SURFACE AT A PHONE WIDTH, and it is a SIBLING of the two panes rather
+            than a child of the detail. That is a correctness requirement, not tidiness: it lived
+            inside the detail at first, so the phone push hid it, and the list screen ended up
+            with no way to reach any destination and no synchronisation indicator at all. A
+            surface that has to be permanent cannot be nested inside something that gets hidden.
+          -->
+          <nav class="bottom-bar" aria-label="Go to">
+            <ul class="bottom-bar__list">
+              <li><a class="destination" href="#client-record" aria-current="page"><svg class="glyph" aria-hidden="true"><use href="#g-nav-clients"/></svg><span class="destination__label">Clients</span></a></li>
+              <li><a class="destination" href="#session-runner"><svg class="glyph" aria-hidden="true"><use href="#g-nav-calendar"/></svg><span class="destination__label">Calendar</span></a></li>
+              <li><a class="destination" href="#session-runner"><svg class="glyph" aria-hidden="true"><use href="#g-nav-routines"/></svg><span class="destination__label">Routines</span></a></li>
+              <li><a class="destination" href="#diet-week"><svg class="glyph" aria-hidden="true"><use href="#g-nav-diet"/></svg><span class="destination__label">Diet</span></a></li>
+              <li><a class="destination" href="#sync-states"><svg class="glyph" aria-hidden="true"><use href="#g-nav-admin"/></svg><span class="destination__label">Admin</span></a></li>
+            </ul>
+          </nav>
+        </div>
+      </div>
+
+      <!-- The drilled state: one level deeper than the list pane, which is the only time a
+           breadcrumb appears in this direction. -->
+      <div class="frame frame--laptop frame--short">
+        <p class="frame__caption">The one case that earns a breadcrumb — the detail drilled a level deeper</p>
+        <div class="app">
+          <div class="app__body">
+            <nav class="destinations" aria-label="Go to">
+              <p class="destinations__heading">Go to</p>
+              <ul class="destinations__list">
+                <li><a class="destination" href="#client-record" aria-current="page"><svg class="glyph" aria-hidden="true"><use href="#g-nav-clients"/></svg><span class="destination__label">Clients</span></a></li>
+                <li><a class="destination" href="#session-runner"><svg class="glyph" aria-hidden="true"><use href="#g-nav-calendar"/></svg><span class="destination__label">Calendar</span></a></li>
+                <li><a class="destination" href="#session-runner"><svg class="glyph" aria-hidden="true"><use href="#g-nav-routines"/></svg><span class="destination__label">Routines</span></a></li>
+                <li><a class="destination" href="#diet-week"><svg class="glyph" aria-hidden="true"><use href="#g-nav-diet"/></svg><span class="destination__label">Diet</span></a></li>
+                <li><a class="destination" href="#sync-states"><svg class="glyph" aria-hidden="true"><use href="#g-nav-admin"/></svg><span class="destination__label">Admin</span></a></li>
+              </ul>
+              <div class="destinations__foot">
+                <button class="sync sync--column" type="button" data-state="offline">
+                  <svg class="glyph sync__glyph" aria-hidden="true"><use href="#g-sync-offline"/></svg>
+                  <span class="sync__text">
+                    <span class="visually-hidden">Working without a connection. Saved on this device. Last backed up 2 hours ago.</span>
+                    <span class="sync__state" aria-hidden="true">Offline</span>
+                    <span class="sync__detail" aria-hidden="true">On device</span>
+                    <span class="sync__detail" aria-hidden="true">2h ago</span>
+                  </span>
+                </button>
+              </div>
+            </nav>
+
+            <div class="list-pane">
+              <div class="list-pane__head">
+                <h3 class="list-pane__title">Clients</h3>
+                <span class="list-pane__count">7 active</span>
+              </div>
+              <ul class="list-pane__items">
+                <li><button class="list-item" type="button"><span class="list-item__body"><span class="list-item__name">Meera Iyer</span><span class="list-item__meta">Functional, Thursdays</span></span></button></li>
+                <li>
+                  <button class="list-item" type="button" aria-current="true">
+                    <span class="list-item__body">
+                      <span class="list-item__name">Priya Raghavan</span>
+                      <span class="list-item__meta">Pull day, Tuesdays and Fridays</span>
+                    </span>
+                    <span class="list-item__trailing"><svg class="glyph" aria-hidden="true"><use href="#g-client-adaptation-flag"/></svg><span class="visually-hidden">Has an adaptation flag</span></span>
+                  </button>
+                </li>
+                <li><button class="list-item" type="button"><span class="list-item__body"><span class="list-item__name">Rhea Kapoor</span><span class="list-item__meta">Core and conditioning, Sundays</span></span></button></li>
+              </ul>
+            </div>
+
+            <div class="detail">
+              <nav class="breadcrumb" aria-label="Where you are">
+                <a class="back-link" href="#client-record">
+                  <svg class="glyph" aria-hidden="true"><use href="#g-link-back"/></svg>
+                  Back to Priya Raghavan
+                </a>
+                <span class="breadcrumb__sep" aria-hidden="true">/</span>
+                <span class="breadcrumb__current">Session, Tuesday 22 July</span>
+              </nav>
+              <div class="detail__scroll">
+                <div class="card">
+                  <div class="card__head">
+                    <h3 class="screen-title">Pull Deadlift Back and Biceps</h3>
+                    <span class="meta">Tuesday 22 July, 19:00 — 20:05</span>
+                  </div>
+                  <div class="previous">
+                    <p class="previous__row"><span>Deadlift</span><span class="previous__load">4 x 6 at 45 kg</span></p>
+                    <p class="previous__row"><span>Bent Over Row</span><span class="previous__load">4 x 8 at 25 kg</span></p>
+                    <p class="previous__row"><span>Lat Pulldown</span><span class="previous__load">4 x 8 at 30 kg</span></p>
+                    <p class="previous__row"><span>Barbell Biceps Curl</span><span class="previous__load">3 x 12 at 15 kg</span></p>
+                    <p class="previous__row"><span>Dead Hang</span><span class="previous__load">2 x 38 s</span></p>
+                  </div>
+                  <div class="divider"></div>
+                  <p class="prose">
+                    <svg class="glyph" aria-hidden="true"><use href="#g-note"/></svg>
+                    Bar felt heavy on set two, dropped to 40 kg and it moved well.
+                  </p>
+                  <nav class="context-links" aria-label="Related to this session">
+                    <a class="context-link" href="#session-runner">
+                      <svg class="glyph" aria-hidden="true"><use href="#g-link-forward"/></svg>
+                      The session Priya Raghavan did before this one
+                    </a>
+                    <a class="context-link" href="#session-runner">
+                      <svg class="glyph" aria-hidden="true"><use href="#g-link-forward"/></svg>
+                      Arjun Mehta, who was in this session
+                    </a>
+                  </nav>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════════════════════════════════════════════
+       THE DIET WEEK CHART
+
+       The other genuinely dense screen, and the one that usually collapses on a phone. So on
+       a phone it is not a shrunken grid: it becomes the SAME list-and-detail motion the whole
+       direction is built on, one level down. The days are the list, one day is the detail.
+       That is Roster's own information architecture applied again rather than a second design
+       for the phone, and it is the strongest single argument for this direction.
+       ═══════════════════════════════════════════════════════════════════════════════════════ -->
+  <section class="section" id="diet-week" data-sheet-part aria-labelledby="diet-week-title">
+    <div class="section__head">
+      <h2 class="section__title" id="diet-week-title">The diet week</h2>
+      <p class="section__note">
+        By day and by hour, and the plan repeats — so a cell that repeats says so instead of
+        making him read it again. A diet is stored in plaintext here by an explicit decision:
+        it is a food chart, it carries no lock and no gate, and a diet export is always
+        openable.
+      </p>
+    </div>
+
+    <div class="frames">
+      <div class="frame frame--laptop frame--full">
+        <p class="frame__caption">Laptop <span class="frame__width">1280px</span>
+          — laid out in full; in a real laptop window the detail pane scrolls.</p>
+        <div class="app">
+          <div class="app__body">
+            <nav class="destinations" aria-label="Go to">
+              <p class="destinations__heading">Go to</p>
+              <ul class="destinations__list">
+                <li><a class="destination" href="#client-record"><svg class="glyph" aria-hidden="true"><use href="#g-nav-clients"/></svg><span class="destination__label">Clients</span></a></li>
+                <li><a class="destination" href="#session-runner"><svg class="glyph" aria-hidden="true"><use href="#g-nav-calendar"/></svg><span class="destination__label">Calendar</span></a></li>
+                <li><a class="destination" href="#session-runner"><svg class="glyph" aria-hidden="true"><use href="#g-nav-routines"/></svg><span class="destination__label">Routines</span></a></li>
+                <li><a class="destination" href="#diet-week" aria-current="page"><svg class="glyph" aria-hidden="true"><use href="#g-nav-diet"/></svg><span class="destination__label">Diet</span></a></li>
+                <li><a class="destination" href="#sync-states"><svg class="glyph" aria-hidden="true"><use href="#g-nav-admin"/></svg><span class="destination__label">Admin</span></a></li>
+              </ul>
+              <div class="destinations__foot">
+                <button class="sync sync--column" type="button" data-state="backed-up">
+                  <svg class="glyph sync__glyph" aria-hidden="true"><use href="#g-sync-backed-up"/></svg>
+                  <span class="sync__text">
+                    <span class="visually-hidden">Backed up 9 minutes ago. Nothing waiting.</span>
+                    <span class="sync__state" aria-hidden="true">Synced</span>
+                    <span class="sync__detail" aria-hidden="true">9m ago</span>
+                    <span class="sync__detail" aria-hidden="true">0 waiting</span>
+                  </span>
+                </button>
+              </div>
+            </nav>
+
+            <div class="list-pane">
+              <div class="list-pane__head">
+                <h3 class="list-pane__title">Diet plans</h3>
+                <span class="list-pane__count">5 plans</span>
+              </div>
+              <ul class="list-pane__items">
+                <li>
+                  <button class="list-item" type="button" aria-current="true" data-push-detail>
+                    <span class="list-item__body">
+                      <span class="list-item__name">Priya Raghavan</span>
+                      <span class="list-item__meta">Current, from 12 July</span>
+                    </span>
+                  </button>
+                </li>
+                <li><button class="list-item" type="button" data-push-detail><span class="list-item__body"><span class="list-item__name">Arjun Mehta</span><span class="list-item__meta">Current, from 1 July</span></span></button></li>
+                <li><button class="list-item" type="button" data-push-detail><span class="list-item__body"><span class="list-item__name">Farida Noor</span><span class="list-item__meta">Current, from 5 July</span></span></button></li>
+                <li><button class="list-item" type="button" data-push-detail><span class="list-item__body"><span class="list-item__name">Priya Raghavan</span><span class="list-item__meta">Previous, to 11 July</span></span></button></li>
+                <li><button class="list-item" type="button" data-push-detail><span class="list-item__body"><span class="list-item__name">Sunil Bhat</span><span class="list-item__meta">Current, from 20 June</span></span></button></li>
+              </ul>
+            </div>
+
+            <div class="detail">
+              <div class="detail__scroll">
+                <div class="card">
+                  <div class="card__head">
+                    <div>
+                      <h3 class="screen-title" tabindex="-1" data-detail-heading>Priya Raghavan — current plan</h3>
+                      <p class="meta">Transcribed from the nutritionist's plan dated 12 July</p>
+                    </div>
+                    <div class="btn-row">
+                      <a class="back-link phone-only" href="#diet-week" data-push-list>
+                        <svg class="glyph" aria-hidden="true"><use href="#g-link-back"/></svg>
+                        Back to diet plans
+                      </a>
+                      <button class="btn" type="button">Edit</button>
+                      <button class="btn" type="button">
+                        <svg class="glyph" aria-hidden="true"><use href="#g-export"/></svg>
+                        Export chart
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- LAPTOP: the week grid. Hours down, days across. -->
+                  <div class="week laptop-only">
+                    <div class="week__corner">Time</div>
+                    <div class="week__day">Mon</div>
+                    <div class="week__day">Tue</div>
+                    <div class="week__day">Wed</div>
+                    <div class="week__day">Thu</div>
+                    <div class="week__day">Fri</div>
+                    <div class="week__day">Sat</div>
+                    <div class="week__day">Sun</div>
+
+                    <div class="week__time">07:00<span class="week__time-label">Breakfast</span></div>
+                    <div class="week__cell"><span class="week__items"><span>Two idli</span><span>Sambar</span><span>One boiled egg</span></span></div>
+                    <div class="week__cell"><span class="week__items"><span>Vegetable poha</span><span>One boiled egg</span></span></div>
+                    <div class="week__cell"><span class="week__items"><span>Oats with milk</span><span>Banana</span></span></div>
+                    <div class="week__cell week__cell--repeat">Same as Monday</div>
+                    <div class="week__cell"><span class="week__items"><span>Moong dal chilla</span><span>Mint chutney</span></span></div>
+                    <div class="week__cell"><span class="week__items"><span>Upma</span><span>One boiled egg</span></span></div>
+                    <div class="week__cell"><span class="week__items"><span>Two dosa</span><span>Coconut chutney</span></span></div>
+
+                    <div class="week__time">10:30<span class="week__time-label">Mid-morning</span></div>
+                    <div class="week__cell"><span class="week__items"><span>Buttermilk</span><span>Ten almonds</span></span></div>
+                    <div class="week__cell week__cell--repeat">Same as Monday</div>
+                    <div class="week__cell week__cell--repeat">Same as Monday</div>
+                    <div class="week__cell week__cell--repeat">Same as Monday</div>
+                    <div class="week__cell week__cell--repeat">Same as Monday</div>
+                    <div class="week__cell"><span class="week__items"><span>Coconut water</span><span>Ten almonds</span></span></div>
+                    <div class="week__cell"><span class="week__items"><span>Fruit bowl</span></span></div>
+
+                    <div class="week__time">13:00<span class="week__time-label">Lunch</span></div>
+                    <div class="week__cell"><span class="week__items"><span>Two roti</span><span>Rajma</span><span>Cucumber salad</span></span></div>
+                    <div class="week__cell"><span class="week__items"><span>Brown rice</span><span>Dal</span><span>Bhindi</span></span></div>
+                    <div class="week__cell"><span class="week__items"><span>Two roti</span><span>Chole</span><span>Curd</span></span></div>
+                    <div class="week__cell week__cell--repeat">Same as Monday</div>
+                    <div class="week__cell"><span class="week__items"><span>Jeera rice</span><span>Dal tadka</span><span>Salad</span></span></div>
+                    <div class="week__cell"><span class="week__items"><span>Two roti</span><span>Palak paneer</span></span></div>
+                    <div class="week__cell"><span class="week__items"><span>Rice</span><span>Sambar</span><span>Poriyal</span><span>Curd</span></span></div>
+
+                    <div class="week__time">16:30<span class="week__time-label">Afternoon</span></div>
+                    <div class="week__cell"><span class="week__items"><span>Sprouts chaat</span><span>Green tea</span></span></div>
+                    <div class="week__cell week__cell--repeat">Same as Monday</div>
+                    <div class="week__cell week__cell--repeat">Same as Monday</div>
+                    <div class="week__cell week__cell--repeat">Same as Monday</div>
+                    <div class="week__cell week__cell--repeat">Same as Monday</div>
+                    <div class="week__cell"><span class="week__items"><span>Roasted chana</span><span>Green tea</span></span></div>
+                    <div class="week__cell"><span class="week__items"><span>Green tea</span></span></div>
+
+                    <div class="week__time">19:30<span class="week__time-label">Dinner</span></div>
+                    <div class="week__cell"><span class="week__items"><span>Grilled paneer</span><span>Sauteed beans</span><span>One roti</span></span></div>
+                    <div class="week__cell"><span class="week__items"><span>Chicken curry</span><span>Salad</span><span>One roti</span></span></div>
+                    <div class="week__cell"><span class="week__items"><span>Fish curry</span><span>Steamed vegetables</span></span></div>
+                    <div class="week__cell week__cell--repeat">Same as Monday</div>
+                    <div class="week__cell"><span class="week__items"><span>Grilled chicken</span><span>Mixed vegetables</span></span></div>
+                    <div class="week__cell"><span class="week__items"><span>Clear soup</span><span>Tandoori paneer</span></span></div>
+                    <div class="week__cell"><span class="week__items"><span>Light khichdi</span></span></div>
+                  </div>
+
+                  <p class="prose laptop-only">
+                    Repeated cells say "same as Monday" rather than repeating the food, because
+                    the plan repeats and reading it twice is work he did not need to do. Editing
+                    one still edits only that day.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!--
+            THE PERSISTENT SURFACE AT A PHONE WIDTH, and it is a SIBLING of the two panes rather
+            than a child of the detail. That is a correctness requirement, not tidiness: it lived
+            inside the detail at first, so the phone push hid it, and the list screen ended up
+            with no way to reach any destination and no synchronisation indicator at all. A
+            surface that has to be permanent cannot be nested inside something that gets hidden.
+          -->
+          <nav class="bottom-bar" aria-label="Go to">
+            <ul class="bottom-bar__list">
+              <li><a class="destination" href="#client-record"><svg class="glyph" aria-hidden="true"><use href="#g-nav-clients"/></svg><span class="destination__label">Clients</span></a></li>
+              <li><a class="destination" href="#session-runner"><svg class="glyph" aria-hidden="true"><use href="#g-nav-calendar"/></svg><span class="destination__label">Calendar</span></a></li>
+              <li><a class="destination" href="#session-runner"><svg class="glyph" aria-hidden="true"><use href="#g-nav-routines"/></svg><span class="destination__label">Routines</span></a></li>
+              <li><a class="destination" href="#diet-week" aria-current="page"><svg class="glyph" aria-hidden="true"><use href="#g-nav-diet"/></svg><span class="destination__label">Diet</span></a></li>
+              <li><a class="destination" href="#sync-states"><svg class="glyph" aria-hidden="true"><use href="#g-nav-admin"/></svg><span class="destination__label">Admin</span></a></li>
+            </ul>
+          </nav>
+        </div>
+      </div>
+
+      <!-- PHONE, the list: the days ARE the list. Tap a day to push its hours over it. -->
+      <div class="frame frame--phone">
+        <p class="frame__caption">Phone <span class="frame__width">390px</span> — the days are the list</p>
+        <div class="app" data-stage="list">
+          <div class="app__body">
+            <div class="list-pane">
+              <div class="list-pane__head">
+                <h3 class="list-pane__title">Priya Raghavan's week</h3>
+                <span class="list-pane__count">7 days</span>
+              </div>
+              <ul class="list-pane__items">
+                <li>
+                  <button class="list-item" type="button" data-diet-day="mon" aria-current="true">
+                    <span class="list-item__body">
+                      <span class="list-item__name">Monday</span>
+                      <span class="list-item__meta">Idli and sambar, rajma, grilled paneer</span>
+                    </span>
+                    <span class="list-item__trailing"><svg class="glyph" aria-hidden="true"><use href="#g-link-forward"/></svg></span>
+                  </button>
+                </li>
+                <li>
+                  <button class="list-item" type="button" data-diet-day="tue" aria-current="false">
+                    <span class="list-item__body">
+                      <span class="list-item__name">Tuesday</span>
+                      <span class="list-item__meta">Poha, brown rice and dal, chicken curry</span>
+                    </span>
+                    <span class="list-item__trailing"><svg class="glyph" aria-hidden="true"><use href="#g-link-forward"/></svg></span>
+                  </button>
+                </li>
+                <li>
+                  <button class="list-item" type="button" data-diet-day="wed" aria-current="false">
+                    <span class="list-item__body">
+                      <span class="list-item__name">Wednesday</span>
+                      <span class="list-item__meta">Oats, chole and curd, fish curry</span>
+                    </span>
+                    <span class="list-item__trailing"><svg class="glyph" aria-hidden="true"><use href="#g-link-forward"/></svg></span>
+                  </button>
+                </li>
+                <li>
+                  <button class="list-item" type="button" data-diet-day="thu" aria-current="false">
+                    <span class="list-item__body">
+                      <span class="list-item__name">Thursday</span>
+                      <span class="list-item__meta">Same as Monday</span>
+                    </span>
+                    <span class="list-item__trailing"><svg class="glyph" aria-hidden="true"><use href="#g-link-forward"/></svg></span>
+                  </button>
+                </li>
+                <li>
+                  <button class="list-item" type="button" data-diet-day="fri" aria-current="false">
+                    <span class="list-item__body">
+                      <span class="list-item__name">Friday</span>
+                      <span class="list-item__meta">Chilla, jeera rice, grilled chicken</span>
+                    </span>
+                    <span class="list-item__trailing"><svg class="glyph" aria-hidden="true"><use href="#g-link-forward"/></svg></span>
+                  </button>
+                </li>
+                <li>
+                  <button class="list-item" type="button" data-diet-day="sat" aria-current="false">
+                    <span class="list-item__body">
+                      <span class="list-item__name">Saturday</span>
+                      <span class="list-item__meta">Upma, palak paneer, tandoori paneer</span>
+                    </span>
+                    <span class="list-item__trailing"><svg class="glyph" aria-hidden="true"><use href="#g-link-forward"/></svg></span>
+                  </button>
+                </li>
+                <li>
+                  <button class="list-item" type="button" data-diet-day="sun" aria-current="false">
+                    <span class="list-item__body">
+                      <span class="list-item__name">Sunday</span>
+                      <span class="list-item__meta">Dosa, sambar and poriyal, khichdi</span>
+                    </span>
+                    <span class="list-item__trailing"><svg class="glyph" aria-hidden="true"><use href="#g-link-forward"/></svg></span>
+                  </button>
+                </li>
+              </ul>
+            </div>
+
+            <div class="detail">
+              <nav class="breadcrumb" aria-label="Where you are">
+                <a class="back-link" href="#diet-week" data-push-list>
+                  <svg class="glyph" aria-hidden="true"><use href="#g-link-back"/></svg>
+                  Back to the week
+                </a>
+              </nav>
+              <div class="detail__scroll">
+                <div class="card" data-diet-panel="mon">
+                  <h3 class="screen-title" tabindex="-1" data-detail-heading>Monday</h3>
+                  <div class="day-hours">
+                    <div class="hour-block"><span class="hour-block__time">07:00</span><span><strong>Breakfast</strong><br>Two idli, sambar, one boiled egg</span></div>
+                    <div class="hour-block"><span class="hour-block__time">10:30</span><span><strong>Mid-morning</strong><br>Buttermilk, ten almonds</span></div>
+                    <div class="hour-block"><span class="hour-block__time">13:00</span><span><strong>Lunch</strong><br>Two roti, rajma, cucumber salad</span></div>
+                    <div class="hour-block"><span class="hour-block__time">16:30</span><span><strong>Afternoon</strong><br>Sprouts chaat, green tea</span></div>
+                    <div class="hour-block"><span class="hour-block__time">19:30</span><span><strong>Dinner</strong><br>Grilled paneer, sauteed beans, one roti</span></div>
+                  </div>
+                </div>
+                <div class="card" data-diet-panel="tue" hidden>
+                  <h3 class="screen-title">Tuesday</h3>
+                  <div class="day-hours">
+                    <div class="hour-block"><span class="hour-block__time">07:00</span><span><strong>Breakfast</strong><br>Vegetable poha, one boiled egg</span></div>
+                    <div class="hour-block"><span class="hour-block__time">10:30</span><span><strong>Mid-morning</strong><br>Buttermilk, ten almonds</span></div>
+                    <div class="hour-block"><span class="hour-block__time">13:00</span><span><strong>Lunch</strong><br>Brown rice, dal, bhindi</span></div>
+                    <div class="hour-block"><span class="hour-block__time">16:30</span><span><strong>Afternoon</strong><br>Sprouts chaat, green tea</span></div>
+                    <div class="hour-block"><span class="hour-block__time">19:30</span><span><strong>Dinner</strong><br>Chicken curry, salad, one roti</span></div>
+                  </div>
+                </div>
+                <div class="card" data-diet-panel="wed" hidden>
+                  <h3 class="screen-title">Wednesday</h3>
+                  <div class="day-hours">
+                    <div class="hour-block"><span class="hour-block__time">07:00</span><span><strong>Breakfast</strong><br>Oats with milk, banana</span></div>
+                    <div class="hour-block"><span class="hour-block__time">13:00</span><span><strong>Lunch</strong><br>Two roti, chole, curd</span></div>
+                    <div class="hour-block"><span class="hour-block__time">19:30</span><span><strong>Dinner</strong><br>Fish curry, steamed vegetables</span></div>
+                  </div>
+                </div>
+                <div class="card" data-diet-panel="thu" hidden>
+                  <h3 class="screen-title">Thursday</h3>
+                  <p class="prose">The same as Monday. Editing this day changes only this day.</p>
+                </div>
+                <div class="card" data-diet-panel="fri" hidden>
+                  <h3 class="screen-title">Friday</h3>
+                  <div class="day-hours">
+                    <div class="hour-block"><span class="hour-block__time">07:00</span><span><strong>Breakfast</strong><br>Moong dal chilla, mint chutney</span></div>
+                    <div class="hour-block"><span class="hour-block__time">13:00</span><span><strong>Lunch</strong><br>Jeera rice, dal tadka, salad</span></div>
+                    <div class="hour-block"><span class="hour-block__time">19:30</span><span><strong>Dinner</strong><br>Grilled chicken, mixed vegetables</span></div>
+                  </div>
+                </div>
+                <div class="card" data-diet-panel="sat" hidden>
+                  <h3 class="screen-title">Saturday</h3>
+                  <div class="day-hours">
+                    <div class="hour-block"><span class="hour-block__time">07:00</span><span><strong>Breakfast</strong><br>Upma, one boiled egg</span></div>
+                    <div class="hour-block"><span class="hour-block__time">13:00</span><span><strong>Lunch</strong><br>Two roti, palak paneer</span></div>
+                    <div class="hour-block"><span class="hour-block__time">19:30</span><span><strong>Dinner</strong><br>Clear soup, tandoori paneer</span></div>
+                  </div>
+                </div>
+                <div class="card" data-diet-panel="sun" hidden>
+                  <h3 class="screen-title">Sunday</h3>
+                  <div class="day-hours">
+                    <div class="hour-block"><span class="hour-block__time">07:00</span><span><strong>Breakfast</strong><br>Two dosa, coconut chutney</span></div>
+                    <div class="hour-block"><span class="hour-block__time">13:00</span><span><strong>Lunch</strong><br>Rice, sambar, poriyal, curd</span></div>
+                    <div class="hour-block"><span class="hour-block__time">19:30</span><span><strong>Dinner</strong><br>Light khichdi</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!--
+            THE PERSISTENT SURFACE AT A PHONE WIDTH, and it is a SIBLING of the two panes rather
+            than a child of the detail. That is a correctness requirement, not tidiness: it lived
+            inside the detail at first, so the phone push hid it, and the list screen ended up
+            with no way to reach any destination and no synchronisation indicator at all. A
+            surface that has to be permanent cannot be nested inside something that gets hidden.
+          -->
+          <nav class="bottom-bar" aria-label="Go to">
+            <ul class="bottom-bar__list">
+              <li><a class="destination" href="#client-record"><svg class="glyph" aria-hidden="true"><use href="#g-nav-clients"/></svg><span class="destination__label">Clients</span></a></li>
+              <li><a class="destination" href="#session-runner"><svg class="glyph" aria-hidden="true"><use href="#g-nav-calendar"/></svg><span class="destination__label">Calendar</span></a></li>
+              <li><a class="destination" href="#session-runner"><svg class="glyph" aria-hidden="true"><use href="#g-nav-routines"/></svg><span class="destination__label">Routines</span></a></li>
+              <li><a class="destination" href="#diet-week" aria-current="page"><svg class="glyph" aria-hidden="true"><use href="#g-nav-diet"/></svg><span class="destination__label">Diet</span></a></li>
+              <li><a class="destination" href="#sync-states"><svg class="glyph" aria-hidden="true"><use href="#g-nav-admin"/></svg><span class="destination__label">Admin</span></a></li>
+            </ul>
+          </nav>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════════════════════════════════════════════
+       THE PERSISTENT NAVIGATION SURFACE, LAPTOP — and the two layers working TOGETHER, which
+       is the point rather than showing each one separately.
+       ═══════════════════════════════════════════════════════════════════════════════════════ -->
+  <section class="section" id="navigation-laptop" data-sheet-part aria-labelledby="navigation-laptop-title">
+    <div class="section__head">
+      <h2 class="section__title" id="navigation-laptop-title">The navigation surface at laptop width</h2>
+      <p class="section__note">
+        Roster is the only direction where the two navigation layers are physically adjacent,
+        so it is the only one where they can genuinely collide. Four devices keep them apart,
+        and none of them is decoration. If a reader cannot tell at a glance which column moves
+        them <em>between</em> parts of the application and which moves them <em>within</em>
+        one, this direction has failed at the exact point that makes it worth offering.
+      </p>
+    </div>
+
+    <div class="frames">
+      <div class="frame frame--laptop frame--short">
+        <p class="frame__caption">Both layers, working together <span class="frame__width">1280px</span></p>
+        <div class="app">
+          <div class="app__body">
+            <nav class="destinations" aria-label="Go to">
+              <p class="destinations__heading">Go to</p>
+              <ul class="destinations__list">
+                <li><a class="destination" href="#navigation-laptop" aria-current="page"><svg class="glyph" aria-hidden="true"><use href="#g-nav-clients"/></svg><span class="destination__label">Clients</span></a></li>
+                <li><a class="destination" href="#session-runner"><svg class="glyph" aria-hidden="true"><use href="#g-nav-calendar"/></svg><span class="destination__label">Calendar</span></a></li>
+                <li><a class="destination" href="#session-runner"><svg class="glyph" aria-hidden="true"><use href="#g-nav-routines"/></svg><span class="destination__label">Routines</span></a></li>
+                <li><a class="destination" href="#diet-week"><svg class="glyph" aria-hidden="true"><use href="#g-nav-diet"/></svg><span class="destination__label">Diet</span></a></li>
+                <li><a class="destination" href="#sync-states"><svg class="glyph" aria-hidden="true"><use href="#g-nav-admin"/></svg><span class="destination__label">Admin</span></a></li>
+              </ul>
+              <div class="destinations__foot">
+                <button class="sync sync--column" type="button" data-state="backed-up">
+                  <svg class="glyph sync__glyph" aria-hidden="true"><use href="#g-sync-backed-up"/></svg>
+                  <span class="sync__text">
+                    <span class="visually-hidden">Backed up 4 minutes ago.</span>
+                    <span class="sync__state" aria-hidden="true">Synced</span>
+                    <span class="sync__detail" aria-hidden="true">4m ago</span>
+                  </span>
+                </button>
+              </div>
+            </nav>
+
+            <div class="list-pane">
+              <div class="list-pane__head">
+                <h3 class="list-pane__title">Clients</h3>
+                <span class="list-pane__count">7 active</span>
+              </div>
+              <ul class="list-pane__items">
+                <li><button class="list-item" type="button"><span class="list-item__body"><span class="list-item__name">Arjun Mehta</span><span class="list-item__meta">Pull day, twice a week</span></span></button></li>
+                <li><button class="list-item" type="button"><span class="list-item__body"><span class="list-item__name">Daniel Okonkwo</span><span class="list-item__meta">Chest and shoulders</span></span></button></li>
+                <li>
+                  <button class="list-item" type="button" aria-current="true">
+                    <span class="list-item__body">
+                      <span class="list-item__name">Priya Raghavan</span>
+                      <span class="list-item__meta">Pull day, Tuesdays and Fridays</span>
+                    </span>
+                    <span class="list-item__trailing"><svg class="glyph" aria-hidden="true"><use href="#g-client-adaptation-flag"/></svg><span class="visually-hidden">Has an adaptation flag</span></span>
+                  </button>
+                </li>
+                <li><button class="list-item" type="button"><span class="list-item__body"><span class="list-item__name">Rhea Kapoor</span><span class="list-item__meta">Core and conditioning</span></span></button></li>
+              </ul>
+            </div>
+
+            <div class="detail">
+              <div class="detail__scroll">
+                <div class="card">
+                  <h3 class="screen-title">Priya Raghavan</h3>
+                  <nav class="context-links" aria-label="Related to Priya Raghavan">
+                    <a class="context-link" href="#session-runner"><svg class="glyph" aria-hidden="true"><use href="#g-link-forward"/></svg>Priya Raghavan's sessions</a>
+                    <a class="context-link" href="#diet-week"><svg class="glyph" aria-hidden="true"><use href="#g-link-forward"/></svg>Priya Raghavan's diet plan</a>
+                    <a class="context-link" href="#client-record"><svg class="glyph" aria-hidden="true"><use href="#g-progress-over-time"/></svg>Priya Raghavan's progress report</a>
+                  </nav>
+                  <p class="prose">
+                    The contextual layer lives here, inside the content, and it names records
+                    rather than destinations. Every one of these leads somewhere that leads
+                    back, so there is nowhere in the application whose only exit is the
+                    browser's back button.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callouts">
+      <div class="callout callout--layer-one">
+        <span class="callout__title">Layer one — the narrow column, headed "Go to"</span>
+        <p class="callout__body">
+          Moves you <strong>between</strong> parts of the application. The same five
+          destinations, in the same order, with the same words, on both devices. It sits on the
+          page floor, its glyphs are drawn a touch heavier so a near-achromatic column does not
+          read as grey furniture, and a selected destination carries its accent bar on its
+          <strong>leading</strong> edge — where you came in.
+        </p>
+      </div>
+      <div class="callout">
+        <span class="callout__title">Layer two — the wider pane, headed with the destination's own name</span>
+        <p class="callout__body">
+          Moves you <strong>within</strong> the destination you are already in. It is the only
+          pale object in the frame, one step off the floor both columns beside it sit on, so it
+          reads as a thing rather than as more furniture. A selected item carries its accent bar
+          on its <strong>trailing</strong> edge, pointing into the detail it just filled.
+        </p>
+      </div>
+      <div class="callout">
+        <span class="callout__title">The rule between them is measured, not decorative</span>
+        <p class="callout__body">
+          Both edges of the list pane are drawn with the interactive border token, which clears
+          three to one against every surface it sits on, at double weight. The faint decorative
+          divider is used inside a pane and never between the two layers, because a boundary
+          that carries meaning is never drawn with the token that was not measured.
+        </p>
+      </div>
+      <div class="callout">
+        <span class="callout__title">The contextual layer is lighter here than in the other two directions</span>
+        <p class="callout__body">
+          The list pane is itself permanent context, so a breadcrumb appears only when the
+          detail drills a level deeper — from a client into one of their past sessions. It names
+          records, never destinations. A destination in a breadcrumb makes the active state in
+          the column opposite a lie.
+        </p>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════════════════════════════════════════════
+       THE PERSISTENT NAVIGATION SURFACE, PHONE. The list is the screen; selecting an item
+       pushes the detail over it; the labelled control returns. Both frames below are live —
+       press an item, press the way back.
+       ═══════════════════════════════════════════════════════════════════════════════════════ -->
+  <section class="section" id="navigation-phone" data-sheet-part aria-labelledby="navigation-phone-title">
+    <div class="section__head">
+      <h2 class="section__title" id="navigation-phone-title">The navigation surface at phone width</h2>
+      <p class="section__note">
+        The same information architecture at a narrower width, not a second design. The
+        destination column becomes the bottom bar carrying the same five destinations in the
+        same order with the same words; the list pane becomes the screen; the detail is pushed
+        over it. Both frames below actually work: press a client, then press the way back.
+      </p>
+    </div>
+
+    <div class="frames">
+      <div class="frame frame--phone">
+        <p class="frame__caption">The list is the screen <span class="frame__width">390px</span></p>
+        <div class="app" data-stage="list">
+          <div class="app__body">
+            <div class="list-pane">
+              <div class="list-pane__head">
+                <h3 class="list-pane__title">Clients</h3>
+                <span class="list-pane__count">7 active</span>
+              </div>
+              <div class="list-pane__search">
+                <label class="visually-hidden" for="phone-client-search">Search clients</label>
+                <input class="input" id="phone-client-search" type="search" placeholder="Search clients">
+              </div>
+              <ul class="list-pane__items">
+                <li><button class="list-item" type="button" data-push-detail><span class="list-item__body"><span class="list-item__name">Arjun Mehta</span><span class="list-item__meta">Pull day, twice a week</span></span><span class="list-item__trailing"><svg class="glyph" aria-hidden="true"><use href="#g-link-forward"/></svg></span></button></li>
+                <li><button class="list-item" type="button" data-push-detail><span class="list-item__body"><span class="list-item__name">Daniel Okonkwo</span><span class="list-item__meta">Chest and shoulders, Thursdays</span></span><span class="list-item__trailing"><svg class="glyph" aria-hidden="true"><use href="#g-link-forward"/></svg></span></button></li>
+                <li><button class="list-item" type="button" data-push-detail><span class="list-item__body"><span class="list-item__name">Farida Noor</span><span class="list-item__meta">Conditioning, mornings</span></span><span class="list-item__trailing"><svg class="glyph" aria-hidden="true"><use href="#g-client-adaptation-flag"/></svg><span class="visually-hidden">Has an adaptation flag</span></span></button></li>
+                <li><button class="list-item" type="button" data-push-detail><span class="list-item__body"><span class="list-item__name">Meera Iyer</span><span class="list-item__meta">Functional, Thursdays</span></span><span class="list-item__trailing"><svg class="glyph" aria-hidden="true"><use href="#g-link-forward"/></svg></span></button></li>
+                <li><button class="list-item" type="button" aria-current="true" data-push-detail><span class="list-item__body"><span class="list-item__name">Priya Raghavan</span><span class="list-item__meta">Pull day, Tuesdays and Fridays</span></span><span class="list-item__trailing"><svg class="glyph" aria-hidden="true"><use href="#g-client-adaptation-flag"/></svg><span class="visually-hidden">Has an adaptation flag</span></span></button></li>
+                <li><button class="list-item" type="button" data-push-detail><span class="list-item__body"><span class="list-item__name">Rhea Kapoor</span><span class="list-item__meta">Core and conditioning, Sundays</span></span><span class="list-item__trailing"><svg class="glyph" aria-hidden="true"><use href="#g-link-forward"/></svg></span></button></li>
+                <li><button class="list-item" type="button" data-push-detail><span class="list-item__body"><span class="list-item__name">Sunil Bhat</span><span class="list-item__meta">Legs, Fridays</span></span><span class="list-item__trailing"><svg class="glyph" aria-hidden="true"><use href="#g-link-forward"/></svg></span></button></li>
+              </ul>
+            </div>
+
+            <div class="detail">
+              <nav class="breadcrumb" aria-label="Where you are">
+                <a class="back-link" href="#navigation-phone" data-push-list>
+                  <svg class="glyph" aria-hidden="true"><use href="#g-link-back"/></svg>
+                  Back to clients
+                </a>
+              </nav>
+              <div class="detail__scroll">
+                <div class="card">
+                  <h3 class="screen-title" tabindex="-1" data-detail-heading>Priya Raghavan</h3>
+                  <span class="chip chip--adaptation">
+                    <svg class="glyph" aria-hidden="true"><use href="#g-client-adaptation-flag"/></svg>
+                    Right knee, avoid deep squats and jumping
+                  </span>
+                  <div class="divider"></div>
+                  <nav class="context-links" aria-label="Related to Priya Raghavan">
+                    <a class="context-link" href="#session-runner"><svg class="glyph" aria-hidden="true"><use href="#g-link-forward"/></svg>Her sessions</a>
+                    <a class="context-link" href="#diet-week"><svg class="glyph" aria-hidden="true"><use href="#g-link-forward"/></svg>Her diet plan</a>
+                  </nav>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!--
+            THE PERSISTENT SURFACE AT A PHONE WIDTH, and it is a SIBLING of the two panes rather
+            than a child of the detail. That is a correctness requirement, not tidiness: it lived
+            inside the detail at first, so the phone push hid it, and the list screen ended up
+            with no way to reach any destination and no synchronisation indicator at all. A
+            surface that has to be permanent cannot be nested inside something that gets hidden.
+          -->
+          <div>
+            <button class="sync sync--bar" type="button" data-state="backed-up">
+              <svg class="glyph sync__glyph" aria-hidden="true"><use href="#g-sync-backed-up"/></svg>
+              <span class="sync__text">
+                <span class="sync__state">Backed up</span>
+                <span class="sync__detail">4 minutes ago. Nothing waiting.</span>
+              </span>
+            </button>
+            <nav class="bottom-bar" aria-label="Go to">
+              <ul class="bottom-bar__list">
+                <li><a class="destination" href="#navigation-phone" aria-current="page"><svg class="glyph" aria-hidden="true"><use href="#g-nav-clients"/></svg><span class="destination__label">Clients</span></a></li>
+                <li><a class="destination" href="#session-runner"><svg class="glyph" aria-hidden="true"><use href="#g-nav-calendar"/></svg><span class="destination__label">Calendar</span></a></li>
+                <li><a class="destination" href="#session-runner"><svg class="glyph" aria-hidden="true"><use href="#g-nav-routines"/></svg><span class="destination__label">Routines</span></a></li>
+                <li><a class="destination" href="#diet-week"><svg class="glyph" aria-hidden="true"><use href="#g-nav-diet"/></svg><span class="destination__label">Diet</span></a></li>
+                <li><a class="destination" href="#sync-states"><svg class="glyph" aria-hidden="true"><use href="#g-nav-admin"/></svg><span class="destination__label">Admin</span></a></li>
+              </ul>
+            </nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame frame--phone">
+        <p class="frame__caption">The detail, pushed over it <span class="frame__width">390px</span></p>
+        <div class="app" data-stage="detail">
+          <div class="app__body">
+            <div class="list-pane">
+              <div class="list-pane__head">
+                <h3 class="list-pane__title">Clients</h3>
+                <span class="list-pane__count">7 active</span>
+              </div>
+              <ul class="list-pane__items">
+                <li><button class="list-item" type="button" data-push-detail><span class="list-item__body"><span class="list-item__name">Arjun Mehta</span><span class="list-item__meta">Pull day, twice a week</span></span></button></li>
+                <li><button class="list-item" type="button" aria-current="true" data-push-detail><span class="list-item__body"><span class="list-item__name">Priya Raghavan</span><span class="list-item__meta">Pull day, Tuesdays and Fridays</span></span></button></li>
+                <li><button class="list-item" type="button" data-push-detail><span class="list-item__body"><span class="list-item__name">Rhea Kapoor</span><span class="list-item__meta">Core and conditioning, Sundays</span></span></button></li>
+              </ul>
+            </div>
+
+            <div class="detail">
+              <nav class="breadcrumb" aria-label="Where you are">
+                <a class="back-link" href="#navigation-phone" data-push-list>
+                  <svg class="glyph" aria-hidden="true"><use href="#g-link-back"/></svg>
+                  Back to clients
+                </a>
+              </nav>
+              <div class="detail__scroll">
+                <div class="card">
+                  <h3 class="screen-title" tabindex="-1" data-detail-heading>Priya Raghavan</h3>
+                  <span class="chip chip--adaptation">
+                    <svg class="glyph" aria-hidden="true"><use href="#g-client-adaptation-flag"/></svg>
+                    Right knee, avoid deep squats and jumping
+                  </span>
+                  <div class="divider"></div>
+                  <p class="field">
+                    <label class="field__label" for="phone-notes">General notes</label>
+                    <textarea class="textarea" id="phone-notes">Trains Tuesdays and Fridays at 19:00, usually with Arjun. Prefers the barbell work early.</textarea>
+                  </p>
+                  <p class="chip chip--protected">
+                    <svg class="glyph" aria-hidden="true"><use href="#g-protected-clinical-note"/></svg>
+                    A reference is set. Protected on this device.
+                  </p>
+                  <div class="divider"></div>
+                  <nav class="context-links" aria-label="Related to Priya Raghavan">
+                    <a class="context-link" href="#session-runner"><svg class="glyph" aria-hidden="true"><use href="#g-link-forward"/></svg>Her sessions</a>
+                    <a class="context-link" href="#diet-week"><svg class="glyph" aria-hidden="true"><use href="#g-link-forward"/></svg>Her diet plan</a>
+                    <a class="context-link" href="#client-record"><svg class="glyph" aria-hidden="true"><use href="#g-progress-over-time"/></svg>Her progress report</a>
+                  </nav>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!--
+            THE PERSISTENT SURFACE AT A PHONE WIDTH, and it is a SIBLING of the two panes rather
+            than a child of the detail. That is a correctness requirement, not tidiness: it lived
+            inside the detail at first, so the phone push hid it, and the list screen ended up
+            with no way to reach any destination and no synchronisation indicator at all. A
+            surface that has to be permanent cannot be nested inside something that gets hidden.
+          -->
+          <div>
+            <button class="sync sync--bar" type="button" data-state="offline">
+              <svg class="glyph sync__glyph" aria-hidden="true"><use href="#g-sync-offline"/></svg>
+              <span class="sync__text">
+                <span class="sync__state">No connection</span>
+                <span class="sync__detail">Working from this device. Everything is saving here.</span>
+              </span>
+            </button>
+            <nav class="bottom-bar" aria-label="Go to">
+              <ul class="bottom-bar__list">
+                <li><a class="destination" href="#navigation-phone" aria-current="page"><svg class="glyph" aria-hidden="true"><use href="#g-nav-clients"/></svg><span class="destination__label">Clients</span></a></li>
+                <li><a class="destination" href="#session-runner"><svg class="glyph" aria-hidden="true"><use href="#g-nav-calendar"/></svg><span class="destination__label">Calendar</span></a></li>
+                <li><a class="destination" href="#session-runner"><svg class="glyph" aria-hidden="true"><use href="#g-nav-routines"/></svg><span class="destination__label">Routines</span></a></li>
+                <li><a class="destination" href="#diet-week"><svg class="glyph" aria-hidden="true"><use href="#g-nav-diet"/></svg><span class="destination__label">Diet</span></a></li>
+                <li><a class="destination" href="#sync-states"><svg class="glyph" aria-hidden="true"><use href="#g-nav-admin"/></svg><span class="destination__label">Admin</span></a></li>
+              </ul>
+            </nav>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════════════════════════════════════════════
+       THE SYNCHRONISATION STATUS INDICATOR — all six states.
+       ═══════════════════════════════════════════════════════════════════════════════════════ -->
+  <section class="section" id="sync-states" data-sheet-part aria-labelledby="sync-states-title">
+    <div class="section__head">
+      <h2 class="section__title" id="sync-states-title">The synchronisation indicator, in all six states</h2>
+      <p class="section__note">
+        Permanently visible, unmissable, and it never blocks anything and is never a modal.
+        Five of the six are the time-based ladder. The sixth is not a sixth rung: a change that
+        was <em>refused</em> is different in kind from one that is merely <em>delayed</em>,
+        because a delay resolves itself and a rejection never does. Folded into the ladder it
+        would sit at the floor forever and read as perfectly healthy.
+      </p>
+      <p class="section__note">
+        Each state is distinguished by <strong>silhouette</strong> as well as by colour, and
+        each carries a word. The row beneath each one shows its silhouette in the page's own
+        ink at the rendered size and small — which is what a colour-blind reader, a phone in
+        sunlight, a greyscale screenshot and a compressed video call are left with. Roster is
+        near-achromatic, which makes it the direction where a state carried by colour alone
+        would disappear first.
+      </p>
+    </div>
+
+    <div class="state-grid">
+
+      <div class="state-card">
+        <div class="sync" data-state="backed-up" role="status">
+          <svg class="glyph sync__glyph" aria-hidden="true"><use href="#g-sync-backed-up"/></svg>
+          <span class="sync__text">
+            <span class="sync__state">Backed up</span>
+            <span class="sync__detail">4 minutes ago. Nothing waiting.</span>
+          </span>
+        </div>
+        <div class="state-card__silhouettes" aria-hidden="true">
+          <svg class="glyph silhouette" aria-hidden="true"><use href="#g-sync-backed-up"/></svg>
+          <svg class="glyph silhouette silhouette--small" aria-hidden="true"><use href="#g-sync-backed-up"/></svg>
+        </div>
+        <p class="state-card__meaning">
+          Everything on this device has reached the Drive backup. The calm state still says so
+          in words and a time; it never collapses to a bare dot.
+        </p>
+        <span class="chip state-card__kind">Ladder, rung one</span>
+      </div>
+
+      <div class="state-card">
+        <div class="sync" data-state="pending" role="status">
+          <svg class="glyph sync__glyph" aria-hidden="true"><use href="#g-sync-pending"/></svg>
+          <span class="sync__text">
+            <span class="sync__state">Waiting to back up</span>
+            <span class="sync__detail">3 changes waiting. Saved on this device 1 minute ago.</span>
+          </span>
+        </div>
+        <div class="state-card__silhouettes" aria-hidden="true">
+          <svg class="glyph silhouette" aria-hidden="true"><use href="#g-sync-pending"/></svg>
+          <svg class="glyph silhouette silhouette--small" aria-hidden="true"><use href="#g-sync-pending"/></svg>
+        </div>
+        <p class="state-card__meaning">
+          Work is queued and will go on its own. This is the ordinary state during a session
+          and it is deliberately not drawn as a warning: the queue is doing its job.
+        </p>
+        <span class="chip state-card__kind">Ladder, rung two</span>
+      </div>
+
+      <div class="state-card">
+        <div class="sync" data-state="pending-warning" role="status">
+          <svg class="glyph sync__glyph" aria-hidden="true"><use href="#g-sync-pending-warning"/></svg>
+          <span class="sync__text">
+            <span class="sync__state">Not backed up for 7 hours</span>
+            <span class="sync__detail">18 changes waiting. Open the app on a connection when you can.</span>
+          </span>
+        </div>
+        <div class="state-card__silhouettes" aria-hidden="true">
+          <svg class="glyph silhouette" aria-hidden="true"><use href="#g-sync-pending-warning"/></svg>
+          <svg class="glyph silhouette silhouette--small" aria-hidden="true"><use href="#g-sync-pending-warning"/></svg>
+        </div>
+        <p class="state-card__meaning">
+          From six hours. Worth noticing, not worth stopping for. It gains an outline and a
+          bell silhouette; the wording says how long and how many, because a duration is what
+          he can act on.
+        </p>
+        <span class="chip state-card__kind">Ladder, rung three</span>
+      </div>
+
+      <div class="state-card">
+        <div class="sync" data-state="pending-overdue" role="alert">
+          <svg class="glyph sync__glyph" aria-hidden="true"><use href="#g-sync-pending-overdue"/></svg>
+          <span class="sync__text">
+            <span class="sync__state">Not backed up for 2 days</span>
+            <span class="sync__detail">64 changes waiting. This needs a connection today.</span>
+          </span>
+        </div>
+        <div class="state-card__silhouettes" aria-hidden="true">
+          <svg class="glyph silhouette" aria-hidden="true"><use href="#g-sync-pending-overdue"/></svg>
+          <svg class="glyph silhouette silhouette--small" aria-hidden="true"><use href="#g-sync-pending-overdue"/></svg>
+        </div>
+        <p class="state-card__meaning">
+          From twenty-four hours. It becomes a <strong>filled</strong> block rather than an
+          outlined one, so it is plainly more serious by shape and not merely by a deeper
+          tint. It recurs on every screen and it still never blocks the application: an app
+          that refuses to open loses the very session it was protecting.
+        </p>
+        <span class="chip state-card__kind">Ladder, rung four</span>
+      </div>
+
+      <div class="state-card">
+        <div class="sync" data-state="offline" role="status">
+          <svg class="glyph sync__glyph" aria-hidden="true"><use href="#g-sync-offline"/></svg>
+          <span class="sync__text">
+            <span class="sync__state">No connection</span>
+            <span class="sync__detail">Working from this device. Everything is saving here as usual.</span>
+          </span>
+        </div>
+        <div class="state-card__silhouettes" aria-hidden="true">
+          <svg class="glyph silhouette" aria-hidden="true"><use href="#g-sync-offline"/></svg>
+          <svg class="glyph silhouette silhouette--small" aria-hidden="true"><use href="#g-sync-offline"/></svg>
+        </div>
+        <p class="state-card__meaning">
+          <strong>This is not a failure and it is not drawn as one.</strong> The application is
+          offline-first: this device holds the primary copy and the Drive is the backup, so
+          working without a connection is the application working. It takes neither the warning
+          nor the danger fill, its wording says what <em>is</em> happening rather than what is
+          missing, and its silhouette is a plain unplugged shape rather than anything broken.
+          Training a client in a basement gym is an ordinary Tuesday, and an indicator that
+          cries wolf there is one he stops reading.
+        </p>
+        <span class="chip state-card__kind">Ladder, rung five — normal operation</span>
+      </div>
+
+      <div class="state-card">
+        <div class="sync" data-state="rejected" role="alert">
+          <svg class="glyph sync__glyph" aria-hidden="true"><use href="#g-sync-failed"/></svg>
+          <span class="sync__text">
+            <span class="sync__state">One change was refused</span>
+            <span class="sync__detail">Tuesday's session for Priya Raghavan. It will not go on its own. Open it to see why.</span>
+          </span>
+        </div>
+        <div class="state-card__silhouettes" aria-hidden="true">
+          <svg class="glyph silhouette" aria-hidden="true"><use href="#g-sync-failed"/></svg>
+          <svg class="glyph silhouette silhouette--small" aria-hidden="true"><use href="#g-sync-failed"/></svg>
+        </div>
+        <p class="state-card__meaning">
+          <strong>Not a rung on the ladder above.</strong> A refused change has left the queue,
+          so a count of what is waiting reads as healthy precisely because the broken thing is
+          no longer in it. It therefore gets its own path and its own permanent visibility, and
+          it <strong>names what was refused</strong>, because only a person can resolve it.
+        </p>
+        <span class="chip state-card__kind">Not a rung — a difference of kind</span>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════════════════════════════════════════════
+       TOOLTIPS, SHOWN OPEN. Four places a non-technical person could genuinely get stuck.
+       Each is held open here because a tooltip described in prose is not a tooltip that was
+       shown. In the application they open on hover AND on keyboard focus, 200ms in and
+       nothing on the way out, and none of them carries anything needed to finish the task.
+       ═══════════════════════════════════════════════════════════════════════════════════════ -->
+  <section class="section" id="tooltips" data-sheet-part aria-labelledby="tooltips-title">
+    <div class="section__head">
+      <h2 class="section__title" id="tooltips-title">Tooltips, actually open</h2>
+      <p class="section__note">
+        Written in his words — what the thing does <em>for him</em>, not what it is
+        implemented as. He will be learning this over a video call, which is what makes these
+        worth their space. Every one of them also opens on keyboard focus, because hover-only
+        help does not exist on a phone and does not exist for anyone driving from the keyboard.
+      </p>
+    </div>
+
+    <div class="state-grid">
+
+      <div class="state-card state-card--tip">
+        <p class="card__title">On the synchronisation indicator</p>
+        <p class="meta">Where he asks: is my work safe?</p>
+        <div class="tip-host">
+          <button class="sync" type="button" data-state="pending" aria-describedby="tip-open-waiting">
+            <svg class="glyph sync__glyph" aria-hidden="true"><use href="#g-sync-pending"/></svg>
+            <span class="sync__text">
+              <span class="sync__state">Waiting to back up</span>
+              <span class="sync__detail">3 changes waiting.</span>
+            </span>
+          </button>
+          <span class="tip" role="tooltip" id="tip-open-waiting" data-open="true">
+            <strong class="tip__title">Waiting is normal</strong>
+            Everything is already saved on this device. Waiting means it has not reached your
+            Google Drive backup yet. It goes on its own when you have a connection, and nothing
+            is lost while it waits.
+          </span>
+        </div>
+      </div>
+
+      <div class="state-card state-card--tip">
+        <p class="card__title">On the adaptation flag</p>
+        <p class="meta">The one field where a well-meaning professional is most likely to do the wrong thing.</p>
+        <div class="field">
+          <span class="field__label-row">
+            <label class="field__label" for="tip-flag-demo">Adaptation flag</label>
+            <span class="tip-host">
+              <button class="tip-trigger" type="button" aria-describedby="tip-open-adaptation">
+                <svg class="glyph" aria-hidden="true"><use href="#g-help-explain"/></svg>
+                <span class="visually-hidden">What to write here</span>
+              </button>
+              <span class="tip" role="tooltip" id="tip-open-adaptation" data-open="true">
+                <strong class="tip__title">Write only what changes the exercise</strong>
+                For example, "knee injury, avoid deep squats". Do not write a diagnosis, a
+                medication or anything from a doctor's letter. Keep the real detail in your own
+                records and put a link to it below.
+              </span>
+            </span>
+          </span>
+          <input class="input" id="tip-flag-demo" type="text" value="Right knee, avoid deep squats and jumping">
+        </div>
+      </div>
+
+      <div class="state-card state-card--tip">
+        <p class="card__title">On the shape-of-the-session control</p>
+        <p class="meta">Where he asks: what will this do to my routine?</p>
+        <div class="tip-host">
+          <button class="btn" type="button" aria-pressed="true" aria-describedby="tip-open-pattern">Build And Hold</button>
+          <span class="tip" role="tooltip" id="tip-open-pattern" data-open="true">
+            <strong class="tip__title">What one press does</strong>
+            It reorders the exercises and adjusts repetitions, timers and rest so the session
+            follows that shape. It never changes the weight. You see the result before anything
+            starts, and you can change any part of it.
+          </span>
+        </div>
+      </div>
+
+      <div class="state-card state-card--tip">
+        <p class="card__title">On the protected reference</p>
+        <p class="meta">Where he asks: why can I not just type it in here?</p>
+        <div class="tip-host">
+          <button class="chip chip--protected" type="button" aria-describedby="tip-open-reference">
+            <svg class="glyph" aria-hidden="true"><use href="#g-protected-clinical-note"/></svg>
+            A reference is set. Protected on this device.
+          </button>
+          <span class="tip" role="tooltip" id="tip-open-reference" data-open="true">
+            <strong class="tip__title">The detail stays in your own records</strong>
+            This holds a link to where you keep it, not the thing itself. One tap opens it where
+            it lives. Keeping it out of the app is what makes it safe to back the app up to your
+            Drive.
+          </span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════════════════════════════════════════════
+       THE APPLICATION MARK — Roster's own, in Roster's palette, at the sizes a home screen
+       actually uses. Each direction has its own mark rather than sharing one, because the
+       mark is how a direction announces itself before anything else is on screen.
+       ═══════════════════════════════════════════════════════════════════════════════════════ -->
+  <section class="section" id="mark" data-sheet-part aria-labelledby="mark-title">
+    <div class="section__head">
+      <h2 class="section__title" id="mark-title">The application mark</h2>
+      <p class="section__note">
+        Roster's geometry, reduced to its simplest form: an off-centre rule dividing a narrow
+        band from a wide field, and one accent selection crossing from the band into the field —
+        the selection on the left is what fills the detail on the right. Flat fills only, no
+        gradient and no transparency, because the operating system rasterises this at sizes
+        nobody here controls. The rule and the selection are what survive at sixteen pixels;
+        the list rows are meant to be the first thing to go.
+      </p>
+    </div>
+
+    <div class="mark-row">
+      <p class="mark-sample">
+        <img src="mark.svg" width="512" height="512" alt="The Roster application mark">
+        <span class="mark-sample__label">512 — the manifest icon</span>
+      </p>
+      <p class="mark-sample">
+        <img src="mark.svg" width="192" height="192" alt="" aria-hidden="true">
+        <span class="mark-sample__label">192 — Android home screen</span>
+      </p>
+      <p class="mark-sample">
+        <img src="mark.svg" width="180" height="180" alt="" aria-hidden="true">
+        <span class="mark-sample__label">180 — iPhone home screen</span>
+      </p>
+      <p class="mark-sample">
+        <img src="mark.svg" width="120" height="120" alt="" aria-hidden="true">
+        <span class="mark-sample__label">120 — older iPhone</span>
+      </p>
+      <p class="mark-sample">
+        <img src="mark.svg" width="64" height="64" alt="" aria-hidden="true">
+        <span class="mark-sample__label">64 — app switcher</span>
+      </p>
+      <p class="mark-sample">
+        <img src="mark.svg" width="32" height="32" alt="" aria-hidden="true">
+        <span class="mark-sample__label">32 — browser tab</span>
+      </p>
+      <p class="mark-sample">
+        <img src="mark.svg" width="16" height="16" alt="" aria-hidden="true">
+        <span class="mark-sample__label">16 — the hard one</span>
+      </p>
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════════════════════════════════════════════
+       BOTH THEMES AT ONCE. Two frames of this same document, one per theme, so the pair can
+       be seen together rather than one at a time through the switch. A direction that ships
+       one theme and promises the other has not been built.
+       ═══════════════════════════════════════════════════════════════════════════════════════ -->
+  <section class="section" id="both-themes" data-sheet-part aria-labelledby="both-themes-title">
+    <div class="section__head">
+      <h2 class="section__title" id="both-themes-title">Both themes, side by side</h2>
+      <p class="section__note">
+        The same token names with different values, switched by one attribute on the root
+        element — never a second stylesheet. Light is near-achromatic on a warm-neutral floor;
+        dark sits on near-black, which on the iPhone the coach actually uses means the unlit
+        pixels of an evening session are close to genuinely off. The accent is a deep teal in
+        light and a pale teal in dark, and both were measured rather than picked.
+      </p>
+    </div>
+
+    <div class="theme-pair">
+      <div class="theme-pair__frame">
+        <p class="frame__caption">Light</p>
+        <iframe src="index.html?only=session-runner&amp;theme=light&amp;width=phone" title="Roster, the session runner, light theme" loading="lazy"></iframe>
+      </div>
+      <div class="theme-pair__frame">
+        <p class="frame__caption">Dark</p>
+        <iframe src="index.html?only=session-runner&amp;theme=dark&amp;width=phone" title="Roster, the session runner, dark theme" loading="lazy"></iframe>
+      </div>
+    </div>
+  </section>
+
+
+  <footer class="section" data-sheet-part>
+    <h2 class="section__title">The trade-off, in one sentence</h2>
+    <p class="prose">
+      Roster is the fastest of the three for moving between clients and back again and never
+      loses your place in the list, and the price is a permanently narrower working area on the
+      laptop and one more moving part to learn.
+    </p>
+    <p class="prose">
+      It is not the recommended direction. Ledger is, on the grounds that the risk this
+      application is most likely to fail on is becoming tiring rather than lacking a feature.
+      Roster is the right answer if moving between clients turns out to be the dominant motion
+      of a working day — it is the best of the three at that one thing and the most costly at
+      everything else.
+    </p>
+  </footer>
+
+</div>
+
+<script src="roster.js"></script>
+</body>
+</html>

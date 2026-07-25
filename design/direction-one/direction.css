@@ -1,0 +1,105 @@
+/*
+ * DIRECTION ONE - LEDGER. The direction expressed as ROLE BINDINGS, and nothing else.
+ *
+ * This file is the whole of what makes Ledger different from Console and from Roster. It
+ * contains no layout and no component: it binds the shared token layer's roles to the
+ * values this direction wants, and declares the handful of direction-level roles the
+ * components consume. Everything visual downstream reads var(--token), so the direction
+ * can be swapped by replacing this one file rather than by editing a screen.
+ *
+ * THERE IS DELIBERATELY NO COLOUR VALUE IN HERE. Ledger's palette is house-sepia, which
+ * already exists in the shared layer, so the palette is selected by an attribute on the
+ * root element - data-palette="house-sepia" - rather than by restating colours that
+ * something else measures. Restating them would put a second copy of the palette in the
+ * build, and the contrast harness would then be measuring a file this one had quietly
+ * diverged from.
+ *
+ * Load order, and it matters: tokens/base.css, tokens/palettes.css, then this file, then
+ * ledger.css. The shared layer arrives first so this file can rebind it.
+ */
+
+:root {
+  /*
+   * THE STRUCTURAL AXIS: TONAL WEIGHT. Ledger is FLAT.
+   *
+   * Every elevation role in this direction resolves to --elevation-0, including the ones
+   * an interface normally lifts: the sticky header, the tooltip, and anything drawn over
+   * the session. Structure is carried by three things instead - the step between
+   * --surface-page and --surface-card, the --line-divider between rows, and spacing.
+   *
+   * These four names exist rather than components writing var(--elevation-0) directly,
+   * because a component that hardcodes the flat value is a component the other two
+   * directions cannot reuse. A role that always resolves to zero in this direction is
+   * still a role.
+   */
+  --elevation-card: var(--elevation-0);
+  --elevation-header: var(--elevation-0);
+  --elevation-popover: var(--elevation-0);
+  --elevation-overlay: var(--elevation-0);
+
+  /*
+   * RADIUS. A good paper form, not a card deck: the smallest radius in the scale on
+   * everything structural. The tooltip is the one exception at 8px, because it is the
+   * only surface in Ledger that floats free of the grid and needs to read as detached
+   * without being allowed a shadow to say so.
+   */
+  --radius-card: var(--radius-1);
+  --radius-control: var(--radius-1);
+  --radius-chip: var(--radius-1);
+  --radius-popover: var(--radius-2);
+
+  /*
+   * NAVIGATION SHAPE. A permanently expanded sidebar on the laptop and a bottom bar on
+   * the phone. The sidebar is never collapsible: a control that changes the shape of the
+   * frame is one more thing to explain over a video call, and the room it would buy back
+   * is room Ledger does not need.
+   */
+  --nav-rail-width: 248px;
+  --nav-bar-height: 56px;
+
+  /*
+   * The current destination is a FILL and a SHAPE, never a tint alone. --surface-selected
+   * carries the fill; this 3px marker down the leading edge is the shape, and it is what
+   * survives a greyscale screenshot and a colour-blind reader.
+   */
+  --nav-marker-width: 3px;
+
+  /*
+   * The safe-area inset under the bottom bar. Zero on a desktop browser and on the demo
+   * frames; the real value on an installed phone application, where the home indicator
+   * would otherwise sit on top of the fifth destination.
+   */
+  --nav-bar-inset: env(safe-area-inset-bottom, 0px);
+
+  /*
+   * THE GLYPH FAMILY. Ledger takes the lightest weight of the three, matched to the flat
+   * surfaces: a 2px stroke on the shared 24x24 canvas with round caps and joins. The
+   * glyph files read these two names, so weight is a property of the direction rather
+   * than of the drawing.
+   */
+  --glyph-stroke: 2;
+  --glyph-radius: 2;
+  --glyph-size: 24px;
+  --glyph-size-small: 20px;
+
+  /*
+   * THE SYNCHRONISATION STRIP. Full width, always present, never dismissible, and never
+   * collapsed to a bare icon. The height is a role because both the laptop placement
+   * (under the content header) and the phone placement (directly above the bottom bar)
+   * have to reserve exactly the same room.
+   */
+  --sync-strip-height: 44px;
+  --sync-marker-width: var(--space-1);
+
+  /* Tooltip timing, per the direction: 200ms in, none out. */
+  --tooltip-delay-in: var(--motion-base);
+  --tooltip-delay-out: var(--motion-instant);
+
+  /*
+   * Column widths used by more than one screen, named here so two screens cannot drift
+   * to two slightly different numbers for the same job.
+   */
+  --column-detail: 340px;
+  --column-diet-time: 84px;
+  --column-diet-day: 168px;
+}

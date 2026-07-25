@@ -1,26 +1,99 @@
 <!doctype html>
-<html lang="en">
+<!--
+  THE DIRECTION IS BOUND HERE, ON THE ROOT ELEMENT, AND NOWHERE ELSE.
+
+  `data-palette` and `data-density` select Console out of the shared token layer under
+  `design/tokens`. Console is the ONLY direction this application ships: the other palettes stay in
+  that layer because it is shared and measured as a whole, and nothing in this application offers a
+  choice between them. `data-theme` is different — light and dark are the same token names with
+  different values and both ship; it is set below, before the first frame is drawn.
+-->
+<html lang="en" data-palette="slate-blue" data-density="compact">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Fit</title>
 
     <!--
-      DELIBERATELY UNSTYLED. This page carries no stylesheet and no theme beyond what the manifest
-      needs, because the visual system is the next step's work and it mounts into this frame.
-      Adding styling here would be work that step has to undo.
+      THE THEME, BEFORE THE FIRST FRAME.
+
+      This is the one piece of the visual system that cannot be a module. A module script is
+      deferred, so it can run after the browser has already painted — which on a dark-themed phone
+      is a white flash on every single open, and the coach opens this application several times an
+      evening. So the attribute is set here, synchronously, ahead of everything.
+
+      The key, the attribute and the query are REPEATED from `src/design/theme.ts`, which is where
+      the rest of the behaviour lives — following the device while the choice is `system`, and
+      remembering an explicit choice. Repetition that nothing checks is repetition that drifts, and
+      this drift would be silent: the module would write one key while this read another, the
+      application would keep working, and only the memory of the choice would quietly stop
+      surviving a reload. `src/design/theme.test.ts` reads this file and fails if they disagree.
+
+      Storage can refuse outright on a locked-down device. That is caught rather than swallowed:
+      the light theme is applied so the application still opens, and the refusal is logged.
     -->
+    <script>
+      (function () {
+        try {
+          var choice = window.localStorage.getItem('fit.theme');
+          if (choice !== 'light' && choice !== 'dark') {
+            choice = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+          document.documentElement.setAttribute('data-theme', choice);
+        } catch (error) {
+          document.documentElement.setAttribute('data-theme', 'light');
+          console.error('[theme] could not be resolved before the first frame', error);
+        }
+      })();
+    </script>
 
     <link rel="manifest" href="./manifest.webmanifest" />
-    <meta name="theme-color" content="#333a44" />
 
-    <!-- iOS reads its own tags rather than the manifest for the installed appearance. -->
+    <!--
+      NO `theme-color` VALUE IS WRITTEN HERE, and its absence is deliberate.
+
+      This tag colours the browser's own surrounding chrome, and it takes a literal colour: a custom
+      property is not permitted in it. Writing one here would be a palette value living outside the
+      token layer — a second source of truth for a colour the contrast harness measures, in the one
+      file nobody would think to grep. It would also have to be written twice, once per theme, and
+      neither copy would follow a theme change.
+
+      `src/design/browser-chrome.ts` fills it in instead, from the computed value of
+      `--surface-page`, whenever the theme changes. One source of truth, and it follows.
+    -->
+    <meta name="theme-color" />
+
+    <!--
+      Every icon path here is RELATIVE, like the manifest's own. The published sub-path is named
+      once, in tools/build-config.mjs, and the bundler rewrites these from it. A path written out
+      again here would load perfectly in development and produce a missing icon in production.
+
+      The vector is offered first: browsers that take it get a mark that is sharp at every size,
+      and the rest fall through to the raster. It is also the source these PNGs are derived from —
+      see tools/make-icons.mjs.
+    -->
+    <link rel="icon" type="image/svg+xml" href="./icons/mark.svg" />
+    <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
+
+    <!--
+      iOS reads its own tags rather than the manifest for the installed appearance, and composites
+      the touch icon onto a background of its own. That icon is deliberately opaque; a transparent
+      one comes out looking broken on exactly the device the coach uses.
+
+      BOTH SPELLINGS OF "CAPABLE" ARE HERE, AND NEITHER IS REDUNDANT. `mobile-web-app-capable` is
+      the standard name; `apple-mobile-web-app-capable` is the one iOS actually reads. Every page
+      load with only the Apple spelling logged a deprecation warning asking for the standard one,
+      and the obvious fix — renaming it — would break installation on the exact device the coach
+      uses. So the modern tag is added BESIDE the old one rather than in place of it, and the old
+      one stays until iOS itself stops needing it.
+    -->
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Fit" />
-    <link rel="apple-touch-icon" href="./icons/placeholder-180.png" />
-    <link rel="icon" href="./icons/placeholder-192.png" />
-    <script type="module" crossorigin src="/Fit/assets/index-DKRXKPMf.js"></script>
+    <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon-180.png" />
+    <script type="module" crossorigin src="/Fit/assets/index-BAS_wCGW.js"></script>
+    <link rel="stylesheet" crossorigin href="/Fit/assets/index-DnbCGNed.css">
   </head>
   <body>
     <div id="root"></div>

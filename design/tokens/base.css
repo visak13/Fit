@@ -1,0 +1,200 @@
+/*
+ * THE SCALES — everything in the token layer that is not a colour.
+ *
+ * Type, spacing, density, radius, border, elevation and motion. Hand-authored, because
+ * unlike the colours these numbers have no second consumer that could drift away from
+ * them: nothing measures a spacing step. The colours are generated from data precisely
+ * because something does measure those.
+ *
+ * Load order is: base.css, then palettes.css. Nothing here binds a colour, and nothing
+ * there binds a scale, so the two never fight.
+ *
+ * THE RULE THAT MAKES THIS LAYER WORTH HAVING: no screen writes a literal colour, size,
+ * radius or duration. It writes var(--token). A visual direction is then a matter of
+ * rebinding role names on the root element, not of editing the screens — which is what
+ * lets three directions exist at all without three copies of the application.
+ */
+
+:root {
+  /*
+   * TYPE — five sizes, three weights. More than five sizes is a ramp nobody can hold in
+   * their head, and the sixth always turns out to be the fifth with a different rounding.
+   *
+   * --type-meta is 14px and is the one size with a rule attached: it is for timestamps,
+   * units and record identifiers ONLY. It is never a control label, never a value the
+   * coach reads to make a decision, and never body text. Reading text starts at 16px and
+   * does not go below it to fit more in — the cost of that trade is paid in his eyes over
+   * a three-hour evening, and it shows up as mistakes rather than as complaints.
+   */
+  --type-meta: 0.875rem;    /* 14px — timestamps and units only */
+  --type-body: 1rem;        /* 16px — the floor for anything read */
+  --type-lead: 1.125rem;    /* 18px — the value in a summary, a session heading */
+  --type-title: 1.375rem;   /* 22px — a screen title */
+  --type-display: 1.75rem;  /* 28px — the one number a screen exists to show */
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-bold: 700;
+
+  /* Line height never drops below 1.5 for anything read in paragraphs. */
+  --leading-tight: 1.25;    /* headings and single-line values only */
+  --leading-body: 1.5;
+  --leading-loose: 1.65;    /* long notes, the medical-reference hint, help copy */
+
+  /* The measure. Long lines lose the reader's place; this caps them. */
+  --measure-read: 68ch;
+
+  /*
+   * SPACING — a 4px scale. Every gap in the interface is one of these eight values, so
+   * spacing accumulates into a rhythm instead of into eleven slightly different gaps.
+   */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /*
+   * TARGETS — the floor, not the aim. WCAG 2.2 SC 2.5.8 requires 24x24 CSS px. This layer
+   * ships 44px for anything tapped during a session, because the coach is tapping with a
+   * client in front of him and often without looking straight at the screen.
+   */
+  --target-minimum: 24px;
+  --target-touch: 44px;
+
+  /* Radius. */
+  --radius-flat: 0px;
+  --radius-1: 4px;
+  --radius-2: 8px;
+  --radius-3: 14px;
+  --radius-pill: 999px;
+
+  /* Border weights. --focus-band is the outer band of the focus indicator. */
+  --border-hairline: 1px;
+  --border-control: 1px;
+  --border-strong: 2px;
+  --focus-band: 3px;
+
+  /*
+   * THE FOCUS INDICATOR, composed once here so no screen can assemble it wrongly.
+   *
+   * Two concentric bands, and the reason is measured rather than stylistic: no single
+   * colour can clear 3:1 against both a pale page and a mid-tone filled button. The inner
+   * band sits inside the control's edge and is what makes focus visible ON a coloured
+   * button; the outer band sits outside it and is what makes focus visible on a surface.
+   * See design/tokens/palettes.mjs, FOCUS_INDICATOR_NOTE, and the measured pairs in
+   * design/contrast-report.json.
+   *
+   * Usage:  :focus-visible { box-shadow: var(--focus-indicator); outline: none; }
+   * Never replace this with a single-colour outline.
+   */
+  --focus-indicator:
+    inset 0 0 0 var(--border-strong) var(--focus-ring-contrast),
+    0 0 0 var(--focus-band) var(--focus-ring);
+
+  /*
+   * ELEVATION — composed from the palette's own --shadow-color so a shadow is never a
+   * hardcoded black smudge on a warm surface.
+   *
+   * `color-mix` is the one modern CSS feature this layer relies on. Its failure mode is
+   * benign by construction: where it is unsupported the shadow resolves to nothing and
+   * the interface renders FLAT. Nothing becomes unreadable, no boundary disappears —
+   * every boundary that carries meaning is a measured border or a fill, never a shadow.
+   * That is deliberate: a shadow is decoration here, and decoration is allowed to fail.
+   */
+  --elevation-0: none;
+  --elevation-1: 0 1px 2px color-mix(in srgb, var(--shadow-color) 12%, transparent);
+  --elevation-2:
+    0 2px 4px color-mix(in srgb, var(--shadow-color) 12%, transparent),
+    0 6px 16px color-mix(in srgb, var(--shadow-color) 10%, transparent);
+  --elevation-3:
+    0 4px 8px color-mix(in srgb, var(--shadow-color) 14%, transparent),
+    0 16px 32px color-mix(in srgb, var(--shadow-color) 14%, transparent);
+
+  /*
+   * MOTION — short, and never in the way. The coach is mid-session; an animation he has
+   * to wait out is the application making itself the driver.
+   */
+  --motion-instant: 0ms;
+  --motion-fast: 120ms;   /* a press, a hover, a focus ring arriving */
+  --motion-base: 200ms;   /* a panel opening, a row expanding */
+  --motion-slow: 320ms;   /* a screen transition, and nothing longer than this exists */
+
+  --ease-standard: cubic-bezier(0.2, 0, 0.2, 1);
+  --ease-enter: cubic-bezier(0, 0, 0.2, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+
+  /*
+   * DENSITY DEFAULT. Rebound by [data-density] below. These are role names exactly like
+   * the colours are: a direction changes how dense the application feels by rebinding
+   * them on the root element, not by editing a row component.
+   */
+  --row-height: 48px;
+  --row-gap: var(--space-1);
+  --control-height: 44px;
+  --gutter: var(--space-5);
+  --section-gap: var(--space-6);
+  --card-padding: var(--space-5);
+}
+
+/*
+ * THE THREE DENSITIES.
+ *
+ * Density comes from spacing and row height. It never comes from shrinking type, and it
+ * never comes from removing something the coach needs — a screen that is too full is
+ * fixed by collapsing a section or drilling in, not by making the words smaller. Note
+ * that --control-height never drops below 44px in any density, because the target size
+ * is not part of what density trades away.
+ */
+:root[data-density='compact'] {
+  --row-height: 40px;
+  --row-gap: 0px;
+  --control-height: 44px;
+  --gutter: var(--space-4);
+  --section-gap: var(--space-5);
+  --card-padding: var(--space-4);
+}
+
+:root[data-density='comfortable'] {
+  --row-height: 48px;
+  --row-gap: var(--space-1);
+  --control-height: 44px;
+  --gutter: var(--space-5);
+  --section-gap: var(--space-6);
+  --card-padding: var(--space-5);
+}
+
+:root[data-density='roomy'] {
+  --row-height: 56px;
+  --row-gap: var(--space-2);
+  --control-height: 48px;
+  --gutter: var(--space-6);
+  --section-gap: var(--space-7);
+  --card-padding: var(--space-6);
+}
+
+/*
+ * THE VIEWPORT BOUNDARIES, named once so three directions describe the same two devices.
+ * Below --viewport-compact the global navigation is a bottom bar; at or above
+ * --viewport-expanded it is a persistent side surface. The band between them is the
+ * narrow laptop window and the iPhone in landscape, and it follows the bottom bar.
+ */
+:root {
+  --viewport-compact: 600px;
+  --viewport-expanded: 840px;
+}
+
+/*
+ * Someone who has asked their device for less motion gets none. Durations collapse to
+ * zero rather than being merely shortened, so nothing is left half-animated.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 0ms;
+    --motion-base: 0ms;
+    --motion-slow: 0ms;
+  }
+}

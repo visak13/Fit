@@ -1,0 +1,1212 @@
+/*
+ * DIRECTION TWO — CONSOLE
+ *
+ * The structural axis is DENSITY. Console fits noticeably more on a screen than Ledger
+ * does without shrinking a single word, and it says which surface you are working on with
+ * ELEVATION rather than with dividers. It reads as an instrument.
+ *
+ * WHAT THIS FILE IS ALLOWED TO DO, and it is the whole reason three directions can exist
+ * without three copies of the application: it REBINDS ROLES. The palette is selected by
+ * `data-palette="slate-blue"` and the density by `data-density="compact"`, both of which
+ * already exist in the shared token layer. Everything below either consumes a shared token
+ * or names a NEW STRUCTURAL ROLE of its own — the rail's two widths, the elevation each
+ * surface class carries, the optical weight of a glyph at rail size. Console's look is the
+ * sum of those bindings plus the structure in index.html.
+ *
+ * WHAT THIS FILE MUST NEVER DO: rebind the VALUE of a shared role. Three directions were
+ * built in parallel against one token layer, and a value changed here to suit Console
+ * would silently repaint the other two, neither of which has any reason to look. If
+ * Console needed a colour the layer does not have, the answer was to add a ROLE to the
+ * shared layer and say so out loud — not to redefine one in here.
+ *
+ * NO LITERAL COLOUR APPEARS IN THIS FILE. Every colour is var(--role). That is grep-able,
+ * which is the point of it.
+ *
+ * Load order: tokens/base.css, tokens/palettes.css, then this.
+ */
+
+/* ─────────────────────────────────────────────────────────────────────────────────────
+ * CONSOLE'S OWN STRUCTURAL ROLES
+ *
+ * Named here for the same reason the shared layer names its scales: a number that appears
+ * twice is a number that drifts. These are structure rather than scale, which is why they
+ * belong to the direction and not to the shared layer.
+ * ───────────────────────────────────────────────────────────────────────────────────── */
+:root {
+  /* THE RAIL. 76px at rest is what buys the horizontal room for a genuine two-column
+   * layout on the client and session screens; 248px is the expanded width, matched to
+   * Ledger's permanent sidebar so the two directions are compared at the same reach. */
+  --rail-width: 76px;
+  --rail-width-expanded: 248px;
+
+  /* THE ELEVATION LADDER — Console's tonal weight, and the highest of the three
+   * directions. Cards lift off the page, the sticky header lifts off the cards, and
+   * anything overlaying a live session lifts off everything. Bound as roles rather than
+   * written at each site so the ladder can be read in one place. */
+  --lift-card: var(--elevation-1);
+  --lift-sticky: var(--elevation-2);
+  --lift-popover: var(--elevation-2);
+  --lift-over-session: var(--elevation-3);
+
+  /* GLYPH OPTICAL WEIGHT. The shared family is drawn on a 24x24 canvas at a 2px stroke.
+   * Console draws it slightly tighter inside that canvas so it still reads at rail size,
+   * which is a scale on the geometry — and because scaling geometry scales the stroke with
+   * it, the authored stroke is reduced by the same factor so the RENDERED stroke lands
+   * back on 2px. 1.85 x 1.08 = 2.0. The glyph is bigger; the line is not heavier. */
+  --glyph-stroke: 1.85;
+  --glyph-optical-scale: 1.08;
+  --glyph-radius: 2;
+  --glyph-size: 24px;
+
+  /* Structural widths that recur. */
+  --sheet-max: 1320px;
+  --frame-laptop: 1180px;
+  --frame-phone: 390px;
+  --capture-column: 340px;
+  --diet-time-column: 92px;
+  --diet-day-column: 148px;
+  --diet-day-column-phone: 132px;
+
+  /* How tall a frame stands before it scrolls like the device it represents. */
+  --frame-height-laptop: 760px;
+  --frame-height-phone: 780px;
+  /* The rail spans the scroll port, not the content: the frame height less its caption row. */
+  --rail-height: 716px;
+
+  /* Room reserved under each open tooltip in the demonstration block. */
+  --tip-demo-room: 280px;
+
+  /* The reduced frame used where a rail is shown beside its own expanded state. */
+  --frame-narrow: 560px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────────
+ * THE SHEET — the page around the mockups. Deliberately plain: it is a review surface,
+ * not part of the application, and it must not compete with what it is showing.
+ * ───────────────────────────────────────────────────────────────────────────────────── */
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--surface-page);
+  color: var(--text-primary);
+}
+
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  font-size: var(--type-body);
+  line-height: var(--leading-body);
+  -webkit-text-size-adjust: 100%;
+}
+
+:focus-visible {
+  box-shadow: var(--focus-indicator);
+  outline: none;
+}
+
+h1, h2, h3, h4 { margin: 0; line-height: var(--leading-tight); font-weight: var(--weight-bold); }
+p { margin: 0; }
+
+.sheet {
+  max-width: var(--sheet-max);
+  margin: 0 auto;
+  padding: 0 var(--space-5) var(--space-8);
+}
+
+.sheet-bar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-5);
+  margin-bottom: var(--space-5);
+  background: var(--surface-raised);
+  border-bottom: var(--border-hairline) solid var(--line-divider);
+  box-shadow: var(--lift-sticky);
+}
+
+.sheet-bar-title { display: flex; align-items: center; gap: var(--space-3); }
+.sheet-bar-title strong { font-size: var(--type-lead); }
+.sheet-bar-title img { width: 32px; height: 32px; border-radius: var(--radius-2); }
+.sheet-controls { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: center; }
+.sheet-control-group { display: flex; align-items: center; gap: var(--space-2); }
+.sheet-control-group > span { font-size: var(--type-meta); color: var(--text-muted); }
+
+.sheet-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: 0 0 var(--space-6);
+}
+
+.sheet-section { padding: 0 0 var(--section-gap); }
+.sheet-section > header { padding: var(--space-6) 0 var(--space-4); }
+.sheet-section h2 { font-size: var(--type-title); }
+.sheet-section h2 + p { margin-top: var(--space-2); max-width: var(--measure-read); color: var(--text-muted); }
+
+.sheet-note {
+  max-width: var(--measure-read);
+  margin-top: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-raised);
+  border-inline-start: var(--border-strong) solid var(--line-control);
+  border-radius: var(--radius-1);
+  line-height: var(--leading-loose);
+}
+
+.sheet-note strong { font-weight: var(--weight-medium); }
+.sheet-label {
+  display: block;
+  padding-bottom: var(--space-2);
+  font-size: var(--type-meta);
+  font-weight: var(--weight-medium);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* Frames never shrink to fit the reviewing window: a laptop frame squeezed to phone width
+ * would show the laptop LAYOUT at a width it was never designed for, which is a lie about
+ * the direction rather than a responsive courtesy. The container scrolls sideways instead,
+ * so the sheet stays readable on a narrow screen without ever misrepresenting a frame. */
+.frame-pair { display: flex; flex-wrap: wrap; gap: var(--space-6); align-items: flex-start; overflow-x: auto; }
+.sheet-section:has(> .frame) { overflow-x: auto; }
+
+/* A mockup frame declares its width EXPLICITLY rather than inheriting the viewport,
+ * because the whole point of this sheet is that both widths are visible at once and the
+ * two navigation layers can be seen working together. Every rule below that differs by
+ * device is written against [data-view], and in the real shell those two selectors become
+ * the shared --viewport-compact / --viewport-expanded breakpoints. */
+/* A FRAME IS ITS OWN SCROLL CONTAINER, and that is not cosmetic. The content header is
+ * sticky and the breadcrumb is pinned into it, which is a claim about what survives
+ * scrolling a long session screen — and a claim nobody can check if the frame simply grows
+ * to fit and the page scrolls around it. Worse, a sticky header inside a page-scrolled
+ * frame sticks to the PAGE, which slides it under this sheet's own bar and looks like a
+ * bug in the direction rather than in the mockup. So each frame scrolls like the device it
+ * stands for. Press "Unroll frames" to remove the height and read a whole screen at once. */
+.frame {
+  background: var(--surface-page);
+  border: var(--border-strong) solid var(--line-control);
+  border-radius: var(--radius-2);
+  overflow: auto;
+}
+
+.frame[data-view='laptop'] {
+  width: var(--frame-laptop);
+  flex: 0 0 var(--frame-laptop);
+  max-height: var(--frame-height-laptop);
+}
+/* A phone frame MAY narrow to the reviewing window, and that is not the same concession the
+ * laptop frame is refused: three hundred and ninety is one phone and three hundred and
+ * twenty is another, so a narrowed phone frame is still showing the phone layout at a real
+ * phone width. A narrowed laptop frame would be showing the laptop layout at a width no
+ * laptop has. That is why one of them shrinks and the other one scrolls. */
+.frame[data-view='phone'] {
+  width: var(--frame-phone);
+  flex: 0 1 var(--frame-phone);
+  max-width: 100%;
+  max-height: var(--frame-height-phone);
+}
+
+:root[data-frames='unrolled'] .frame { max-height: none; overflow: visible; }
+:root[data-frames='unrolled'] .rail { position: static; height: auto; align-self: stretch; }
+
+.frame-caption {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--type-meta);
+  color: var(--text-muted);
+  background: var(--surface-raised);
+  border-bottom: var(--border-hairline) solid var(--line-divider);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────────
+ * GLYPHS — the shared family, consumed. Nothing here draws one.
+ * ───────────────────────────────────────────────────────────────────────────────────── */
+.glyph {
+  width: var(--glyph-size);
+  height: var(--glyph-size);
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: var(--glyph-stroke);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transform: scale(var(--glyph-optical-scale));
+}
+
+.glyph-lg { --glyph-size: 32px; }
+.glyph-sm { --glyph-size: 20px; }
+
+/* ─────────────────────────────────────────────────────────────────────────────────────
+ * THE APPLICATION FRAME
+ * ───────────────────────────────────────────────────────────────────────────────────── */
+.app { display: flex; min-height: 320px; background: var(--surface-page); }
+.frame[data-view='phone'] .app { display: block; }
+
+/* THE RAIL — laptop only. 76px at rest, expanding to 248px on hover or keyboard focus and
+ * HOLDING OPEN while focus is anywhere inside it, which is what makes it usable from a
+ * keyboard rather than a pointer-only affordance. The phone inherits none of this. */
+/* THE RAIL STAYS PUT WHILE THE CONTENT SCROLLS UNDER IT, and that is a requirement rather
+ * than a nicety. The synchronisation chip lives at its foot and is specified as PERMANENTLY
+ * VISIBLE; a rail that scrolls away with the session runner takes the accountability signal
+ * off the screen exactly when the coach is deepest into a long screen and most likely to have
+ * stopped noticing it. Found by looking at a screenshot: every computed check on that chip
+ * passed while the chip itself was a thousand pixels below the fold. */
+.rail {
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: var(--rail-height);
+  flex: 0 0 var(--rail-width);
+  width: var(--rail-width);
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-3) var(--space-2);
+  gap: var(--space-1);
+  background: var(--surface-raised);
+  border-inline-end: var(--border-hairline) solid var(--line-divider);
+  transition: width var(--motion-base) var(--ease-standard),
+              flex-basis var(--motion-base) var(--ease-standard);
+}
+
+.frame[data-view='phone'] .rail { display: none; }
+
+.rail:hover,
+.rail:focus-within,
+.rail[data-expanded='true'] {
+  flex-basis: var(--rail-width-expanded);
+  width: var(--rail-width-expanded);
+}
+
+.rail-mark {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.rail-mark img { width: 32px; height: 32px; border-radius: var(--radius-2); flex: 0 0 auto; }
+.rail-mark span {
+  font-weight: var(--weight-bold);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity var(--motion-fast) var(--ease-standard);
+}
+.rail:hover .rail-mark span,
+.rail:focus-within .rail-mark span,
+.rail[data-expanded='true'] .rail-mark span { opacity: 1; }
+
+.rail-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--control-height);
+  padding: var(--space-1) var(--space-2);
+  border: none;
+  border-radius: var(--radius-1);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  text-align: start;
+  text-decoration: none;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+/* At rest the rail is icon-above-micro-label: the destination is always named, even
+ * collapsed, because a rail of five unlabelled glyphs is five things to memorise. */
+.rail-item-inner { display: flex; flex-direction: column; align-items: center; width: 44px; flex: 0 0 44px; }
+.rail-item-inner small { font-size: var(--type-meta); line-height: var(--leading-tight); }
+.rail-item-full {
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity var(--motion-fast) var(--ease-standard);
+}
+.rail:hover .rail-item-full,
+.rail:focus-within .rail-item-full,
+.rail[data-expanded='true'] .rail-item-full { opacity: 1; }
+
+/* One name per item, always. The micro-label IS the collapsed form of the full label, so the
+ * two are never on screen together — that reads as the destination stuttered twice. */
+.rail:hover .rail-item-inner small,
+.rail:focus-within .rail-item-inner small,
+.rail[data-expanded='true'] .rail-item-inner small { display: none; }
+.rail:hover .rail-item-inner,
+.rail:focus-within .rail-item-inner,
+.rail[data-expanded='true'] .rail-item-inner { width: auto; flex-basis: auto; }
+
+.rail-item:hover { background: var(--surface-selected); color: var(--text-primary); }
+
+.rail-item[aria-current='page'] {
+  background: var(--surface-selected);
+  color: var(--text-primary);
+  font-weight: var(--weight-medium);
+}
+.rail-item[aria-current='page']::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block: var(--space-1);
+  width: var(--focus-band);
+  border-radius: var(--radius-pill);
+  background: var(--fill-accent);
+}
+
+.rail-spacer { flex: 1 1 auto; min-height: var(--space-5); }
+
+/* ─────────────────────────────────────────────────────────────────────────────────────
+ * MAIN — the content column, with the sticky header the breadcrumb is pinned into.
+ * ───────────────────────────────────────────────────────────────────────────────────── */
+.main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+
+.main-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  padding: var(--space-2) var(--gutter);
+  background: var(--surface-card);
+  border-bottom: var(--border-hairline) solid var(--line-divider);
+  box-shadow: var(--lift-sticky);
+}
+
+/* THE CONTEXTUAL LAYER. One breadcrumb line pinned into the sticky header, so it survives
+ * scrolling a long session screen, with the labelled back control at its left. A
+ * destination never appears here, and no contextual action appears in the rail. */
+.crumbs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  min-height: var(--control-height);
+  font-size: var(--type-meta);
+  color: var(--text-muted);
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-height);
+  padding: 0 var(--space-3) 0 var(--space-2);
+  border-radius: var(--radius-1);
+  color: var(--text-accent);
+  font-size: var(--type-body);
+  font-weight: var(--weight-medium);
+  text-decoration: none;
+}
+.back-link:hover { background: var(--surface-selected); text-decoration: underline; }
+
+.crumb-sep { color: var(--text-muted); }
+.crumbs a { color: var(--text-accent); }
+.crumbs [aria-current='page'] { color: var(--text-primary); font-weight: var(--weight-medium); }
+
+.main-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding-top: var(--space-1);
+}
+.main-title-row h3 { font-size: var(--type-title); }
+.main-title-row .meta { font-size: var(--type-meta); color: var(--text-muted); }
+.main-title-actions { margin-inline-start: auto; display: flex; gap: var(--space-2); align-items: center; }
+
+.main-body { padding: var(--gutter); display: flex; flex-direction: column; gap: var(--section-gap); }
+.frame[data-view='phone'] .main-body { padding: var(--space-3); gap: var(--space-5); }
+
+/* ─────────────────────────────────────────────────────────────────────────────────────
+ * SURFACES. Console says which surface you are working on with elevation. Every boundary
+ * that carries MEANING is still a measured border or a fill — where color-mix is missing
+ * the shadows resolve to nothing and this reads flat rather than broken.
+ * ───────────────────────────────────────────────────────────────────────────────────── */
+.card {
+  background: var(--surface-card);
+  border-radius: var(--radius-2);
+  box-shadow: var(--lift-card);
+  padding: var(--card-padding);
+}
+
+.card-tight { padding: 0; }
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--control-height);
+  padding: var(--space-2) var(--card-padding);
+  border-bottom: var(--border-hairline) solid var(--line-divider);
+}
+.card-header h4 { font-size: var(--type-lead); }
+.card-header .spacer { flex: 1 1 auto; }
+.card-body { padding: var(--card-padding); }
+.card-body-tight { padding: var(--space-2) var(--card-padding) var(--card-padding); }
+
+.over-session { box-shadow: var(--lift-over-session); border: var(--border-hairline) solid var(--line-control); }
+
+.two-column {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--capture-column);
+  gap: var(--gutter);
+  align-items: start;
+}
+.frame[data-view='phone'] .two-column { grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
+
+.stack { display: flex; flex-direction: column; gap: var(--space-4); }
+.stack-tight { display: flex; flex-direction: column; gap: var(--space-2); }
+.inline { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+.inline-tight { display: flex; gap: var(--space-1); align-items: center; }
+
+/* ─────────────────────────────────────────────────────────────────────────────────────
+ * CONTROLS. Every target stays 44px in every density — target size is not part of what
+ * density trades away.
+ * ───────────────────────────────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--control-height);
+  min-width: var(--control-height);
+  padding: 0 var(--space-4);
+  border: var(--border-control) solid var(--line-control);
+  border-radius: var(--radius-1);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  font: inherit;
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  text-decoration: none;
+}
+.btn:hover { background: var(--surface-selected); }
+
+.btn-primary {
+  background: var(--fill-accent);
+  border-color: var(--fill-accent);
+  color: var(--text-on-accent);
+}
+.btn-primary:hover { background: var(--fill-accent); text-decoration: underline; }
+
+.btn-danger { background: var(--fill-danger); border-color: var(--fill-danger); color: var(--text-on-danger); }
+
+.btn-quiet { border-color: transparent; background: transparent; color: var(--text-accent); }
+.btn-quiet:hover { background: var(--surface-selected); }
+
+/*
+ * --target-touch, NOT --target-minimum, and the difference is the whole defect.
+ *
+ * The token layer ships both on purpose and says which is which: --target-minimum is 24px,
+ * the accessibility standard's floor, and --target-touch is 44px, what THIS application
+ * holds anything tapped during a session to, because the coach taps while a client is
+ * talking to him. This rule bound the standard's number. It read as a considered, tokenised
+ * decision — no magic number, a named constant, exactly the shape of correct code — and it
+ * rendered the in-session Save button at 26px and the adaptation-flag help trigger at 28x40.
+ *
+ * Measured 2026-07-25. Both pass 24 and both fail 44, so nothing was ever going to report
+ * them: a gate set to the standard looks straight at these and returns green. It is the
+ * same false pass this build keeps meeting, with the blind spot in a CONSTANT rather than in
+ * a selector — and Console's own specification is explicit that "controls stay 44px in every
+ * density", so this contradicted the direction's written intent as well as the floor.
+ */
+.btn-sm {
+  min-height: var(--target-touch);
+  min-width: var(--target-touch);
+  padding: 0 var(--space-2);
+  font-size: var(--type-body);
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-height);
+  height: var(--control-height);
+  border: var(--border-control) solid var(--line-control);
+  border-radius: var(--radius-1);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.icon-btn:hover { background: var(--surface-selected); }
+.icon-btn[aria-pressed='true'] { background: var(--surface-selected); border-color: var(--fill-accent); }
+
+.control-row { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+
+.field { display: flex; flex-direction: column; gap: var(--space-1); }
+.field > label { font-size: var(--type-body); font-weight: var(--weight-medium); color: var(--text-muted); }
+.field input, .field textarea, .field select {
+  min-height: var(--control-height);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-control) solid var(--line-control);
+  border-radius: var(--radius-1);
+  background: var(--surface-input);
+  color: var(--text-primary);
+  font: inherit;
+}
+.field textarea { min-height: calc(var(--control-height) * 2); line-height: var(--leading-body); resize: vertical; }
+.field input::placeholder, .field textarea::placeholder { color: var(--text-placeholder); }
+.field-hint { font-size: var(--type-meta); color: var(--text-muted); line-height: var(--leading-loose); }
+
+.disabled-note { color: var(--text-disabled); }
+button[disabled], .btn[disabled] {
+  background: var(--surface-disabled);
+  color: var(--text-disabled);
+  border-color: var(--line-control);
+  cursor: not-allowed;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────────
+ * ROWS — the density axis made visible. 40px, no row gap, separated by a hairline rather
+ * than by space, which is where Console's extra rows per screen come from.
+ * ───────────────────────────────────────────────────────────────────────────────────── */
+.rows { display: flex; flex-direction: column; gap: var(--row-gap); }
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--row-height);
+  padding: 0 var(--card-padding);
+  border-bottom: var(--border-hairline) solid var(--line-divider);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  width: 100%;
+  border-inline: none;
+  border-top: none;
+  cursor: pointer;
+}
+.row:last-child { border-bottom: none; }
+.row:hover { background: var(--surface-raised); }
+.row[aria-current='true'], .row[aria-selected='true'] {
+  background: var(--surface-selected);
+  font-weight: var(--weight-medium);
+}
+.row-position {
+  flex: 0 0 28px;
+  font-size: var(--type-body);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+.row-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-value { font-variant-numeric: tabular-nums; font-size: var(--type-body); color: var(--text-muted); }
+.row-actions { display: flex; gap: var(--space-1); flex: 0 0 auto; }
+
+/* ─────────────────────────────────────────────────────────────────────────────────────
+ * CHIPS. Every state carries a WORD as well as a colour or a shape.
+ * ───────────────────────────────────────────────────────────────────────────────────── */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--target-minimum);
+  padding: 0 var(--space-2);
+  border: var(--border-control) solid var(--line-control);
+  border-radius: var(--radius-1);
+  background: var(--surface-raised);
+  font-size: var(--type-body);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+}
+
+.chip-accent { background: var(--fill-accent); border-color: var(--fill-accent); color: var(--text-on-accent); }
+.chip-success { background: var(--fill-success); border-color: var(--fill-success); color: var(--text-on-success); }
+.chip-warning { background: var(--fill-warning); border-color: var(--fill-warning); color: var(--text-on-warning); }
+.chip-danger { background: var(--fill-danger); border-color: var(--fill-danger); color: var(--text-on-danger); }
+.chip-neutral { background: var(--fill-neutral); border-color: var(--fill-neutral); color: var(--text-on-neutral); }
+
+/* INTENSITY. Three levels, and the shape carries them as well as the fill: one, two or
+ * three bars. A greyscale screenshot still tells you which is the hard one. */
+.level { display: inline-flex; align-items: flex-end; gap: 2px; height: 14px; }
+.level i {
+  display: block;
+  width: 4px;
+  background: var(--fill-neutral);
+  border-radius: var(--radius-1);
+}
+.level i:nth-child(1) { height: 5px; }
+.level i:nth-child(2) { height: 9px; }
+.level i:nth-child(3) { height: 14px; }
+.level[data-level='low'] i:nth-child(2),
+.level[data-level='low'] i:nth-child(3) { background: var(--surface-disabled); }
+.level[data-level='medium'] i:nth-child(3) { background: var(--surface-disabled); }
+.level[data-level='high'] i { background: var(--fill-accent); }
+
+/* ─────────────────────────────────────────────────────────────────────────────────────
+ * THE SYNCHRONISATION SURFACE
+ *
+ * SIX states, not five. The LADDER is time-based and has five rungs: backed up, waiting,
+ * waiting long enough to notice, waiting long enough to act on, and working from the local
+ * copy with no connection — which is this application working as intended rather than a
+ * fault, because local is the primary copy and the remote is the backup. The SIXTH,
+ * REJECTED, is not a rung at all: a delay resolves itself when a token or a network
+ * returns, a rejection resolves itself never and needs a person. Folding it into the
+ * ladder would park a permanently lost change at the floor, reading healthy.
+ *
+ * Every state is distinguishable BY SILHOUETTE alone, because colour is lost to a
+ * colour-blind reader, to sunlight on a phone, to a greyscale screenshot and to video-call
+ * compression — which is how this application will actually be introduced.
+ *
+ * Console's own hazard, and the reason this block is longer than it looks like it should
+ * be: Console is the only direction whose indicator lives in a COLLAPSED RAIL for most of
+ * its life. Even at 76px it carries a filled shape AND a number. Never a bare dot.
+ * ───────────────────────────────────────────────────────────────────────────────────── */
+.sync {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-height);
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-control) solid var(--line-control);
+  border-radius: var(--radius-1);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  text-decoration: none;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  width: 100%;
+}
+
+.sync-shape {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  /* Never a flex BASIS: this element is laid out in a row in the chip and in a column in
+   * the collapsed rail, and a basis means width in one and height in the other, which
+   * silently squares the silhouette off in the second. Width and height say what they mean
+   * in both. */
+  flex: none;
+  border-radius: var(--radius-1);
+}
+
+.sync-count {
+  font-size: var(--type-body);
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+  flex: 0 0 auto;
+  min-width: 20px;
+  text-align: center;
+}
+
+.sync-words {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.sync-words strong { font-size: var(--type-body); font-weight: var(--weight-medium); }
+.sync-words small { font-size: var(--type-body); color: var(--text-muted); }
+/* A phrase that must not be broken across lines — a value and its unit, or a two-word state.
+ * Used only where a measured width proves the phrase FITS on one line; it is not a licence to
+ * push text out of its box, which would trade a wrap defect for an overflow one. */
+.nowrap { white-space: nowrap; }
+
+/* Stacked, a flex basis would be read as a HEIGHT and would square the silhouette off,
+ * which is precisely the property that has to survive. The shape's own width and height win. */
+/* IN THE RAIL the words are what collapse; the shape and the number never do.
+ *
+ * Collapsed, the shape and the number STACK, and that was measured rather than chosen: the
+ * widest silhouette in the set is forty-four pixels, the number needs twenty beside it, and
+ * a seventy-six pixel rail has sixty inside its padding. Side by side they do not fit, and
+ * the two ways of making them fit are both defeats — shrinking the shape destroys the one
+ * property that has to survive greyscale, and dropping the number turns the accountability
+ * signal into decoration. Stacking keeps both at full size, and it borrows the rail's own
+ * idiom, which is already a glyph above a label. */
+.rail .sync,
+.rail-preview .sync {
+  flex-direction: column;
+  gap: 0;
+  padding-inline: var(--space-1);
+}
+
+.rail .sync-words,
+.rail-preview .sync-words { white-space: nowrap; overflow: hidden; }
+.rail .sync .sync-words,
+.rail-preview .sync .sync-words { display: none; }
+.rail:hover .sync,
+.rail:focus-within .sync,
+.rail[data-expanded='true'] .sync { flex-direction: row; gap: var(--space-2); }
+/* Expanded, the wording WRAPS rather than truncating. The rail is the one place with a hard
+ * width, and a status surface that cuts its own sentence off mid-word is the specific failure
+ * this whole surface exists to avoid: "backed up 4 minutes" and "backed up 4 minutes ago" are
+ * the same words, but only one of them is a complete statement.
+ *
+ * WRAPPING IS RIGHT; WHERE IT BROKE WAS NOT. Observed 2026-07-25: the expanded chip rendered
+ * "Backed up 4 / minutes ago", splitting the value from its unit — a complete statement made
+ * unreadable at a glance by the position of one line break. Measured: the chip's word column
+ * is 145px and the whole string needs 178.3px, so it MUST wrap; but "4 minutes ago" alone is
+ * 100.7px and "Backed up" is 75.2px, so both halves fit once the break is forced to land at
+ * the phrase boundary instead of inside the value. Hence .nowrap below — no wording changed,
+ * no type shrunk, the break simply moved to where a reader would have put it. */
+.rail:hover .sync .sync-words,
+.rail:focus-within .sync .sync-words,
+.rail[data-expanded='true'] .sync .sync-words {
+  display: flex;
+  white-space: normal;
+  overflow: visible;
+}
+
+/* THE FIVE RUNGS, AND THE SIXTH THING.
+ * Fill says severity. The SHAPE of the badge says which state, and it changes at every
+ * step: rounded square, pill, upright rectangle, hard-cornered square, wide flat bar,
+ * hard square with a heavy edge. The glyph inside is the shared family's own. */
+/* A rounded square, filled: the calm one, and the only one with no number to read. */
+.sync[data-sync='backed-up'] .sync-shape {
+  background: var(--fill-success);
+  color: var(--text-on-success);
+  border-radius: var(--radius-2);
+}
+/* A wide pill, filled: work is moving. Wide because the glyph inside it is wide, and a
+ * silhouette that crops its own glyph is not a silhouette. */
+.sync[data-sync='pending'] .sync-shape {
+  background: var(--fill-neutral);
+  color: var(--text-on-neutral);
+  border-radius: var(--radius-pill);
+  height: 26px;
+  width: 40px;
+}
+/* Upright and taller than it is wide: the profile changes, not just the tint. */
+.sync[data-sync='pending-warning'] .sync-shape {
+  background: var(--fill-warning);
+  color: var(--text-on-warning);
+  border-radius: var(--radius-1);
+  height: 36px;
+  width: 28px;
+}
+/* Hard corners and a heavy edge on the chip itself: the plainly more serious one, and it is
+ * more serious by SHAPE rather than by a hotter colour, because the colour is the first
+ * thing a greyscale screenshot or a compressed video call takes away. */
+.sync[data-sync='pending-overdue'] .sync-shape {
+  background: var(--fill-danger);
+  color: var(--text-on-danger);
+  border-radius: var(--radius-flat);
+  height: 36px;
+  width: 36px;
+}
+.sync[data-sync='pending-overdue'] { border-color: var(--fill-danger); border-width: var(--border-strong); }
+/* Wide, low and DASHED, and deliberately unfilled: offline is the application working as
+ * intended, so its badge is the quietest in the set. It must not resemble the refused one. */
+.sync[data-sync='offline'] .sync-shape {
+  background: var(--surface-selected);
+  color: var(--text-primary);
+  border: var(--border-strong) dashed var(--line-control);
+  border-radius: var(--radius-2);
+  height: 24px;
+  width: 44px;
+}
+.sync[data-sync='rejected'] .sync-shape {
+  background: var(--surface-card);
+  color: var(--text-danger);
+  border: var(--border-strong) solid var(--text-danger);
+  border-radius: var(--radius-flat);
+  box-shadow: inset 0 0 0 var(--border-hairline) var(--surface-card);
+}
+.sync[data-sync='rejected'] { border-color: var(--text-danger); border-width: var(--border-strong); }
+
+/* The phone's slim always-visible bar, immediately above the bottom bar. Full width,
+ * never dismissible, never a modal however loud it gets. */
+.sync-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--control-height);
+  padding: var(--space-1) var(--space-3);
+  background: var(--surface-card);
+  border-top: var(--border-hairline) solid var(--line-divider);
+}
+.sync-bar .sync { border: none; background: transparent; padding: 0; }
+.sync-bar .sync-words { opacity: 1; width: auto; }
+
+.sync-states { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.sync-state-case { display: flex; flex-direction: column; gap: var(--space-2); }
+.sync-state-case .rail-preview {
+  width: var(--rail-width);
+  padding: var(--space-2);
+  background: var(--surface-raised);
+  border: var(--border-hairline) solid var(--line-divider);
+  border-radius: var(--radius-1);
+}
+.sync-silhouettes { display: flex; flex-wrap: wrap; gap: var(--space-4); }
+.sync-silhouettes figure { margin: 0; text-align: center; }
+.sync-silhouettes figcaption { font-size: var(--type-meta); color: var(--text-muted); padding-top: var(--space-1); }
+.greyscale { filter: grayscale(1); }
+
+/* ─────────────────────────────────────────────────────────────────────────────────────
+ * TOOLTIPS. Right of the target on laptop, where the rail is the most common trigger;
+ * below on the phone. They open on keyboard focus as well as hover, and nothing needed to
+ * finish a task lives in one.
+ * ───────────────────────────────────────────────────────────────────────────────────── */
+/* THE DEMONSTRATION BLOCK on this sheet, where three tooltips are shown OPEN at once.
+ * A tooltip is normally the only one on screen, so it overlaps whatever is under it and that
+ * is correct behaviour; three of them open in a row overlap each other and the next label,
+ * which reads as a broken layout rather than as three tooltips. So each example reserves
+ * enough room beneath it for its own bubble. The bubbles keep their real position and their
+ * real size — nothing here moves them to make the sheet tidy. */
+.tip-demo { display: flex; flex-direction: column; }
+.tip-demo > div { min-height: var(--tip-demo-room); }
+
+.tip { position: relative; display: inline-flex; }
+
+.tip-bubble {
+  position: absolute;
+  z-index: 30;
+  width: max-content;
+  max-width: 300px;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  border: var(--border-hairline) solid var(--line-control);
+  border-radius: var(--radius-2);
+  box-shadow: var(--lift-popover);
+  font-size: var(--type-body);
+  line-height: var(--leading-body);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--motion-fast) var(--ease-enter) var(--motion-base);
+}
+
+.tip-bubble[data-place='right'] { inset-inline-start: calc(100% + var(--space-2)); top: 0; }
+.tip-bubble[data-place='below'] { top: calc(100% + var(--space-2)); inset-inline-start: 0; }
+.tip-bubble[data-place='below-end'] { top: calc(100% + var(--space-2)); inset-inline-end: 0; }
+
+.tip:hover > .tip-bubble,
+.tip:focus-within > .tip-bubble,
+.tip-bubble.is-open {
+  opacity: 1;
+  visibility: visible;
+  transition-delay: var(--motion-instant);
+}
+
+.frame[data-view='phone'] .tip-bubble[data-place='right'] {
+  inset-inline-start: 0;
+  top: calc(100% + var(--space-2));
+  max-width: 240px;
+}
+
+/* And the same when the SHEET itself is being read on a phone rather than a phone frame
+ * being read on a laptop: a bubble placed to the right of its target has nowhere to go at
+ * this width, and it would push the whole document sideways rather than merely look wrong. */
+@media (max-width: 600px) {
+  .tip-bubble[data-place='right'] {
+    inset-inline-start: 0;
+    top: calc(100% + var(--space-2));
+  }
+  .sheet { padding-inline: var(--space-3); }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────────
+ * THE SESSION RUNNER
+ * ───────────────────────────────────────────────────────────────────────────────────── */
+.now-card { border: var(--border-strong) solid var(--fill-accent); }
+.now-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.now-head h4 { font-size: var(--type-title); }
+.now-measure { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-6); padding-top: var(--space-3); }
+.measure-value {
+  font-size: var(--type-display);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+  font-variant-numeric: tabular-nums;
+}
+.measure-label { font-size: var(--type-meta); color: var(--text-muted); display: block; }
+.cue { padding-top: var(--space-3); max-width: var(--measure-read); line-height: var(--leading-loose); color: var(--text-muted); }
+
+.set-pips { display: flex; gap: var(--space-1); padding-top: var(--space-1); }
+.set-pips i {
+  display: block;
+  width: 18px;
+  height: 8px;
+  border-radius: var(--radius-1);
+  border: var(--border-control) solid var(--line-control);
+}
+.set-pips i[data-done='true'] { background: var(--fill-accent); border-color: var(--fill-accent); }
+.set-pips i[data-current='true'] { background: var(--surface-selected); border-color: var(--fill-accent); border-width: var(--border-strong); }
+
+.attendee {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--card-padding);
+  border-bottom: var(--border-hairline) solid var(--line-divider);
+}
+.attendee:last-child { border-bottom: none; }
+.attendee-head { display: flex; align-items: center; gap: var(--space-2); }
+.attendee-head strong { font-size: var(--type-lead); flex: 1 1 auto; }
+.capture-line { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+/*
+ * The reading input sits OUTSIDE .field, so it inherited none of the control sizing there
+ * and rendered 21px tall — measured 2026-07-25. This is the field the coach types a heart
+ * rate into with a client in front of him, which makes it the last place in the direction
+ * that should have been the smallest target on the screen.
+ */
+.capture-line input {
+  width: 84px;
+  min-height: var(--control-height);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-control) solid var(--line-control);
+  border-radius: var(--radius-1);
+  background: var(--surface-input);
+  color: var(--text-primary);
+  font: inherit;
+}
+.capture-line label { font-size: var(--type-body); color: var(--text-muted); }
+
+.flag {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  background: var(--surface-raised);
+  border-inline-start: var(--border-strong) solid var(--fill-warning);
+  border-radius: var(--radius-1);
+  font-size: var(--type-body);
+  line-height: var(--leading-body);
+}
+
+.previous-session { font-size: var(--type-body); }
+.previous-session table { width: 100%; border-collapse: collapse; }
+.previous-session th, .previous-session td {
+  text-align: start;
+  padding: var(--space-1) var(--space-2);
+  border-bottom: var(--border-hairline) solid var(--line-divider);
+  font-variant-numeric: tabular-nums;
+}
+.previous-session th { font-size: var(--type-body); color: var(--text-muted); font-weight: var(--weight-medium); }
+
+.pattern-grid { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.pattern-btn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: var(--control-height);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-control) solid var(--line-control);
+  border-radius: var(--radius-1);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+  text-align: start;
+}
+.pattern-btn:hover { background: var(--surface-selected); }
+.pattern-btn[aria-pressed='true'] {
+  border-color: var(--fill-accent);
+  border-width: var(--border-strong);
+  background: var(--surface-selected);
+  font-weight: var(--weight-medium);
+}
+.pattern-curve { display: flex; align-items: flex-end; gap: 2px; height: 18px; }
+.pattern-curve i { display: block; width: 6px; background: var(--fill-accent); border-radius: var(--radius-1); }
+.pattern-curve i[data-level='low'] { height: 6px; }
+.pattern-curve i[data-level='medium'] { height: 12px; }
+.pattern-curve i[data-level='high'] { height: 18px; }
+
+.honest-note {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--surface-raised);
+  border-inline-start: var(--border-strong) solid var(--fill-warning);
+  border-radius: var(--radius-1);
+  line-height: var(--leading-loose);
+}
+
+details.disclose { border-top: var(--border-hairline) solid var(--line-divider); }
+details.disclose > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-height);
+  padding: 0 var(--card-padding);
+  cursor: pointer;
+  font-weight: var(--weight-medium);
+  list-style: none;
+}
+details.disclose > summary::-webkit-details-marker { display: none; }
+details.disclose > summary:hover { background: var(--surface-raised); }
+details.disclose[open] > summary { border-bottom: var(--border-hairline) solid var(--line-divider); }
+details.disclose > summary .count { font-size: var(--type-body); color: var(--text-muted); margin-inline-start: auto; }
+
+/* ─────────────────────────────────────────────────────────────────────────────────────
+ * THE DIET WEEK CHART. A grid by day and by hour, and it stays a GRID on a phone: the
+ * time column pins, the days scroll sideways. The same information architecture at a
+ * narrower width — never a second, different design.
+ * ───────────────────────────────────────────────────────────────────────────────────── */
+.diet-scroll { overflow-x: auto; }
+.diet-grid {
+  display: grid;
+  grid-template-columns: var(--diet-time-column) repeat(7, minmax(var(--diet-day-column), 1fr));
+  min-width: max-content;
+}
+.frame[data-view='phone'] .diet-grid {
+  grid-template-columns: var(--diet-time-column) repeat(7, var(--diet-day-column-phone));
+}
+
+.diet-grid > * {
+  padding: var(--space-2);
+  border-bottom: var(--border-hairline) solid var(--line-divider);
+  border-inline-end: var(--border-hairline) solid var(--line-divider);
+  min-height: var(--row-height);
+}
+
+.diet-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface-raised);
+  font-size: var(--type-body);
+  font-weight: var(--weight-bold);
+  text-align: center;
+}
+
+.diet-time {
+  position: sticky;
+  inset-inline-start: 0;
+  z-index: 3;
+  background: var(--surface-raised);
+  font-size: var(--type-body);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  font-weight: var(--weight-medium);
+}
+.diet-time small { display: block; color: var(--text-muted); font-weight: var(--weight-regular); }
+.diet-corner { position: sticky; inset-inline-start: 0; top: 0; z-index: 4; background: var(--surface-raised); }
+
+.diet-cell { background: var(--surface-card); font-size: var(--type-body); }
+.diet-cell ul { margin: 0; padding-inline-start: var(--space-4); }
+.diet-cell li { line-height: var(--leading-body); }
+.diet-cell[data-same='true'] { background: var(--surface-page); color: var(--text-muted); font-size: var(--type-body); }
+
+/* ─────────────────────────────────────────────────────────────────────────────────────
+ * THE PHONE'S BOTTOM BAR. Five items, icon above label, 56px plus the safe-area inset,
+ * the same five destinations in the same order with the same words as the rail.
+ * ───────────────────────────────────────────────────────────────────────────────────── */
+/* Permanently visible, and sticky rather than absolute so it stays at the foot of what is
+ * ON SCREEN rather than at the foot of the content, which is what "permanently visible"
+ * has to mean for a status surface. */
+.phone-bottom {
+  position: sticky;
+  bottom: 0;
+  z-index: 25;
+  background: var(--surface-card);
+  box-shadow: var(--lift-sticky);
+}
+
+.bottom-bar {
+  display: flex;
+  align-items: stretch;
+  border-top: var(--border-hairline) solid var(--line-divider);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.bottom-item {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 56px;
+  padding: var(--space-1) 0;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--type-meta);
+  text-decoration: none;
+  cursor: pointer;
+  position: relative;
+}
+.bottom-item[aria-current='page'] { color: var(--text-primary); font-weight: var(--weight-medium); }
+.bottom-item[aria-current='page']::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  inset-inline: 25%;
+  height: var(--focus-band);
+  border-radius: var(--radius-pill);
+  background: var(--fill-accent);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────────
+ * THE MARK, at the sizes a home screen actually uses.
+ * ───────────────────────────────────────────────────────────────────────────────────── */
+.mark-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-5); }
+.mark-row figure { margin: 0; text-align: center; }
+.mark-row figcaption { font-size: var(--type-meta); color: var(--text-muted); padding-top: var(--space-2); }
+.mark-row img { display: block; border-radius: 22%; }
+.mark-row.circular img { border-radius: 50%; }
+
+.home-tile {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  background: var(--surface-raised);
+  border-radius: var(--radius-3);
+}
+.home-tile img { width: 60px; height: 60px; border-radius: 22%; }
+.home-tile span { font-size: var(--type-meta); }
+
+/* ─────────────────────────────────────────────────────────────────────────────────────
+ * Utilities.
+ * ───────────────────────────────────────────────────────────────────────────────────── */
+.muted { color: var(--text-muted); }
+.meta { font-size: var(--type-meta); color: var(--text-muted); }
+.nowrap { white-space: nowrap; }
+.tabular { font-variant-numeric: tabular-nums; }
+.spread { display: flex; justify-content: space-between; gap: var(--space-3); align-items: center; }
+.read { max-width: var(--measure-read); line-height: var(--leading-loose); }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* The inlined glyph sprite: present in the document, never painted. */
+.sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+/* Named rather than written inline at the site that needs them, for the same reason the
+ * colours are: a value written into the markup is a value nothing can rebind. */
+.frame-narrow { width: var(--frame-narrow); flex-basis: var(--frame-narrow); }
+.search-field { min-width: 220px; }
+.full { width: 100%; }
+.stack-wide { gap: var(--space-8); }
+.tip-target { max-width: 320px; }
+.pad-top-3 { padding-top: var(--space-3); }
+.pad-top-5 { padding-top: var(--space-5); }
+.pad-top-6 { padding-top: var(--space-6); }
+.pad-bottom-4 { padding-bottom: var(--space-4); }
+.gap-top-4 { margin-top: var(--space-4); }
+
+/* A row that reports rather than acts. It keeps the row's rhythm and loses its affordance. */
+.row-static { cursor: default; }
+.row-static:hover { background: transparent; }
+
+/* A boxed group of rows, where the group is the control rather than the card. */
+.rows-boxed {
+  border: var(--border-control) solid var(--line-control);
+  border-radius: var(--radius-1);
+  overflow: hidden;
+}
+
+/* The badge alone, for the silhouette comparison: the chip's shape without its container. */
+.sync-bare { width: auto; border: none; background: none; padding: 0; display: inline-flex; }

@@ -11,19 +11,35 @@
  * coach and his session.
  */
 
+// FIRST, AND ON PURPOSE. This one import is the whole visual foundation: the shared token layer
+// from its single home under `design/tokens`, then Console's own structural roles. It is imported
+// before anything that renders, so no component can load a style of its own ahead of the layer it
+// is supposed to be built from. See `src/design/design-system.ts` for why the layer is consumed
+// where it lives rather than copied in.
+import './design/design-system';
+
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { RouterProvider } from 'react-router-dom';
 
+import { startBrowserChromeColour } from './design/browser-chrome';
+import { DARK_PREFERENCE_QUERY, startThemeController } from './design/theme';
 import { buildStamp } from './platform/build-identity';
 import { startOfflineSupport } from './platform/offline-start';
 import type { OfflineStartOutcome } from './platform/offline-start';
 import { PlatformStatusProvider } from './platform/platform-status';
 import { LocalStorageJournal, StoragePersistence } from './platform/storage-persistence';
 import type { PersistenceRecord } from './platform/storage-persistence';
-import { router } from './shell/routes';
+import { createAppRouter } from './shell/routes';
+import { NO_BACKUP_YET, SyncStatusProvider } from './shell/SyncStatus';
 
 const ROOT_ELEMENT_ID = 'root';
+
+/**
+ * The one hash router, built here because this is the file that already knows it is in a browser.
+ * `shell/routes.tsx` owns the table it is built from; see the note there for why the two are apart.
+ */
+const router = createAppRouter();
 
 const OFFLINE_START_PENDING: OfflineStartOutcome = {
   registered: false,
@@ -42,6 +58,18 @@ function Application() {
 
   useEffect(() => {
     let stillMounted = true;
+
+    // The theme is already ON the root element — `index.html` put it there before the first frame,
+    // because a module cannot run early enough to prevent a dark-themed phone flashing white. What
+    // starts here is the part that outlives that instant: following the device for as long as the
+    // choice is `system`, and remembering an explicit choice. Both are stopped on unmount, in the
+    // scope that opened them.
+    const theme = startThemeController({
+      root: document.documentElement,
+      storage: window.localStorage,
+      darkPreference: window.matchMedia(DARK_PREFERENCE_QUERY),
+    });
+    const stopChromeColour = startBrowserChromeColour(document);
 
     const persistenceRequest = new StoragePersistence({
       storage: navigator.storage,
@@ -63,12 +91,33 @@ function Application() {
 
     return () => {
       stillMounted = false;
+      theme.stop();
+      stopChromeColour();
     };
   }, []);
 
   return (
     <PlatformStatusProvider status={{ buildStamp: buildStamp(), persistence, offlineStart }}>
-      <RouterProvider router={router} />
+      {/*
+        THE SYNCHRONISATION SEAM, and this is the one place it is filled in.
+
+        The permanent indicator in the frame renders whatever this provider gives it and never
+        invents a state of its own. Today that is `NO_BACKUP_YET`, which is not a placeholder value
+        so much as a TRUE one: real synchronisation is a later step, so this build has no local
+        store, nothing has ever been backed up because nothing yet can be, and "never synchronised,
+        nothing queued" is exactly what `accountabilityStatus()` returns over a store in that
+        condition.
+
+        THE LATER STEP CHANGES THIS LINE AND NOTHING BELOW IT: it opens the local store, calls
+        `accountabilityStatus(store, { in_progress, last_attempt, credential })` from
+        `core/status`, and pushes each result in here — on every synchronisation opportunity in
+        `SYNC_TRIGGERS`, after every attempt, and on an interval besides, because the escalation
+        ladder climbs with the clock even when nothing happens. `SyncStatus.tsx` states the whole
+        contract, including the action the tap is waiting for.
+      */}
+      <SyncStatusProvider reading={NO_BACKUP_YET}>
+        <RouterProvider router={router} />
+      </SyncStatusProvider>
     </PlatformStatusProvider>
   );
 }

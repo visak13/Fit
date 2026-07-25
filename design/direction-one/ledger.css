@@ -1,0 +1,1528 @@
+/*
+ * LEDGER - the application, drawn.
+ *
+ * Every value in this file is a var(--token). There is no hex, no rgb(), no literal pixel
+ * size and no literal duration below this comment, which is the property that makes the
+ * whole layer worth having: a grep for a colour literal outside the token directory finds
+ * nothing, and the direction can therefore be changed by rebinding roles rather than by
+ * editing screens.
+ *
+ * THE FRAME IS A CONTAINER, NOT A VIEWPORT. The layout rules below key off the width of
+ * the .app element rather than the width of the browser window. That is what lets the
+ * presentation sheet render the phone width and the laptop width side by side on one
+ * screen while both are the genuine layout rather than a picture of it. The two boundaries
+ * are the shared ones - --viewport-compact and --viewport-expanded - so all three
+ * directions describe the same two devices.
+ */
+
+/* ==========================================================================
+   THE FRAME
+   ========================================================================== */
+
+/*
+ * THE CONTAINER IS THE ELEMENT AROUND THE APPLICATION, NOT THE APPLICATION ITSELF.
+ *
+ * Measured rather than assumed, and it cost a render to find: a container query never
+ * applies to the element that declares the container. The first version put
+ * container-type on .app and queried .app's own grid from inside the query - every
+ * descendant rule took effect, so the sidebar was drawn with its labels and its selected
+ * marker, while the grid that was supposed to place it in a column was silently ignored
+ * and it fell to the bottom of the page. Nothing errored, and the half that did work was
+ * exactly what made it look like it should have.
+ */
+.app-viewport {
+  container-type: inline-size;
+  container-name: app;
+}
+
+.app {
+  block-size: 100%;
+  display: grid;
+  /* Phone shape by default. The laptop shape is the container query further down. */
+  grid-template-columns: 1fr;
+  grid-template-areas:
+    'header'
+    'content'
+    'sync'
+    'nav';
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+
+  background: var(--surface-page);
+  color: var(--text-primary);
+  font-size: var(--type-body);
+  line-height: var(--leading-body);
+  overflow: hidden;
+}
+
+.app *,
+.app *::before,
+.app *::after {
+  box-sizing: border-box;
+}
+
+/*
+ * PLACEMENT BELONGS TO THE FRAME, NOT TO THE COMPONENT, and this is scoped rather than
+ * written on each component for a measured reason. The synchronisation strip is also shown
+ * on its own, outside any frame, in the state gallery. While it carried grid-area itself,
+ * dropping one into an ordinary card silently invented a named area in THAT card's grid,
+ * gained the card a second column, and reordered its contents. Nothing errored and the
+ * strip still drew correctly, which is what made it hard to see.
+ */
+.app > .nav {
+  grid-area: nav;
+}
+
+.app > .app__header {
+  grid-area: header;
+}
+
+.app > .sync {
+  grid-area: sync;
+}
+
+.app > .app__content {
+  grid-area: content;
+}
+
+/* ==========================================================================
+   THE GLOBAL NAVIGATION SURFACE - layer one of two
+   Five destinations, same order, same words, on both devices.
+   ========================================================================== */
+
+.nav {
+  background: var(--surface-page);
+  border-block-start: var(--border-hairline) solid var(--line-divider);
+}
+
+.nav__brand {
+  display: none;
+}
+
+.nav__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  padding-block-end: var(--nav-bar-inset);
+}
+
+.nav__link {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-height: var(--nav-bar-height);
+  padding: var(--space-1) var(--space-1);
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: var(--type-meta);
+  font-weight: var(--weight-medium);
+  text-align: center;
+}
+
+.nav__link:hover {
+  color: var(--text-primary);
+}
+
+.nav__link[aria-current='page'] {
+  color: var(--text-primary);
+  background: var(--surface-selected);
+}
+
+/*
+ * The selected marker. On the phone it sits along the top edge of the destination and on
+ * the laptop down its leading edge, but it is the same 3px accent bar in both, because it
+ * is the shape half of the selected state and the shape must not change between devices.
+ */
+.nav__link[aria-current='page']::before {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: 0;
+  block-size: var(--nav-marker-width);
+  background: var(--fill-accent);
+}
+
+.nav__label {
+  display: block;
+}
+
+/* ==========================================================================
+   THE CONTENT HEADER, and the contextual layer - layer two of two
+   A breadcrumb plus an explicitly labelled way back. Never a destination.
+   ========================================================================== */
+
+.app__header {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 2;
+  background: var(--surface-raised);
+  box-shadow: var(--elevation-header);
+  border-block-end: var(--border-hairline) solid var(--line-divider);
+  padding: var(--space-3) var(--gutter);
+  display: grid;
+  gap: var(--space-2);
+}
+
+.crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--type-meta);
+  color: var(--text-muted);
+}
+
+.crumbs a {
+  color: var(--text-accent);
+  text-decoration: underline;
+  text-underline-offset: var(--space-1);
+}
+
+.crumbs__sep {
+  color: var(--text-muted);
+}
+
+.crumbs [aria-current='page'] {
+  color: var(--text-primary);
+  font-weight: var(--weight-medium);
+}
+
+.header__title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.header__title {
+  margin: 0;
+  font-size: var(--type-title);
+  line-height: var(--leading-tight);
+  font-weight: var(--weight-bold);
+}
+
+.header__meta {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--type-meta);
+}
+
+.header__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/*
+ * THE LABELLED WAY BACK. It says where it goes. An unlabelled arrow makes the coach guess,
+ * and the browser back button is never the only way out of anywhere in this application.
+ */
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--target-touch);
+  padding-inline: var(--space-2);
+  margin-inline-start: calc(var(--space-2) * -1);
+  border-radius: var(--radius-control);
+  color: var(--text-accent);
+  font-size: var(--type-body);
+  font-weight: var(--weight-medium);
+  text-decoration: underline;
+  text-underline-offset: var(--space-1);
+}
+
+/* ==========================================================================
+   THE SYNCHRONISATION STATUS INDICATOR
+   Permanently visible, never a modal, never blocking, and distinguished by SHAPE
+   as well as by fill so it survives greyscale, sunlight and a colour-blind reader.
+   ========================================================================== */
+
+.sync {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--sync-strip-height);
+  padding: var(--space-2) var(--gutter);
+  border-block-start: var(--border-hairline) solid var(--line-divider);
+  font-size: var(--type-body);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+}
+
+/* The leading edge marker: a different fill AND a different width per state. */
+.sync::before {
+  content: '';
+  align-self: stretch;
+  inline-size: var(--sync-marker-width);
+  margin-inline-start: calc(var(--gutter) * -1 + var(--space-2));
+  border-radius: var(--radius-chip);
+  background: var(--fill-neutral);
+}
+
+.sync__icon {
+  flex: none;
+  display: inline-flex;
+  color: var(--text-primary);
+}
+
+.sync__text {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+.sync__count {
+  color: var(--text-muted);
+  font-size: var(--type-meta);
+}
+
+.sync__action {
+  flex: none;
+}
+
+/*
+ * THE FIVE RUNGS OF THE TIME LADDER, plus REJECTED which is not a rung at all.
+ *
+ * The ladder is about DELAY and resolves itself: backed up, pending, pending long enough
+ * to notice, pending long enough to act on, and working from the local copy with no
+ * connection. Offline is the application working exactly as designed - local is the
+ * primary copy and the remote is the backup - so it must not resemble a fault. A coach
+ * training a client in a basement gym on an ordinary Tuesday who is told something is
+ * broken stops reading the indicator, and the signal is then gone for the day it matters.
+ *
+ * REJECTED is a difference of KIND rather than of degree. A delay resolves itself when a
+ * token or a network returns; a rejection resolves itself never and needs a person. Folding
+ * it into the ladder would leave a permanently lost change sitting at the ladder's floor
+ * reading as perfectly healthy, which is the exact failure the indicator exists to prevent.
+ */
+.sync[data-state='backed-up']::before {
+  background: var(--fill-success);
+}
+
+.sync[data-state='pending']::before {
+  background: var(--fill-neutral);
+}
+
+.sync[data-state='warning'] {
+  background: var(--fill-warning);
+  color: var(--text-on-warning);
+}
+
+.sync[data-state='warning']::before {
+  background: var(--text-on-warning);
+  inline-size: calc(var(--sync-marker-width) * 1.5);
+}
+
+.sync[data-state='overdue'] {
+  background: var(--fill-danger);
+  color: var(--text-on-danger);
+}
+
+.sync[data-state='overdue']::before {
+  background: var(--text-on-danger);
+  inline-size: calc(var(--sync-marker-width) * 2);
+}
+
+.sync[data-state='offline']::before {
+  background: var(--fill-neutral);
+  /* A broken bar rather than a solid one: present, deliberate, and not an alarm. */
+  background-image: linear-gradient(
+    var(--surface-raised) 0 20%,
+    transparent 20% 40%,
+    var(--surface-raised) 40% 60%,
+    transparent 60% 80%,
+    var(--surface-raised) 80% 100%
+  );
+}
+
+.sync[data-state='rejected'] {
+  background: var(--surface-card);
+  color: var(--text-danger);
+  border-block: var(--border-strong) solid var(--fill-danger);
+}
+
+.sync[data-state='rejected']::before {
+  background: var(--fill-danger);
+  inline-size: calc(var(--sync-marker-width) * 2);
+}
+
+.sync[data-state='warning'] .sync__count,
+.sync[data-state='overdue'] .sync__count {
+  color: inherit;
+}
+
+.sync[data-state='warning'] .sync__icon,
+.sync[data-state='overdue'] .sync__icon,
+.sync[data-state='rejected'] .sync__icon {
+  color: inherit;
+}
+
+/* ==========================================================================
+   THE CONTENT AREA
+   ========================================================================== */
+
+.app__content {
+  overflow: auto;
+  padding: var(--gutter);
+  display: grid;
+  gap: var(--section-gap);
+  align-content: start;
+  min-inline-size: 0;
+}
+
+.stack {
+  display: grid;
+  gap: var(--space-4);
+  align-content: start;
+  min-inline-size: 0;
+}
+
+.stack--tight {
+  gap: var(--space-2);
+}
+
+.split {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.prose {
+  max-inline-size: var(--measure-read);
+  margin: 0;
+}
+
+/* ==========================================================================
+   CARDS - the reading surface, one step off the page floor. Flat, always.
+   ========================================================================== */
+
+.card {
+  background: var(--surface-card);
+  border: var(--border-hairline) solid var(--line-divider);
+  border-radius: var(--radius-card);
+  box-shadow: var(--elevation-card);
+  padding: var(--card-padding);
+  display: grid;
+  gap: var(--space-4);
+  align-content: start;
+}
+
+.card--flush {
+  padding: 0;
+}
+
+/*
+ * Room for a tooltip that is being held open for the demonstration. A tooltip in use opens
+ * over whatever is beneath it and closes again, which is correct; one that is open
+ * permanently on a presentation sheet would otherwise sit on top of the next card and read
+ * as a layout fault rather than as the thing being shown.
+ */
+/*
+ * MARGIN, NOT PADDING, and the difference is the whole point. The bubble is positioned from
+ * the bottom of the tip, so padding here pushed it a hundred pixels clear of the control it
+ * belongs to and it read as a floating panel rather than as that control's explanation.
+ * Margin reserves the same room without changing where the bubble starts.
+ */
+.tip-room {
+  margin-block-end: calc(var(--space-8) + var(--space-7));
+}
+
+/*
+ * The value above is only a floor. A bubble's height depends on how its sentence wraps,
+ * which depends on the width of the frame it is in - the same tooltip is three lines on a
+ * laptop and seven on a phone - so a fixed reserve is right for one frame and wrong for the
+ * others. demo.js measures each open bubble and sets the exact reserve; this stays as the
+ * answer when script does not run, and it is deliberately generous rather than tight.
+ */
+
+.card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.card__title {
+  margin: 0;
+  font-size: var(--type-lead);
+  line-height: var(--leading-tight);
+  font-weight: var(--weight-bold);
+}
+
+.card__sub {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--type-meta);
+}
+
+.card--flush .card__head {
+  padding: var(--card-padding) var(--card-padding) 0;
+}
+
+.card--flush > .list,
+.card--flush > .stack {
+  padding-block-end: var(--space-2);
+}
+
+.section-title {
+  margin: 0;
+  font-size: var(--type-lead);
+  line-height: var(--leading-tight);
+  font-weight: var(--weight-bold);
+}
+
+/* ==========================================================================
+   ROWS AND LISTS - 48px at comfortable density, divided rather than lifted
+   ========================================================================== */
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--row-gap);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--row-height);
+  padding: var(--space-2) var(--card-padding);
+  border-block-end: var(--border-hairline) solid var(--line-divider);
+  text-decoration: none;
+  color: inherit;
+  inline-size: 100%;
+  text-align: start;
+  background: none;
+  border-inline: 0;
+  border-block-start: 0;
+  font: inherit;
+}
+
+.list > :last-child > .row,
+.list > .row:last-child {
+  border-block-end: 0;
+}
+
+a.row:hover,
+button.row:hover {
+  background: var(--surface-raised);
+}
+
+.row[aria-current='true'] {
+  background: var(--surface-selected);
+}
+
+.row__main {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.row__name {
+  font-weight: var(--weight-medium);
+}
+
+.row__meta {
+  color: var(--text-muted);
+  font-size: var(--type-meta);
+}
+
+.row__trail {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-muted);
+}
+
+.row__index {
+  flex: none;
+  inline-size: var(--space-6);
+  color: var(--text-muted);
+  font-size: var(--type-meta);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ==========================================================================
+   CONTROLS
+   ========================================================================== */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--control-height);
+  min-inline-size: var(--control-height);
+  padding-inline: var(--space-4);
+  border-radius: var(--radius-control);
+  border: var(--border-control) solid var(--line-control);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  font: inherit;
+  font-weight: var(--weight-medium);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background var(--motion-fast) var(--ease-standard);
+}
+
+.btn:hover {
+  background: var(--surface-raised);
+}
+
+.btn--primary {
+  background: var(--fill-accent);
+  border-color: var(--fill-accent);
+  color: var(--text-on-accent);
+}
+
+.btn--primary:hover {
+  background: var(--fill-accent);
+}
+
+.btn--danger {
+  background: var(--fill-danger);
+  border-color: var(--fill-danger);
+  color: var(--text-on-danger);
+}
+
+.btn--quiet {
+  border-color: transparent;
+  background: none;
+  color: var(--text-accent);
+}
+
+.btn--quiet:hover {
+  background: var(--surface-raised);
+}
+
+.btn--icon {
+  padding-inline: var(--space-2);
+}
+
+.btn--small {
+  min-height: var(--target-touch);
+  padding-inline: var(--space-3);
+  font-size: var(--type-meta);
+}
+
+.btn[aria-pressed='true'] {
+  background: var(--surface-selected);
+  border-color: var(--line-control);
+  color: var(--text-primary);
+}
+
+.btn:disabled,
+.btn[aria-disabled='true'] {
+  background: var(--surface-disabled);
+  border-color: var(--line-control);
+  color: var(--text-disabled);
+  cursor: not-allowed;
+}
+
+/*
+ * FOCUS. The two-band indicator, composed once in the shared layer. Never replaced with a
+ * single-colour outline: no one colour clears 3:1 against both a pale page and a filled
+ * button, which was measured rather than guessed.
+ */
+.app :focus-visible,
+.sheet :focus-visible {
+  outline: none;
+  box-shadow: var(--focus-indicator);
+  border-radius: var(--radius-control);
+}
+
+.field {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.field__label {
+  font-size: var(--type-meta);
+  font-weight: var(--weight-medium);
+  color: var(--text-muted);
+}
+
+.field__hint {
+  font-size: var(--type-meta);
+  line-height: var(--leading-loose);
+  color: var(--text-muted);
+  max-inline-size: var(--measure-read);
+}
+
+.input,
+.textarea,
+.select {
+  min-height: var(--control-height);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-control) solid var(--line-control);
+  border-radius: var(--radius-control);
+  background: var(--surface-input);
+  color: var(--text-primary);
+  font: inherit;
+  inline-size: 100%;
+}
+
+.textarea {
+  min-height: calc(var(--control-height) * 2);
+  line-height: var(--leading-body);
+  resize: vertical;
+}
+
+.input::placeholder,
+.textarea::placeholder {
+  color: var(--text-placeholder);
+}
+
+/* ==========================================================================
+   CHIPS - a state is a word AND a shape, never a colour on its own
+   ========================================================================== */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-chip);
+  border: var(--border-control) solid var(--line-control);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font-size: var(--type-meta);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+}
+
+.chip--accent {
+  background: var(--fill-accent);
+  border-color: var(--fill-accent);
+  color: var(--text-on-accent);
+}
+
+.chip--success {
+  background: var(--fill-success);
+  border-color: var(--fill-success);
+  color: var(--text-on-success);
+}
+
+.chip--warning {
+  background: var(--fill-warning);
+  border-color: var(--fill-warning);
+  color: var(--text-on-warning);
+}
+
+.chip--danger {
+  background: var(--fill-danger);
+  border-color: var(--fill-danger);
+  color: var(--text-on-danger);
+}
+
+.chip--neutral {
+  background: var(--fill-neutral);
+  border-color: var(--fill-neutral);
+  color: var(--text-on-neutral);
+}
+
+/*
+ * Intensity is read constantly and at a glance, so it carries a LETTER as well as a fill:
+ * L, M, H. Three tints of one accent would be three greys in a screenshot.
+ */
+.intensity {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--space-5);
+  block-size: var(--space-5);
+  border-radius: var(--radius-chip);
+  border: var(--border-control) solid var(--line-control);
+  font-size: var(--type-meta);
+  font-weight: var(--weight-bold);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+}
+
+.intensity[data-level='medium'] {
+  background: var(--surface-selected);
+}
+
+.intensity[data-level='high'] {
+  background: var(--fill-accent);
+  border-color: var(--fill-accent);
+  color: var(--text-on-accent);
+}
+
+/* ==========================================================================
+   ICONS
+   ========================================================================== */
+
+/*
+ * The glyph family is inlined as one sprite per document and drawn from here, so weight
+ * and colour are properties of the direction rather than of the drawing. currentColor is
+ * what lets one file serve every state and both themes; a raster icon would need five
+ * files for the synchronisation states alone, per theme.
+ */
+.icon {
+  flex: none;
+  inline-size: var(--glyph-size);
+  block-size: var(--glyph-size);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: var(--glyph-stroke);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.icon--small {
+  inline-size: var(--glyph-size-small);
+  block-size: var(--glyph-size-small);
+}
+
+/* ==========================================================================
+   TOOLTIPS
+   Below the target, no arrow, 200ms in and none out, and open on keyboard focus as
+   well as on hover. Nothing needed to finish a task ever lives only in one.
+   ========================================================================== */
+
+.tip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.tip__target {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--target-touch);
+  min-inline-size: var(--target-touch);
+  padding-inline: var(--space-2);
+  border: var(--border-control) solid transparent;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--text-accent);
+  font: inherit;
+  cursor: help;
+}
+
+.tip__target:hover {
+  background: var(--surface-raised);
+}
+
+.tip__bubble {
+  position: absolute;
+  inset-block-start: calc(100% + var(--space-1));
+  inset-inline-start: 0;
+  z-index: 3;
+  inline-size: max-content;
+  /*
+   * Capped against the FRAME it is inside, not only against the reading measure. On a phone
+   * the measure alone is wider than the device, and the first render pushed a tooltip clean
+   * off the left edge of the screen where the rest of its sentence could not be reached.
+   */
+  max-inline-size: min(var(--measure-read), 88cqi);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  border: var(--border-hairline) solid var(--line-control);
+  border-radius: var(--radius-popover);
+  box-shadow: var(--elevation-popover);
+  font-size: var(--type-body);
+  line-height: var(--leading-body);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--motion-fast) var(--ease-standard) var(--tooltip-delay-out),
+    visibility var(--motion-instant) linear var(--tooltip-delay-out);
+}
+
+.tip:hover .tip__bubble,
+.tip__target:focus-visible + .tip__bubble,
+.tip[data-open='true'] .tip__bubble {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity var(--motion-fast) var(--ease-standard) var(--tooltip-delay-in),
+    visibility var(--motion-instant) linear var(--tooltip-delay-in);
+}
+
+/* Held open for the presentation sheet: no delay, because it is already open. */
+.tip[data-open='true'] .tip__bubble {
+  transition: none;
+}
+
+.tip--end .tip__bubble {
+  inset-inline-start: auto;
+  inset-inline-end: 0;
+}
+
+/* ==========================================================================
+   THE SESSION RUNNER
+   ========================================================================== */
+
+.runner {
+  display: grid;
+  gap: var(--section-gap);
+  align-content: start;
+  /*
+   * A grid item's automatic minimum size is its content, so without this the session
+   * runner refuses to be narrower than its longest coaching cue and spills over the
+   * history column beside it. Found by rendering it: the cue was clipped mid-word at the
+   * column boundary while every box measured correct.
+   */
+  min-inline-size: 0;
+}
+
+/* The current exercise. The one thing on this screen readable across a room. */
+.now {
+  background: var(--surface-card);
+  border: var(--border-hairline) solid var(--line-divider);
+  border-inline-start: var(--nav-marker-width) solid var(--fill-accent);
+  border-radius: var(--radius-card);
+  box-shadow: var(--elevation-card);
+  padding: var(--card-padding);
+  display: grid;
+  gap: var(--space-4);
+}
+
+.now__label {
+  margin: 0;
+  font-size: var(--type-meta);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--border-hairline);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.now__name {
+  margin: 0;
+  font-size: var(--type-title);
+  line-height: var(--leading-tight);
+  font-weight: var(--weight-bold);
+}
+
+/*
+ * What the exercise IS, as against what today's prescription of it is. Kept off the figure
+ * row deliberately: equipment is not a number, and setting it at display size next to the
+ * repetitions made the barbell look like the most important value on the screen.
+ */
+.now__meta {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--type-meta);
+}
+
+.now__prescription {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-5);
+}
+
+.now__figure {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.now__value {
+  font-size: var(--type-display);
+  line-height: var(--leading-tight);
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+.now__unit {
+  font-size: var(--type-meta);
+  color: var(--text-muted);
+}
+
+.now__cue {
+  margin: 0;
+  max-inline-size: var(--measure-read);
+  color: var(--text-primary);
+}
+
+.now__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.next-up {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--card-padding);
+  background: var(--surface-raised);
+  border: var(--border-hairline) solid var(--line-divider);
+  border-radius: var(--radius-card);
+}
+
+.next-up__label {
+  font-size: var(--type-meta);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  flex: none;
+}
+
+.next-up__name {
+  font-weight: var(--weight-medium);
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+/*
+ * THE INTENSITY PATTERN BAR. Pressing one reshapes the whole session - it reorders the
+ * exercises and scales the repetitions, timers and rest. It never changes a load: the app
+ * proposes a shape, the coach disposes, and load is a judgement that stays with him.
+ */
+.patterns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.pattern {
+  display: grid;
+  gap: var(--space-1);
+  justify-items: start;
+  min-height: var(--control-height);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-control) solid var(--line-control);
+  border-radius: var(--radius-control);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--type-meta);
+  cursor: pointer;
+}
+
+.pattern[aria-pressed='true'] {
+  background: var(--surface-selected);
+  border-color: var(--fill-accent);
+}
+
+.pattern__name {
+  font-weight: var(--weight-medium);
+}
+
+.pattern__curve {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-1);
+  block-size: var(--space-4);
+}
+
+.pattern__step {
+  inline-size: var(--space-2);
+  background: var(--fill-neutral);
+  border-radius: var(--radius-chip);
+}
+
+.pattern__step[data-level='low'] {
+  block-size: var(--space-1);
+}
+
+.pattern__step[data-level='medium'] {
+  block-size: var(--space-3);
+}
+
+.pattern__step[data-level='high'] {
+  block-size: var(--space-4);
+  background: var(--fill-accent);
+}
+
+/* The exercise list: jump to any of them, not only forward. */
+.plan-row__jump {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+  min-height: var(--target-touch);
+}
+
+.plan-row__actions {
+  flex: none;
+  display: flex;
+  gap: var(--space-1);
+}
+
+.row[data-status='done'] .row__name {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+/*
+ * PER-CLIENT CAPTURE. A session is a routine plus a SET of clients, so every client keeps
+ * their own readings, their own notes and their own record of what was actually performed.
+ * The coach can adjust one client's exercise without forking the session, and he can
+ * capture a number against a named person without leaving the routine.
+ */
+.attendees {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.attendee {
+  border: var(--border-hairline) solid var(--line-divider);
+  border-radius: var(--radius-card);
+  background: var(--surface-card);
+  padding: var(--space-3) var(--card-padding);
+  display: grid;
+  gap: var(--space-3);
+}
+
+.attendee__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.attendee__name {
+  margin: 0;
+  font-size: var(--type-lead);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+}
+
+.capture {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.capture .field {
+  flex: 1 1 var(--space-8);
+  min-inline-size: 0;
+}
+
+.readings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.reading {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-hairline) solid var(--line-divider);
+  border-radius: var(--radius-chip);
+  background: var(--surface-raised);
+  font-size: var(--type-meta);
+}
+
+.reading__value {
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Last session at a glance, so progress is visible across sessions. */
+.last-session {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.last-session__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-block: var(--space-1);
+  border-block-end: var(--border-hairline) solid var(--line-divider);
+  font-size: var(--type-meta);
+}
+
+.last-session__row:last-child {
+  border-block-end: 0;
+}
+
+.last-session__value {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+/* ==========================================================================
+   THE DIET WEEK CHART
+   ========================================================================== */
+
+.week {
+  overflow-x: auto;
+}
+
+.week__grid {
+  inline-size: 100%;
+  border-collapse: collapse;
+  font-size: var(--type-body);
+}
+
+.week__grid th,
+.week__grid td {
+  border: var(--border-hairline) solid var(--line-divider);
+  padding: var(--space-2) var(--space-3);
+  vertical-align: top;
+  text-align: start;
+  min-inline-size: var(--column-diet-day);
+}
+
+.week__grid thead th {
+  position: sticky;
+  inset-block-start: 0;
+  background: var(--surface-raised);
+  font-size: var(--type-meta);
+  font-weight: var(--weight-bold);
+}
+
+.week__grid tbody th {
+  position: sticky;
+  inset-inline-start: 0;
+  background: var(--surface-raised);
+  min-inline-size: var(--column-diet-time);
+  inline-size: var(--column-diet-time);
+  font-size: var(--type-meta);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.meal {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.meal__label {
+  font-size: var(--type-meta);
+  color: var(--text-muted);
+}
+
+.meal__items {
+  margin: 0;
+  padding-inline-start: var(--space-4);
+}
+
+.meal--repeat {
+  color: var(--text-muted);
+  font-size: var(--type-meta);
+}
+
+/* The phone reading of the same week: one day at a time, the week always in reach. */
+.week-days {
+  display: none;
+}
+
+.day-plan {
+  display: none;
+}
+
+/*
+ * A card whose body is hidden is worse than no card: on the first phone render the week
+ * card kept its heading and its help while the grid underneath it was gone, which reads as
+ * something failing to load rather than as something not asked for yet. The card is hidden
+ * whole, and the button above it says what it will bring back.
+ */
+.week-card {
+  display: grid;
+}
+
+/* ==========================================================================
+   TABLES OF NUMBERS AND SMALL TRENDS
+   ========================================================================== */
+
+.trend {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-1);
+  block-size: var(--space-6);
+}
+
+.trend__bar {
+  inline-size: var(--space-2);
+  background: var(--fill-accent);
+  border-radius: var(--radius-chip);
+}
+
+/* ==========================================================================
+   THE LAPTOP SHAPE
+   At and above the expanded boundary the navigation becomes a permanently expanded
+   sidebar. Same five destinations, same order, same words.
+   ========================================================================== */
+
+@container app (min-width: 840px) {
+  .app {
+    grid-template-columns: var(--nav-rail-width) minmax(0, 1fr);
+    grid-template-areas:
+      'nav header'
+      'nav sync'
+      'nav content';
+    grid-template-rows: auto auto minmax(0, 1fr);
+  }
+
+  .nav {
+    border-block-start: 0;
+    border-inline-end: var(--border-hairline) solid var(--line-divider);
+    padding-block: var(--space-4);
+    display: grid;
+    gap: var(--space-4);
+    align-content: start;
+    overflow: auto;
+  }
+
+  .nav__brand {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding-inline: var(--space-4);
+    font-size: var(--type-lead);
+    font-weight: var(--weight-bold);
+  }
+
+  .nav__brand-mark {
+    inline-size: var(--space-6);
+    block-size: var(--space-6);
+    border-radius: var(--radius-control);
+  }
+
+  .nav__list {
+    grid-auto-flow: row;
+    grid-auto-columns: auto;
+    gap: var(--row-gap);
+    padding-block-end: 0;
+  }
+
+  .nav__link {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: var(--space-3);
+    min-height: var(--row-height);
+    padding-inline: var(--space-4);
+    font-size: var(--type-body);
+    text-align: start;
+  }
+
+  .nav__link[aria-current='page']::before {
+    inset-inline: auto;
+    inset-inline-start: 0;
+    inset-block: 0;
+    inline-size: var(--nav-marker-width);
+    block-size: auto;
+  }
+
+  .app__content {
+    padding: var(--gutter);
+  }
+}
+
+/*
+ * THE SECOND COLUMN COSTS 340px AND IT HAS TO BE AFFORDABLE, so it arrives later than the
+ * sidebar rather than with it. Measured, not chosen: with the sidebar taking 248px, a
+ * frame just over the sidebar's own boundary leaves under 700px for the content, and
+ * splitting that into a working column and a history column left the coaching cue on the
+ * session runner spilling under the card beside it. The sidebar appears at 840px because
+ * that is where a sidebar fits; the aside appears at 1180px because that is where an aside
+ * fits. Below it the history simply follows the session down the page, which is the same
+ * information in the same order and is what the phone does too.
+ */
+@container app (min-width: 1180px) {
+  .with-aside {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--column-detail);
+    gap: var(--section-gap);
+    align-items: start;
+    min-inline-size: 0;
+  }
+}
+
+/* ==========================================================================
+   THE PHONE SHAPE
+   Below the compact boundary. The same information architecture at a narrower
+   width - never a second, different design.
+   ========================================================================== */
+
+@container app (max-width: 599px) {
+  .app__content {
+    padding: var(--space-4);
+    gap: var(--space-5);
+  }
+
+  .header__title {
+    font-size: var(--type-lead);
+  }
+
+  .now__name {
+    font-size: var(--type-lead);
+  }
+
+  .sync {
+    padding-inline: var(--space-4);
+  }
+
+  .sync::before {
+    margin-inline-start: calc(var(--space-4) * -1 + var(--space-2));
+  }
+
+  .row,
+  .card--flush .card__head {
+    padding-inline: var(--space-4);
+  }
+
+  /*
+   * THE JUMP LIST AT PHONE WIDTH, and this is the defect that only looking found.
+   *
+   * Every property on the row was individually correct — .row__main already carried
+   * `flex: 1 1 auto` and `min-inline-size: 0`, the type was at the 16px floor, the controls
+   * were at their 44px floor, contrast passed. What no per-property assertion could see is
+   * the ARITHMETIC of them together: in the 390px frame the index, the four trailing
+   * controls and the gaps claim everything, leaving the name an 80px column. Measured, it
+   * rendered "Single / Arm / Dumbbell / Row" — four lines for one exercise name, on the
+   * screen a coach reads with a client waiting.
+   *
+   * The fix is NOT a smaller type size and NOT fewer controls: the type floors are not
+   * available to spend, and dropping a control would remove function the coach needs
+   * mid-session. The row simply becomes two lines at this width — the name and its
+   * prescription first, at full width, and the controls beneath them. Nothing is hidden,
+   * nothing shrinks, and every control keeps its 44px box.
+   */
+  .list .row {
+    flex-wrap: wrap;
+    row-gap: var(--space-2);
+  }
+
+  .list .row__main {
+    /*
+     * `flex: 1 1 100%` was the first attempt and it over-corrected: a 100% basis wrapped the
+     * name onto its own line, leaving the row number stranded above it on several rows and
+     * making the list read raggedly. Only the CONTROLS need to move. With `auto` the name
+     * shares line one with the index and takes every pixel the controls are no longer
+     * claiming, which is the whole width the defect was about.
+     */
+    flex: 1 1 auto;
+    min-inline-size: 0;
+  }
+
+  .list .row__trail {
+    /* Fall to the next line, aligned under the name rather than floating off the index. */
+    flex: 1 0 100%;
+    justify-content: flex-start;
+  }
+
+  .card {
+    padding: var(--space-4);
+  }
+
+  /*
+   * THE WEEK GRID, WHICH IS WHERE A WEEK CHART USUALLY COLLAPSES. It is not thrown away
+   * and it is not shrunk below the reading floor. One day is shown at a time with the
+   * whole week permanently in reach above it, and the full grid stays available in a
+   * horizontal scroller with the hour column pinned. Progressive disclosure rather than
+   * less information.
+   */
+  .week-card {
+    display: none;
+  }
+
+  .week-card[data-phone-open='true'] {
+    display: grid;
+  }
+
+  .week-days {
+    display: flex;
+    gap: var(--space-1);
+    overflow-x: auto;
+  }
+
+  .day-plan {
+    display: grid;
+    gap: var(--space-3);
+  }
+
+  .day-plan[hidden] {
+    display: none;
+  }
+
+  .week-day {
+    flex: 1 0 auto;
+    display: grid;
+    gap: var(--space-1);
+    justify-items: center;
+    min-inline-size: var(--target-touch);
+    min-height: var(--target-touch);
+    padding: var(--space-1) var(--space-2);
+    border: var(--border-control) solid var(--line-control);
+    border-radius: var(--radius-control);
+    background: var(--surface-card);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: var(--type-meta);
+    cursor: pointer;
+  }
+
+  .week-day[aria-pressed='true'] {
+    background: var(--surface-selected);
+    border-color: var(--fill-accent);
+    font-weight: var(--weight-bold);
+  }
+
+  .week-day__count {
+    color: var(--text-muted);
+  }
+
+  .week-day[aria-pressed='true'] .week-day__count {
+    color: var(--text-primary);
+  }
+}
+
+/*
+ * Content that exists only at the phone width. It is used for ONE thing - the day picker
+ * that keeps the diet week legible on a narrow screen - and never to remove information
+ * the coach needs, which is the line between progressive disclosure and throwing something
+ * away. Everything hidden here is reachable at this width by another route.
+ */
+.phone-only {
+  display: none;
+}
+
+@container app (max-width: 599px) {
+  .phone-only {
+    display: block;
+  }
+}
+
+/* Utility used by every screen for text only a screen reader needs. */
+.visually-hidden {
+  position: absolute;
+  inline-size: var(--border-hairline);
+  block-size: var(--border-hairline);
+  padding: 0;
+  margin: calc(var(--border-hairline) * -1);
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}

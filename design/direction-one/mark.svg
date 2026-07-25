@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-labelledby="ledger-mark-title ledger-mark-desc">
+  <title id="ledger-mark-title">Fit</title>
+  <desc id="ledger-mark-desc">Three rising marks standing on a single ruled line, in Ledger's burnt sienna and warm paper.</desc>
+
+  <!--
+    THE CANDIDATE APPLICATION MARK FOR DIRECTION ONE - LEDGER.
+
+    Each direction carries its own mark rather than the three sharing one, because the mark
+    is the first and smallest piece of the look: it sits on a home screen beside the coach's
+    other applications long before he opens anything.
+
+    WHY THIS SHAPE. Ledger reads as a good paper form, and what the application actually does
+    is record what happened and let progress be seen across sessions. So the mark is a ruled
+    line with three rising marks standing on it: a ledger entry, and a session getting better.
+    It is drawn flat, with no gradient and no shadow, because Ledger has no elevation anywhere.
+
+    WHY IT SURVIVES SIXTEEN PIXELS. Two colours, one silhouette, no fine detail, and the risers
+    are separated by gaps as wide as they are so they do not merge into a block at the size a
+    browser tab and a notification actually use. The unifying baseline means that even where the
+    gaps close, the shape still reads as a rule with something standing on it rather than as a
+    smudge.
+
+    THE TWO LITERAL COLOURS BELOW ARE DELIBERATE AND ARE THE ONE PLACE THIS DIRECTION HAS ANY.
+    An installable icon is a standalone file: an operating system renders it on a home screen
+    with no stylesheet loaded, so it cannot reach the token layer the way every screen in this
+    direction does. They are not invented values - they are house-sepia's fill-accent and
+    text-on-accent copied verbatim, which is a pair the contrast harness already measures
+    against each other. If the palette changes, this file changes with it.
+      #835529  fill-accent      (light theme)
+      #FFFCF5  text-on-accent   (light theme)
+
+    A NOTE FOR WHOEVER EDITS THIS COMMENT NEXT, because it has already broken once. An SVG
+    loaded through an image element is parsed as XML, and XML forbids two consecutive hyphens
+    inside a comment. Writing a CSS custom property in its usual form put a pair of them in
+    here, the file stopped parsing, and every place the mark appears rendered as a broken
+    image - with no error anywhere except the picture itself. Name the roles in words.
+  -->
+
+  <rect width="512" height="512" rx="112" fill="#835529"/>
+
+  <g fill="#FFFCF5">
+    <rect x="88" y="284" width="80" height="128" rx="16"/>
+    <rect x="216" y="196" width="80" height="216" rx="16"/>
+    <rect x="344" y="108" width="80" height="304" rx="16"/>
+    <rect x="88" y="380" width="336" height="32" rx="16"/>
+  </g>
+</svg>

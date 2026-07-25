@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+  <title>Repeat exercise</title>
+  <path d="M19 8a8 8 0 0 0-13.5-2L3 8.5"/>
+  <path d="M3 4v4.5h4.5"/>
+  <path d="M5 16a8 8 0 0 0 13.5 2l2.5-2.5"/>
+  <path d="M21 20v-4.5h-4.5"/>
+</svg>

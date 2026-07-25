@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="var(--glyph-stroke, 2)" stroke-linecap="round" stroke-linejoin="round">
+  <title>Calendar</title>
+  <rect x="3" y="4" width="18" height="17" rx="var(--glyph-radius, 2)"/>
+  <path d="M7 2v4M17 2v4M3 9h18"/>
+  <path d="M7 13h2M12 13h2M17 13h.01M7 17h2M12 17h2"/>
+</svg>

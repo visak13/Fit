@@ -7,9 +7,23 @@
  * would surface as an intermittent failure on the coach's own device, at the moment he reopened
  * the application on a screen he had left it on. A fragment is never sent to the host, so every
  * address survives a refresh and a cold start from the home screen.
+ *
+ * ## Why the TABLE and the ROUTER are two exports rather than one
+ *
+ * `createHashRouter` reads `window.history` the moment it is called, so a module that built the
+ * router at import time could only ever be imported by a browser. That is what a check would have
+ * to work around, and every workaround is the same shape: rebuild a list of paths beside this file
+ * and assert against THAT. Such a check passes forever while this table drifts away from it — it is
+ * testing the copy, and the copy is the thing that cannot be wrong.
+ *
+ * So `ROUTE_TABLE` is the data, importable anywhere, and `createAppRouter` is the one call that
+ * needs a browser. `src/shell/no-dead-ends.test.ts` resolves real addresses against this exact
+ * array using react-router's own matcher — the same matcher the hash router uses underneath — and
+ * renders what it matches. There is still ONE table; nothing was copied to make it checkable.
  */
 
 import { createHashRouter, Navigate } from 'react-router-dom';
+import type { RouteObject } from 'react-router-dom';
 
 import { AdminScreen } from '../screens/AdminScreen';
 import { NotFoundScreen } from '../screens/NotFoundScreen';
@@ -20,7 +34,14 @@ import { DEFAULT_DESTINATION_PATH, DESTINATIONS } from './navigation';
 /** The one destination that already has content; the rest are placeholders for later steps. */
 const ADMIN_PATH = 'admin';
 
-export const router = createHashRouter([
+/**
+ * Every address this application answers to, and the only place they are declared.
+ *
+ * The destination routes are MAPPED from the navigation list rather than written out, so a
+ * destination added there is reachable here without anyone remembering, and a route can never exist
+ * that the navigation surface does not show.
+ */
+export const ROUTE_TABLE: readonly RouteObject[] = [
   {
     path: '/',
     element: <AppFrame />,
@@ -38,4 +59,15 @@ export const router = createHashRouter([
       { path: '*', element: <NotFoundScreen /> },
     ],
   },
-]);
+];
+
+/**
+ * The router the application actually runs on, built from the table above.
+ *
+ * Called by `main.tsx` at start. It must not be called at module scope here: `createHashRouter`
+ * touches `window` immediately, and this module has to stay importable by anything that wants to
+ * ask what the addresses are.
+ */
+export function createAppRouter() {
+  return createHashRouter([...ROUTE_TABLE]);
+}
