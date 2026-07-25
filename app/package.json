@@ -1,0 +1,34 @@
+{
+  "name": "fit-app",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Offline-first fitness session tracker. The core is plain dependency-free ECMAScript modules with no build step; types are expressed in documentation comments. The shell is React + TypeScript built by Vite, and its built output is committed.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && node tools/finish-build.mjs",
+    "preview": "vite preview",
+    "test": "node tools/run-core-tests.mjs",
+    "test:shell": "node --test src/platform/storage-persistence.test.ts src/shell/navigation.test.ts",
+    "test:tools": "node --test tools/source-stamp.test.mjs",
+    "typecheck": "tsc -p tsconfig.json",
+    "icons": "node tools/make-placeholder-icons.mjs",
+    "check:stale": "node tools/check-stale.mjs"
+  },
+  "dependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^7.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "^5.9.0",
+    "vite": "^7.1.0"
+  }
+}

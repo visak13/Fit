@@ -1,0 +1,243 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "exercise.schema.json",
+  "title": "Shipped seed exercise library",
+  "description": "A top-level array of exercise content records. Content shape only: no record identity scheme, no revision, no device tag, no tombstone, no timestamps, no encryption markers. The record envelope belongs to the foundation step. See SCHEMA.md sections 2.1 and 4.",
+  "type": "array",
+  "minItems": 1,
+  "items": { "$ref": "#/$defs/exercise" },
+
+  "$defs": {
+    "exercise": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "movement_pattern",
+        "primary_muscles",
+        "secondary_muscles",
+        "equipment",
+        "measurement",
+        "default_prescription",
+        "default_rest_seconds",
+        "intensity",
+        "scaling",
+        "hiit_suitable",
+        "coaching_cue",
+        "provenance"
+      ],
+      "properties": {
+        "id": {
+          "description": "Content key, not a record identity. Stable forever; routines reference it.",
+          "type": "string",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "minLength": 3,
+          "maxLength": 60
+        },
+        "name": {
+          "description": "Spoken aloud by the browser speech synthesiser. Letters and single spaces only.",
+          "type": "string",
+          "pattern": "^[A-Za-z]([A-Za-z ]*[A-Za-z])?$",
+          "minLength": 3,
+          "maxLength": 48
+        },
+        "long_name": {
+          "description": "Optional display-only disambiguation. Never spoken. Omit rather than duplicating name.",
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 120
+        },
+        "movement_pattern": { "$ref": "#/$defs/movementPattern" },
+        "primary_muscles": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 6,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/muscleGroup" }
+        },
+        "secondary_muscles": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/muscleGroup" }
+        },
+        "equipment": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/equipment" }
+        },
+        "measurement": { "$ref": "#/$defs/measurement" },
+        "default_prescription": { "$ref": "#/$defs/prescription" },
+        "default_rest_seconds": { "type": "integer", "minimum": 0, "maximum": 600 },
+        "intensity": { "$ref": "#/$defs/intensity" },
+        "scaling": {
+          "description": "The values the intensity adapter scales with, one per curve point.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["low", "medium", "high"],
+          "properties": {
+            "low": { "$ref": "#/$defs/scalingPoint" },
+            "medium": { "$ref": "#/$defs/scalingPoint" },
+            "high": { "$ref": "#/$defs/scalingPoint" }
+          }
+        },
+        "hiit_suitable": { "type": "boolean" },
+        "coaching_cue": { "type": "string", "minLength": 8, "maxLength": 160 },
+        "provenance": { "$ref": "#/$defs/provenance" }
+      }
+    },
+
+    "measurement": {
+      "description": "How the session runner counts this exercise. Must match the movement.",
+      "type": "string",
+      "enum": ["repetitions", "time"]
+    },
+
+    "intensity": {
+      "description": "The classification the intensity adapter sorts on.",
+      "type": "string",
+      "enum": ["low", "medium", "high"]
+    },
+
+    "provenance": {
+      "description": "Where the record came from and whether the coach has edited it. Always shipped-untouched in a seed file; the other values exist at runtime. See SCHEMA.md 4.6.",
+      "type": "string",
+      "enum": ["shipped-untouched", "shipped-edited", "coach-created"]
+    },
+
+    "prescription": {
+      "description": "Exactly one of repetitions / duration_seconds. Which one is cross-checked against measurement by rule R5.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sets"],
+      "properties": {
+        "sets": { "type": "integer", "minimum": 1, "maximum": 10 },
+        "repetitions": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "duration_seconds": { "type": "integer", "minimum": 5, "maximum": 1800 }
+      },
+      "oneOf": [
+        { "required": ["repetitions"], "not": { "required": ["duration_seconds"] } },
+        { "required": ["duration_seconds"], "not": { "required": ["repetitions"] } }
+      ]
+    },
+
+    "scalingPoint": {
+      "description": "A prescription plus the rest to use at this curve point.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sets", "rest_seconds"],
+      "properties": {
+        "sets": { "type": "integer", "minimum": 1, "maximum": 10 },
+        "repetitions": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "duration_seconds": { "type": "integer", "minimum": 5, "maximum": 1800 },
+        "rest_seconds": { "type": "integer", "minimum": 0, "maximum": 600 }
+      },
+      "oneOf": [
+        { "required": ["repetitions"], "not": { "required": ["duration_seconds"] } },
+        { "required": ["duration_seconds"], "not": { "required": ["repetitions"] } }
+      ]
+    },
+
+    "movementPattern": {
+      "type": "string",
+      "enum": [
+        "squat",
+        "hinge",
+        "lunge",
+        "single-leg",
+        "horizontal-push",
+        "vertical-push",
+        "horizontal-pull",
+        "vertical-pull",
+        "elbow-flexion",
+        "elbow-extension",
+        "shoulder-raise",
+        "carry",
+        "rotation",
+        "anti-extension",
+        "anti-rotation",
+        "anti-lateral-flexion",
+        "hip-extension",
+        "knee-flexion",
+        "calf-raise",
+        "locomotion",
+        "jump",
+        "isometric-hold",
+        "conditioning",
+        "mobility",
+        "olympic-derivative"
+      ]
+    },
+
+    "muscleGroup": {
+      "type": "string",
+      "enum": [
+        "chest",
+        "front-deltoids",
+        "side-deltoids",
+        "rear-deltoids",
+        "upper-back",
+        "lats",
+        "traps",
+        "lower-back",
+        "spinal-erectors",
+        "biceps",
+        "triceps",
+        "forearms",
+        "grip",
+        "abdominals",
+        "obliques",
+        "hip-flexors",
+        "glutes",
+        "quadriceps",
+        "hamstrings",
+        "adductors",
+        "abductors",
+        "calves",
+        "tibialis",
+        "neck",
+        "full-body",
+        "cardiovascular-system"
+      ]
+    },
+
+    "equipment": {
+      "type": "string",
+      "enum": [
+        "none",
+        "mat",
+        "bench",
+        "box",
+        "step",
+        "chair",
+        "wall",
+        "dumbbell",
+        "barbell",
+        "weight-plate",
+        "kettlebell",
+        "resistance-band",
+        "pull-up-bar",
+        "dip-bars",
+        "gymnastic-rings",
+        "suspension-trainer",
+        "cable-machine",
+        "medicine-ball",
+        "slam-ball",
+        "sandbag",
+        "jump-rope",
+        "battle-rope",
+        "sled",
+        "agility-cone",
+        "ab-wheel",
+        "foam-roller",
+        "treadmill",
+        "stationary-bike",
+        "rowing-machine"
+      ]
+    }
+  }
+}

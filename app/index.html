@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Fit</title>
+
+    <!--
+      DELIBERATELY UNSTYLED. This page carries no stylesheet and no theme beyond what the manifest
+      needs, because the visual system is the next step's work and it mounts into this frame.
+      Adding styling here would be work that step has to undo.
+    -->
+
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <meta name="theme-color" content="#333a44" />
+
+    <!-- iOS reads its own tags rather than the manifest for the installed appearance. -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Fit" />
+    <link rel="apple-touch-icon" href="./icons/placeholder-180.png" />
+    <link rel="icon" href="./icons/placeholder-192.png" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

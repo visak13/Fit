@@ -1,0 +1,138 @@
+[
+  {
+    "id": "legs-strength",
+    "name": "Legs Strength",
+    "split_day": 1,
+    "focus": "legs",
+    "body_regions": ["lower-body", "anterior-chain", "posterior-chain"],
+    "description": "Day one of seven. Quadriceps-led leg strength: the heavy squat while fresh, then single-leg and lunge work, then light hamstring and calf accessory to close. It opens the intended order because nothing precedes it, and the push day that follows shares no muscle with it. The barbell hinge is deliberately left to the pull day on day three so the hamstrings are never loaded on back-to-back days.",
+    "entries": [
+      { "exercise_id": "bodyweight-squat", "sets": 2, "repetitions": 15 },
+      { "exercise_id": "glute-bridge" },
+      { "exercise_id": "back-squat" },
+      { "exercise_id": "bulgarian-split-squat" },
+      { "exercise_id": "walking-lunge" },
+      { "exercise_id": "band-hamstring-curl" },
+      { "exercise_id": "wall-sit" },
+      { "exercise_id": "standing-calf-raise", "repetitions": 20 }
+    ],
+    "provenance": "shipped-untouched"
+  },
+  {
+    "id": "push-chest-and-triceps",
+    "name": "Push Chest and Triceps",
+    "split_day": 2,
+    "focus": "push",
+    "body_regions": ["upper-body", "anterior-chain"],
+    "description": "Day two of seven, straight after the leg day, which shares nothing with it. Horizontal pressing while fresh, then incline and dips, then triceps in isolation to finish. The deltoids are kept to a supporting role here because the dedicated chest and shoulders session sits three days away on day six, and the pull day that follows loads only the back, biceps and hinge.",
+    "entries": [
+      { "exercise_id": "incline-push-up", "sets": 2 },
+      { "exercise_id": "barbell-bench-press" },
+      { "exercise_id": "incline-dumbbell-press" },
+      { "exercise_id": "chest-dip" },
+      { "exercise_id": "push-up" },
+      { "exercise_id": "cable-triceps-pushdown" },
+      { "exercise_id": "overhead-triceps-extension" },
+      { "exercise_id": "triceps-kickback" }
+    ],
+    "provenance": "shipped-untouched"
+  },
+  {
+    "id": "pull-deadlift-back-and-biceps",
+    "name": "Pull Deadlift Back and Biceps",
+    "split_day": 3,
+    "focus": "pull",
+    "body_regions": ["upper-body", "posterior-chain"],
+    "description": "Day three of seven. The deadlift, back and biceps pattern: one heavy hinge while fresh, then rowing, a vertical pull, rear deltoid work, and biceps with a grip hold to close. It follows a push day that loaded only chest and triceps, and it is followed by conditioning built on cardiovascular work, so the back, biceps, grip and hamstrings all get a clear day either side.",
+    "entries": [
+      { "exercise_id": "band-pull-apart", "sets": 2, "repetitions": 20 },
+      { "exercise_id": "deadlift" },
+      { "exercise_id": "bent-over-row" },
+      { "exercise_id": "lat-pulldown" },
+      { "exercise_id": "single-arm-dumbbell-row" },
+      { "exercise_id": "face-pull" },
+      { "exercise_id": "barbell-biceps-curl" },
+      { "exercise_id": "hammer-curl" },
+      { "exercise_id": "dead-hang", "sets": 2, "duration_seconds": 45 }
+    ],
+    "provenance": "shipped-untouched"
+  },
+  {
+    "id": "interval-conditioning",
+    "name": "Interval Conditioning",
+    "split_day": 4,
+    "focus": "hiit",
+    "body_regions": ["full-body"],
+    "description": "Day four of seven, and the recovery day in disguise. Every interval here is chosen to tax the cardiovascular system rather than a muscle group, which is exactly why it sits between the pull day and the functional day: hard work that leaves the hamstrings, glutes, back and biceps loaded yesterday and the hips and grip needed tomorrow alone. Easy rounds open and close it.",
+    "entries": [
+      { "exercise_id": "jumping-jack", "sets": 2 },
+      { "exercise_id": "high-knees" },
+      { "exercise_id": "burpee" },
+      { "exercise_id": "shuttle-run" },
+      { "exercise_id": "battle-rope-wave" },
+      { "exercise_id": "jump-rope" },
+      { "exercise_id": "shadow-boxing" },
+      { "exercise_id": "march-in-place", "sets": 2 }
+    ],
+    "provenance": "shipped-untouched"
+  },
+  {
+    "id": "functional-power-and-carries",
+    "name": "Functional Power and Carries",
+    "split_day": 5,
+    "focus": "functional",
+    "body_regions": ["full-body", "core", "posterior-chain"],
+    "description": "Day five of seven. Whole-body functional work: mobility to open, then jumping and cleaning while the nervous system is fresh, then loaded carries and a rotational throw, closing with a crawl. The conditioning day before it left the hips, grip and trunk untouched, and the chest and shoulders session that follows shares none of it.",
+    "entries": [
+      { "exercise_id": "inchworm-walkout" },
+      { "exercise_id": "kneeling-hip-flexor-stretch" },
+      { "exercise_id": "broad-jump" },
+      { "exercise_id": "kettlebell-clean" },
+      { "exercise_id": "farmers-carry" },
+      { "exercise_id": "suitcase-carry" },
+      { "exercise_id": "medicine-ball-rotational-throw" },
+      { "exercise_id": "crab-walk", "sets": 2 }
+    ],
+    "provenance": "shipped-untouched"
+  },
+  {
+    "id": "chest-and-shoulders",
+    "name": "Chest and Shoulders",
+    "split_day": 6,
+    "focus": "chest-and-shoulders",
+    "body_regions": ["upper-body", "anterior-chain"],
+    "description": "Day six of seven. Chest and all three deltoid heads: a horizontal press and an overhead press while fresh, then flyes and raises through the side and rear deltoids, closing with shrugs. It sits three days clear of the push day so the chest is fully recovered, and neither the functional day before it nor the core day after it touches the shoulders at all.",
+    "entries": [
+      { "exercise_id": "band-chest-press", "sets": 2, "repetitions": 15 },
+      { "exercise_id": "dumbbell-bench-press" },
+      { "exercise_id": "barbell-overhead-press" },
+      { "exercise_id": "decline-push-up" },
+      { "exercise_id": "dumbbell-chest-fly" },
+      { "exercise_id": "lateral-raise" },
+      { "exercise_id": "upright-row" },
+      { "exercise_id": "reverse-fly" },
+      { "exercise_id": "dumbbell-shrug" }
+    ],
+    "provenance": "shipped-untouched"
+  },
+  {
+    "id": "core-and-conditioning",
+    "name": "Core and Conditioning",
+    "split_day": 7,
+    "focus": "core-and-conditioning",
+    "body_regions": ["core", "full-body"],
+    "description": "Day seven of seven, and the shortest, lightest session of the order. Trunk work hardest first while the coach is fresh, then anti-rotation, then the holds, closing with an easy conditioning round. Nothing here was loaded by the chest and shoulders day before it, and nothing here is loaded by the leg day that starts the order over again.",
+    "entries": [
+      { "exercise_id": "dead-bug" },
+      { "exercise_id": "bird-dog" },
+      { "exercise_id": "hanging-knee-raise" },
+      { "exercise_id": "ab-wheel-rollout" },
+      { "exercise_id": "pallof-press" },
+      { "exercise_id": "side-plank" },
+      { "exercise_id": "plank" },
+      { "exercise_id": "hollow-hold" },
+      { "exercise_id": "shadow-boxing", "sets": 2 }
+    ],
+    "provenance": "shipped-untouched"
+  }
+]

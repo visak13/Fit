@@ -1,0 +1,28 @@
+# Ignore rules for the Fit project root.
+#
+# Two of these are not housekeeping — they are the reason this file exists at all.
+
+# THE THROWAWAY PLATFORM SPIKE. Its own git repository on a public branch, kept only for the
+# findings it produced. Its code is discarded and must never become part of the application.
+/spike/
+
+# PRESERVED SPIKE EVIDENCE. Deliberately untracked and MUST NEVER BE COMMITTED ANYWHERE: it
+# quotes the coach's real Drive identifiers, calendar identifiers and signed-in account. The
+# repository is public by a knowing decision, so anything here reaching it is a real leak, and one
+# that no credential scanner would catch because none of it is shaped like a credential.
+/_spike-evidence/
+
+# Dependencies. Restored with `npm install`, never committed.
+node_modules/
+
+# Local environment and editor noise.
+.env
+.env.*
+.DS_Store
+Thumbs.db
+*.log
+
+# NOT IGNORED, DELIBERATELY: app/dist/.
+# The published site is a static host with no build step of its own, so the built output is
+# committed on purpose. Adding it here would publish an empty site. Run `npm run check:stale`
+# before publishing to confirm it matches its source.

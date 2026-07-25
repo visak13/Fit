@@ -1,0 +1,163 @@
+/**
+ * BRING THE SHIPPED CONTENT INTO THE APPLICATION'S OWN DIRECTORY.
+ *
+ * Run this whenever `seed/*.json` changes:
+ *
+ * ```powershell
+ * node core/seed/sync-content.mjs            # rewrite the three modules
+ * node core/seed/sync-content.mjs --check    # exit 1 if they have drifted
+ * ```
+ *
+ * ## Why the content is copied at all
+ *
+ * `C:\Projects\Fit\seed\` is where the content is AUTHORED, and it stays the source of truth:
+ * it holds the contract (`SCHEMA.md`), the JSON Schemas and the Python validator that is the
+ * acceptance gate on the content itself. None of that belongs in a browser.
+ *
+ * But the published application is a static site that must work with no network at all, and it
+ * must not reach outside its own directory for the content it ships. So the three files are
+ * copied in here, and the application imports the copy and only the copy. There is exactly one
+ * runtime source of content, and it lives inside `app/`.
+ *
+ * ## Why the copy is a JavaScript module rather than a JSON file
+ *
+ * A JSON file would have to be fetched at runtime, which means a path, a base URL, a network
+ * call that can fail, and a failure mode on the very first run of an offline-first application.
+ * A module is part of the bundle: it cannot be half-present, it needs no path, and it works
+ * identically in the test runner and in an installed application with the aeroplane mode on.
+ * (Import attributes — `with { type: 'json' }` — would avoid the copy, but their support across
+ * the Node versions and iOS Safari versions this project targets is not something to bet the
+ * first run on.)
+ *
+ * ## Why the copy is VERBATIM, and how that is proved
+ *
+ * The file's own text is embedded between two markers, byte for byte, with nothing reformatted
+ * and nothing reordered. That is what makes `content-drift.test.js` able to prove the copy has
+ * not drifted by comparing TEXT, not just parsed values — a copy that silently diverges from
+ * its source looks fine, passes, and ships the wrong content.
+ *
+ * This script is node-only tooling. Nothing in the application imports it.
+ */
+
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+
+/** Where the content is authored. Source of truth; never written by this script. */
+export const SOURCE_DIR = join(HERE, '..', '..', '..', 'seed');
+
+/** Where the application's own copy lives. */
+export const CONTENT_DIR = join(HERE, 'content');
+
+/**
+ * The three files, and the record type each one carries.
+ * @type {readonly {file: string, module: string, type: string}[]}
+ */
+export const CONTENT_FILES = Object.freeze([
+  { file: 'exercises.json', module: 'exercises.js', type: 'exercise' },
+  { file: 'routines.json', module: 'routines.js', type: 'routine' },
+  { file: 'intensity-patterns.json', module: 'intensity-patterns.js', type: 'intensity-pattern' },
+]);
+
+export const BEGIN_MARKER = '/* ── SEED CONTENT, VERBATIM, BEGIN ──────────────────────────────────────────────────── */';
+export const END_MARKER = '/* ── SEED CONTENT, VERBATIM, END ────────────────────────────────────────────────────── */';
+const DEFAULT_PREFIX = 'export default ';
+
+/**
+ * Read an authored seed file as text, normalised only for line endings and a byte-order mark.
+ *
+ * Line endings are normalised on BOTH sides of every comparison rather than on neither, because
+ * this is a Windows checkout and git may hand either form to either file. Normalising is
+ * therefore not a weakening of the check: it removes the one difference that carries no meaning
+ * and would otherwise make the drift test fail for a reason that has nothing to do with content.
+ *
+ * @param {string} path
+ * @returns {string}
+ */
+export function readAuthored(path) {
+  return readFileSync(path, 'utf8').replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').trimEnd();
+}
+
+/**
+ * The verbatim text embedded in one of the generated modules.
+ * @param {string} moduleText
+ * @returns {string|null} null when the markers are missing, which means the file is not one of ours.
+ */
+export function embeddedText(moduleText) {
+  const body = moduleText.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
+  const from = body.indexOf(BEGIN_MARKER);
+  const to = body.indexOf(END_MARKER);
+  if (from === -1 || to === -1 || to < from) return null;
+  const between = body.slice(from + BEGIN_MARKER.length, to);
+  const start = between.indexOf(DEFAULT_PREFIX);
+  if (start === -1) return null;
+  return between.slice(start + DEFAULT_PREFIX.length).trimEnd().replace(/;$/, '').trimEnd();
+}
+
+/**
+ * @param {{file: string, type: string}} entry
+ * @param {string} verbatim
+ * @returns {string}
+ */
+function moduleSource(entry, verbatim) {
+  return `/**
+ * SHIPPED ${entry.type.toUpperCase()} CONTENT — the application's own copy of \`seed/${entry.file}\`.
+ *
+ * GENERATED by \`core/seed/sync-content.mjs\`. Do not edit this file by hand: edit
+ * \`seed/${entry.file}\`, re-run the validator there, then re-run the sync script.
+ *
+ * The array below is the authored file's own text, byte for byte, between the two markers.
+ * \`content-drift.test.js\` compares it against the authored file on every test run, so a copy
+ * that has quietly diverged from its source is a test failure rather than something that ships.
+ */
+
+${BEGIN_MARKER}
+${DEFAULT_PREFIX}${verbatim};
+${END_MARKER}
+`;
+}
+
+/**
+ * @param {{check?: boolean}} [options]
+ * @returns {{written: string[], drifted: string[], missing: string[]}}
+ */
+export function sync({ check = false } = {}) {
+  const written = [];
+  const drifted = [];
+  const missing = [];
+
+  for (const entry of CONTENT_FILES) {
+    const sourcePath = join(SOURCE_DIR, entry.file);
+    if (!existsSync(sourcePath)) { missing.push(entry.file); continue; }
+
+    const verbatim = readAuthored(sourcePath);
+    const target = join(CONTENT_DIR, entry.module);
+    const next = moduleSource(entry, verbatim);
+    const current = existsSync(target) ? readFileSync(target, 'utf8').replace(/\r\n/g, '\n') : null;
+
+    if (current === next) continue;
+    drifted.push(entry.module);
+    if (!check) { writeFileSync(target, next, 'utf8'); written.push(entry.module); }
+  }
+
+  return { written, drifted, missing };
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  const check = process.argv.includes('--check');
+  const result = sync({ check });
+  if (result.missing.length) {
+    console.error(`missing authored file(s) in ${SOURCE_DIR}: ${result.missing.join(', ')}`);
+    process.exit(1);
+  }
+  if (check && result.drifted.length) {
+    console.error(`the application's copy has drifted from seed/: ${result.drifted.join(', ')}`);
+    console.error('run `node core/seed/sync-content.mjs` to bring it back in line.');
+    process.exit(1);
+  }
+  console.log(check
+    ? 'the application copy matches the authored seed content.'
+    : `synced: ${result.written.length ? result.written.join(', ') : 'nothing to do, already in line'}`);
+}

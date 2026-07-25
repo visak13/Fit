@@ -1,0 +1,19 @@
+{
+  "sourceStamp": "a94796fbb6399753",
+  "sourceFileCount": 131,
+  "builtAt": "2026-07-25T08:09:40.443Z",
+  "application": "fit-app",
+  "version": "0.0.0",
+  "basePath": "/Fit/",
+  "outputDirectory": "dist",
+  "entryModule": "assets/index-DKRXKPMf.js",
+  "emittedFiles": [
+    "assets/index-DKRXKPMf.js",
+    "icons/placeholder-180.png",
+    "icons/placeholder-192.png",
+    "icons/placeholder-512.png",
+    "index.html",
+    "manifest.webmanifest"
+  ],
+  "note": "sourceStamp is a hash of the source this artefact was built from. Run `npm run check:stale` to compare it against the working tree; a mismatch means dist/ is older than src/."
+}

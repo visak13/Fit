@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "intensity-pattern.schema.json",
+  "title": "Shipped seed intensity patterns",
+  "description": "A top-level array of intensity pattern content records. Patterns ship as data, not code, so the coach can add, edit and delete them without the app being rebuilt. Content shape only: no record identity scheme, no revision, no device tag, no tombstone, no timestamps, no encryption markers. See SCHEMA.md sections 2.1 and 6.",
+  "type": "array",
+  "minItems": 1,
+  "items": { "$ref": "#/$defs/intensityPattern" },
+
+  "$defs": {
+    "intensityPattern": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "sequence", "mapping_rule", "description", "provenance"],
+      "properties": {
+        "id": {
+          "description": "Content key, not a record identity. Stable forever.",
+          "type": "string",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "minLength": 3,
+          "maxLength": 60
+        },
+        "name": {
+          "description": "The button label. Where it contains intensity words they must appear in the same order as sequence (rule R11).",
+          "type": "string",
+          "pattern": "^[A-Za-z0-9]([A-Za-z0-9 -]*[A-Za-z0-9])?$",
+          "minLength": 3,
+          "maxLength": 60
+        },
+        "sequence": {
+          "description": "The curve itself: the ordered intensity points.",
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/intensity" }
+        },
+        "mapping_rule": { "$ref": "#/$defs/mappingRule" },
+        "description": { "type": "string", "minLength": 10, "maxLength": 300 },
+        "provenance": { "$ref": "#/$defs/provenance" }
+      }
+    },
+
+    "intensity": {
+      "type": "string",
+      "enum": ["low", "medium", "high"]
+    },
+
+    "mappingRule": {
+      "description": "How a sequence of k points maps across a routine of n exercises. See SCHEMA.md 6.1 for the formula of each.",
+      "type": "string",
+      "enum": ["stretch", "repeat-cycle", "hold-last"]
+    },
+
+    "provenance": {
+      "description": "Where the record came from and whether the coach has edited it. Always shipped-untouched in a seed file. See SCHEMA.md 4.6.",
+      "type": "string",
+      "enum": ["shipped-untouched", "shipped-edited", "coach-created"]
+    }
+  }
+}

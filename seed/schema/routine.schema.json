@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "routine.schema.json",
+  "title": "Shipped seed routine library",
+  "description": "A top-level array of routine content records. Entries reference exercises by content key only and never copy an exercise definition. Content shape only: no record identity scheme, no revision, no device tag, no tombstone, no timestamps, no encryption markers. See SCHEMA.md sections 2.1 and 5.",
+  "type": "array",
+  "minItems": 1,
+  "items": { "$ref": "#/$defs/routine" },
+
+  "$defs": {
+    "routine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "split_day",
+        "focus",
+        "body_regions",
+        "description",
+        "entries",
+        "provenance"
+      ],
+      "properties": {
+        "id": {
+          "description": "Content key, not a record identity. Stable forever.",
+          "type": "string",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "minLength": 3,
+          "maxLength": 60
+        },
+        "name": {
+          "description": "Displayed, not spoken. Letters, digits, single spaces and hyphens.",
+          "type": "string",
+          "pattern": "^[A-Za-z0-9]([A-Za-z0-9 -]*[A-Za-z0-9])?$",
+          "minLength": 3,
+          "maxLength": 60
+        },
+        "split_day": {
+          "description": "Position in the weekly split, NOT a calendar weekday.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 7
+        },
+        "focus": { "$ref": "#/$defs/focus" },
+        "body_regions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 6,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/bodyRegion" }
+        },
+        "description": { "type": "string", "minLength": 10, "maxLength": 400 },
+        "entries": {
+          "description": "The routine's default exercise order. The coach may jump, reorder, skip, repeat or substitute freely in session.",
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "items": { "$ref": "#/$defs/entry" }
+        },
+        "provenance": { "$ref": "#/$defs/provenance" }
+      }
+    },
+
+    "entry": {
+      "description": "References an exercise by content key. The four optional fields are routine-level overrides of the exercise defaults; omit one to inherit. An override must agree with the exercise's measurement (rule R5).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["exercise_id"],
+      "properties": {
+        "exercise_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "minLength": 3,
+          "maxLength": 60
+        },
+        "sets": { "type": "integer", "minimum": 1, "maximum": 10 },
+        "repetitions": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "duration_seconds": { "type": "integer", "minimum": 5, "maximum": 1800 },
+        "rest_seconds": { "type": "integer", "minimum": 0, "maximum": 600 }
+      }
+    },
+
+    "provenance": {
+      "description": "Where the record came from and whether the coach has edited it. Always shipped-untouched in a seed file. See SCHEMA.md 4.6.",
+      "type": "string",
+      "enum": ["shipped-untouched", "shipped-edited", "coach-created"]
+    },
+
+    "focus": {
+      "type": "string",
+      "enum": [
+        "push",
+        "pull",
+        "chest-and-shoulders",
+        "legs",
+        "hiit",
+        "functional",
+        "core-and-conditioning",
+        "full-body",
+        "upper-body",
+        "lower-body",
+        "active-recovery"
+      ]
+    },
+
+    "bodyRegion": {
+      "type": "string",
+      "enum": [
+        "upper-body",
+        "lower-body",
+        "core",
+        "posterior-chain",
+        "anterior-chain",
+        "full-body"
+      ]
+    }
+  }
+}

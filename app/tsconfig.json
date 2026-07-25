@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+
+    // The platform tests run on Node's own test runner with no build step, the same way the core
+    // gate does, so they import with an explicit extension. Permitted here because nothing in this
+    // project emits from tsc.
+    "allowImportingTsExtensions": true,
+
+    // The core is plain ECMAScript typed in documentation comments, and it is consumed here
+    // UNCHANGED and never converted. `allowJs` lets the bundler and the editor follow imports into
+    // it; `checkJs` stays off because type-checking it here would create pressure to edit it, and
+    // the whole point of the core is that it stays adoptable exactly as it is, with a test gate
+    // that needs no build. The same applies to the plain-JavaScript files under `tools/`.
+    "allowJs": true,
+    "checkJs": false
+  },
+  "include": ["src", "types", "vite.config.ts", "tools"]
+}
