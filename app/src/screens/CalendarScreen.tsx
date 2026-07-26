@@ -39,10 +39,11 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
 import { Glyph } from '../design/Glyph';
-import { LocalStoreNotice, useLocalStore } from '../platform/LocalStore';
+import { LibraryNotice, LocalStoreNotice, useLibrarySeeding, useLocalStore } from '../platform/LocalStore';
+import { librarySnag } from '../platform/library-seeding';
 import type { Destination } from '../shell/navigation';
 import {
   WITH_CLIENT_KEY, aboutClientDescription, describeArrivedWith, registerAboutClient,
@@ -56,12 +57,15 @@ import {
   pasteLink, toggleClient,
 } from './launcher';
 import type {
-  GlanceReport, OutcomeReport, Selection, SessionPerson, SessionRecord,
+  GlanceReport, OutcomeReport, RoutineRecord, Selection, SessionPerson, SessionRecord,
 } from './launcher';
 import {
   pickUpTheSession, readGlancesInto, readHistoryInto, readLaunchpadInto, startTheSession,
 } from './launcher-source';
 import type { GlanceReading, Launchpad } from './launcher-source';
+import {
+  RUNNER_ADDRESS, RUNNER_WAY_IN_LABEL, RUNNER_WAY_IN_WORDS, sessionAddress,
+} from './runner';
 import type { LocalStore } from '../../core/store/store.js';
 
 /**
@@ -195,12 +199,21 @@ function SessionPeople({ people }: { people: readonly SessionPerson[] }) {
 export function CalendarScreen({ destination }: { destination: Destination }) {
   const opening = useLocalStore();
   const store = opening.state === 'open' ? opening.store : null;
+  // Whether the shipped library reached this device. Read here and worded below, where the routine
+  // list is empty — this is the screen the coach meets that fact on, because it is the screen where
+  // an empty library stops him doing the thing he opened the app to do.
+  const snag = librarySnag(useLibrarySeeding());
 
   // WHO HE CAME HERE TO TRAIN, if he arrived from a person's row on the register. A query on this
   // destination rather than an address of its own: this is the calendar with one answer already
   // filled in, not a second place. `circular-navigation.ts` owns the key and the words.
   const [address] = useSearchParams();
   const arrivedWith = address.get(WITH_CLIENT_KEY);
+
+  // WHERE A STARTED SESSION GOES. The runner is the screen that runs it, and it is reached rather
+  // than rendered in place: the address is what survives a refresh, and the coach mid-session whose
+  // laptop slept comes back to it by that address.
+  const goToTheSession = useNavigate();
 
   // The chosen set STARTS with him and is his from that moment: this is the initial value of state,
   // not a value forced on every render, so unchoosing him sticks. A screen that re-imposed the
@@ -255,6 +268,21 @@ export function CalendarScreen({ destination }: { destination: Destination }) {
     return found;
   }, [pad]);
 
+  /**
+   * Every routine's whole RECORD by its content key.
+   *
+   * Handed to the core when a session opens, so the live handle the runner receives already carries
+   * the routine and projects a view with its lines in it. Without one the view still describes
+   * everything that HAPPENED, but "what has nothing recorded against it yet" would be unknown — and
+   * this screen has the record in its hand, so making the runner re-read it would be a second read
+   * of something already here.
+   */
+  const routinesByKey = useMemo(() => {
+    const found = new Map<string, RoutineRecord>();
+    for (const routine of pad?.routines.items ?? []) found.set(routine.content.id, routine);
+    return found;
+  }, [pad]);
+
   const chosenNames = chosenIds.map((id) => namesById.get(id) ?? id);
   const routineName = selection.routineId === null
     ? null
@@ -291,9 +319,16 @@ export function CalendarScreen({ destination }: { destination: Destination }) {
         // HIS ANSWER, explicitly, every time. Nothing here defaults it and the core no longer does.
         mode: selection.mode,
         meetUrl: linkToStore(selection),
+        routine: routinesByKey.get(selection.routineId) ?? null,
       });
       setOutcome(describeOutcome(answer));
       setReloads((count) => count + 1);
+      // THE LEASE IS NOW HELD FOR THE RUNNER, so the runner is where he goes. Leaving him on the
+      // calendar with a session open behind the screen would be this window holding a lease nothing
+      // on screen is using.
+      if (answer.ok && answer.session_id !== undefined) {
+        goToTheSession(sessionAddress(answer.session_id));
+      }
     } catch (error: unknown) {
       console.error('[calendar] the session could not be started', error);
       setOutcome({
@@ -306,16 +341,23 @@ export function CalendarScreen({ destination }: { destination: Destination }) {
     } finally {
       setStarting(false);
     }
-  }, [store, starting, start.canStart, selection]);
+  }, [store, starting, start.canStart, selection, routinesByKey, goToTheSession]);
 
   const pressPickUp = useCallback(
-    async (sessionId: string) => {
+    async (sessionId: string, routineKey: string) => {
       if (store === null || starting) return;
       setStarting(true);
       setOutcome(null);
       try {
-        setOutcome(describeOutcome(await pickUpTheSession(store, sessionId)));
+        // PICKING UP IS THE SAME OPERATION AS STARTING, and it hands the lease over the same way —
+        // a resumed session whose handle was dropped would put him in front of a runner that cannot
+        // write, forty minutes into a session that already has facts in it.
+        const answer = await pickUpTheSession(
+          store, sessionId, routinesByKey.get(routineKey) ?? null,
+        );
+        setOutcome(describeOutcome(answer));
         setReloads((count) => count + 1);
+        if (answer.ok) goToTheSession(sessionAddress(sessionId));
       } catch (error: unknown) {
         console.error('[calendar] the session could not be picked up', error);
         setOutcome({
@@ -328,7 +370,7 @@ export function CalendarScreen({ destination }: { destination: Destination }) {
         setStarting(false);
       }
     },
-    [store, starting],
+    [store, starting, routinesByKey, goToTheSession],
   );
 
   const known = opening.state === 'open';
@@ -352,6 +394,27 @@ export function CalendarScreen({ destination }: { destination: Destination }) {
             {destination.label}
           </h2>
         </div>
+
+        {/*
+          THE WAY INTO THE SESSION RUNNER, AND IT IS DRAWN IN EVERY STATE OF THIS SCREEN.
+
+          Permanent, and never conditional on there being a session open — the same choice, for the
+          same reason, as the links to the four other screens that are not destinations: a way in
+          that appears only when there is something to see is a way in he cannot learn, and he needs
+          it most in the state where this screen has least to say. It is also the way BACK to a
+          session he is running after he has been somewhere else, which is the case that has no other
+          answer: the runner is not in the navigation surface, deliberately, because a session is
+          opened by starting or picking one up rather than walked into.
+
+          `no-dead-ends.test.ts` requires exactly this of every route that is not a destination — a
+          LABELLED link that RESOLVES, from a screen that is itself reachable — and it requires it of
+          the screen as rendered, which includes the state where the local store has not opened.
+        */}
+        <p className="inline">
+          <Glyph name="link-forward" size="inline" decorative />
+          <Link to={RUNNER_ADDRESS}>{RUNNER_WAY_IN_LABEL}</Link>
+        </p>
+        <p className="muted read">{RUNNER_WAY_IN_WORDS}</p>
 
         {known ? (
           <>
@@ -403,8 +466,22 @@ export function CalendarScreen({ destination }: { destination: Destination }) {
             )}
 
             <h3 id="screen-calendar-which" className="title-section">{SECTION_TITLES.routine}</h3>
+            {/*
+              WHY THERE IS NOTHING TO CHOOSE FROM, AND THE TWO ANSWERS ARE NOT THE SAME ANSWER.
+
+              The shipped library is put on the device the first time the app opens there. So an
+              empty routine list means the coach DELETED the routines, which is his decision and
+              which the app does not undo behind him — {@link NO_ROUTINES} says exactly that. A
+              library that could NOT be written is a different fact with a different thing to do
+              about it, and showing the deletion sentence over it would tell him he deleted
+              something that never arrived. `librarySnag` is the judgement and it is asserted with
+              no rendering at all.
+            */}
             {pad === null || pad.routines.items.length === 0 ? (
-              <p className="muted read">{NO_ROUTINES}</p>
+              <>
+                <LibraryNotice condition={snag} />
+                {snag === null && <p className="muted read">{NO_ROUTINES}</p>}
+              </>
             ) : (
               <>
                 {/*
@@ -594,7 +671,7 @@ export function CalendarScreen({ destination }: { destination: Destination }) {
                     type="button"
                     className="btn btn-sm"
                     disabled={starting}
-                    onClick={() => void pressPickUp(report.sessionId)}
+                    onClick={() => void pressPickUp(report.sessionId, session.content.routine_id)}
                   >
                     <Glyph name="session-start" size="inline" decorative />
                     {report.pickUpLabel}

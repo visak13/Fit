@@ -35,6 +35,8 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { Glyph } from '../design/Glyph';
+import { LIBRARY_NOT_YET, seedingAfterOpening } from './library-seeding';
+import type { LibraryCondition, LibrarySeeding } from './library-seeding';
 import {
   NO_REMOVAL_RECORDED_YET, STILL_OPENING, STILL_OPENING_WORDS, beginOpening, oneMoreRemoval,
 } from './local-store';
@@ -42,6 +44,7 @@ import type { LocalRemovals, LocalStoreOpening } from './local-store';
 import type { LocalStore } from '../../core/store/store.js';
 
 export type { LocalRemovals, LocalStoreCondition, LocalStoreOpening } from './local-store';
+export type { LibraryCondition, LibrarySeeding } from './library-seeding';
 
 const LocalStoreContext = createContext<LocalStoreOpening | null>(null);
 
@@ -56,11 +59,28 @@ const LocalStoreContext = createContext<LocalStoreOpening | null>(null);
  */
 const LocalRemovalsContext = createContext<LocalRemovals | null>(null);
 
+/**
+ * Whether the shipped library reached this device, on the SAME provider for the same reason the
+ * removal count is: this is the SOURCE, and the library answer is produced by the opening it owns.
+ *
+ * It is NOT a sixth seam. The five carry a frozen READING pushed down from above; this is a fact
+ * about the resource this provider already holds, and it arrives with it. `shell/seams.test.ts` is
+ * untouched and the five-seam property is unchanged.
+ */
+const LibrarySeedingContext = createContext<LibrarySeeding | null>(null);
+
 export function LocalStoreProvider({
   opening,
+  // WHY THIS IS OPTIONAL WHERE `opening` IS REQUIRED. A provider given no library answer publishes
+  // `not-yet` — the honest pre-answer state, and pointedly not `ready`. It is optional because a
+  // test that renders a screen against a store it built itself is not exercising the seeding at all,
+  // and making every such call site pass a value it has no opinion about would be noise that hides
+  // the call sites which DO have one.
+  library = LIBRARY_NOT_YET,
   children,
 }: {
   opening: LocalStoreOpening;
+  library?: LibrarySeeding;
   children: ReactNode;
 }) {
   // The count of removals committed here in this sitting. It lives on the provider because the
@@ -75,7 +95,9 @@ export function LocalStoreProvider({
 
   return (
     <LocalStoreContext.Provider value={opening}>
-      <LocalRemovalsContext.Provider value={removals}>{children}</LocalRemovalsContext.Provider>
+      <LibrarySeedingContext.Provider value={library}>
+        <LocalRemovalsContext.Provider value={removals}>{children}</LocalRemovalsContext.Provider>
+      </LibrarySeedingContext.Provider>
     </LocalStoreContext.Provider>
   );
 }
@@ -113,11 +135,35 @@ export function useLocalRemovals(): LocalRemovals {
 }
 
 /**
- * Opens the local store once, and provides whatever state it is in.
+ * Whether the shipped library reached this device, from any screen inside the provider.
+ *
+ * @throws Error when used outside the provider, for the same reason {@link useLocalStore} does: a
+ * screen that silently believed the library was fine would show "there are no routines in your
+ * library" over a device where the seeding had failed, which is the reassuring half of the truth.
+ */
+export function useLibrarySeeding(): LibrarySeeding {
+  const seeding = useContext(LibrarySeedingContext);
+  if (seeding === null) {
+    throw new Error(
+      'useLibrarySeeding was used outside LocalStoreProvider: the local store is not wired',
+    );
+  }
+  return seeding;
+}
+
+/**
+ * Opens the local store once, seeds the shipped library into it if this device has never been
+ * seeded, and provides whatever state each of those is in.
  *
  * `open` is injected rather than reached for, so this component is the same component in the
  * application and in a test: `main.tsx` passes the real opening, and a test passes a refusal or a
  * store built on the core's own platform double.
+ *
+ * THE SEEDING IS WRAPPED AROUND `open` RATHER THAN RUN BESIDE IT, and `platform/library-seeding.ts`
+ * holds the whole argument for why — in one line: a screen that is told the store is open starts
+ * reading content immediately, so the library question has to be settled before that is said. The
+ * store is handed on whether the seeding worked or not; a seeding fault is a separate value with its
+ * own words, never a store that failed to open.
  *
  * The effect closes the store on the way out, in the scope that opened it. `open` must be a stable
  * reference — a module-level function — or the store is reopened on every render; that is a
@@ -131,10 +177,19 @@ export function OpeningLocalStore({
   children: ReactNode;
 }) {
   const [opening, setOpening] = useState<LocalStoreOpening>(STILL_OPENING);
+  const [library, setLibrary] = useState<LibrarySeeding>(LIBRARY_NOT_YET);
 
-  useEffect(() => beginOpening(open, setOpening), [open]);
+  // Memoised on `open` alone: `setLibrary` is stable, so the wrapped opening is as stable as the
+  // opening it wraps, and the store is still opened once rather than on every render.
+  const openAndSeed = useMemo(() => seedingAfterOpening(open, setLibrary), [open]);
 
-  return <LocalStoreProvider opening={opening}>{children}</LocalStoreProvider>;
+  useEffect(() => beginOpening(openAndSeed, setOpening), [openAndSeed]);
+
+  return (
+    <LocalStoreProvider opening={opening} library={library}>
+      {children}
+    </LocalStoreProvider>
+  );
 }
 
 /**
@@ -159,6 +214,31 @@ export function LocalStoreNotice({ opening }: { opening: LocalStoreOpening }) {
 
   const { condition } = opening;
 
+  return <ConditionNotice condition={condition} />;
+}
+
+/**
+ * What a surface says when the shipped library could not be put on this device.
+ *
+ * It renders NOTHING unless there is something wrong, so a screen can place it above its own body
+ * without asking twice — and it says nothing at all while the store is still opening, because the
+ * store's own notice is already saying that and two notices about one condition read as two faults.
+ */
+export function LibraryNotice({ condition }: { condition: LibraryCondition | null }) {
+  if (condition === null) return null;
+  return <ConditionNotice condition={condition} />;
+}
+
+/**
+ * A condition, drawn. ONE drawing for the store's refusals and the library's, because they are the
+ * same four sentences said about different things and a second layout would be a second thing to
+ * keep true — the headline is what tells him which of them he is reading.
+ */
+function ConditionNotice({
+  condition,
+}: {
+  condition: { headline: string; whatHappened: string; whatToDo: string; verbatim: string | null };
+}) {
   return (
     <section className="card-body stack" aria-live="polite">
       <p className="note read">

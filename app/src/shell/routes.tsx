@@ -34,11 +34,12 @@ import { KeyMaterialConditionScreen } from '../screens/KeyMaterialConditionScree
 import { NotFoundScreen } from '../screens/NotFoundScreen';
 import { PlaceholderScreen } from '../screens/PlaceholderScreen';
 import { RemovalsScreen } from '../screens/RemovalsScreen';
+import { RunnerScreen } from '../screens/RunnerScreen';
 import { StoppedChangesScreen } from '../screens/StoppedChangesScreen';
 import { AppFrame } from './AppFrame';
 import {
   DEFAULT_DESTINATION_PATH, DESTINATIONS, DIVERGENCES_PATH, KEY_MATERIAL_PATH, REMOVALS_PATH,
-  STOPPED_CHANGES_PATH,
+  SESSION_PATH, STOPPED_CHANGES_PATH,
 } from './navigation';
 import type { Destination } from './navigation';
 
@@ -87,6 +88,9 @@ export const ROUTE_TABLE: readonly RouteObject[] = [
       { path: KEY_MATERIAL_PATH, element: <KeyMaterialConditionScreen /> },
       { path: STOPPED_CHANGES_PATH, element: <StoppedChangesScreen /> },
       { path: REMOVALS_PATH, element: <RemovalsScreen /> },
+      // WHICH session is a QUERY on this one address rather than a segment under it, so there is one
+      // route here and not two. `shell/navigation.ts` holds the argument.
+      { path: SESSION_PATH, element: <RunnerScreen /> },
       { path: '*', element: <NotFoundScreen /> },
     ],
   },

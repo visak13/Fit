@@ -247,6 +247,12 @@ if (rootElement === null) {
 
   `openTheLocalStore` is passed in rather than reached for, and it is a module-level function so the
   reference is stable: the store is opened once, not on every render.
+
+  THE SHIPPED LIBRARY IS SEEDED INSIDE THAT OPENING, and this is the one line saying so at the top of
+  the application. `OpeningLocalStore` wraps `openTheLocalStore` in `seedingAfterOpening`, so a fresh
+  device has its exercises and routines before any screen is told the store is open — see
+  `platform/library-seeding.ts` for why first-open and not here at bootstrap, and for why a seeding
+  that fails is a condition with its own words rather than a store that would not open.
 */
 createRoot(rootElement).render(
   <StrictMode>

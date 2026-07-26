@@ -68,7 +68,7 @@ import { DivergenceProvider, NOTHING_TO_DECIDE } from './Divergences.tsx';
 import { KeyMaterialProvider, NO_KEY_MATERIAL_CONDITION } from './KeyMaterial.tsx';
 import {
   DEFAULT_DESTINATION_PATH, DESTINATIONS, DIVERGENCES_PATH, KEY_MATERIAL_PATH, REMOVALS_PATH,
-  STOPPED_CHANGES_PATH,
+  SESSION_PATH, STOPPED_CHANGES_PATH,
 } from './navigation.ts';
 import { NOTHING_AWAITING_REMOVAL, RemovalsProvider } from './Removals.tsx';
 import { ROUTE_TABLE } from './routes.tsx';
@@ -393,19 +393,27 @@ describe('an address the application does not have', () => {
 /**
  * Every route this table carries that is not a destination, as an address a coach could restore.
  *
- * FOUR of them now, and the second is why each entry carries the identifier of the screen it must
- * produce rather than the suite asserting one screen by name. All four are reached from Admin and all
- * four would fall through to not-found in exactly the same way; an assertion that only ever named the
- * picker would have gone on passing for the picker while the others resolved to nothing.
+ * FIVE of them now, and the second is why each entry carries the identifier of the screen it must
+ * produce rather than the suite asserting one screen by name. All of them would fall through to
+ * not-found in exactly the same way; an assertion that only ever named the picker would have gone on
+ * passing for the picker while the others resolved to nothing.
  *
- * The two added last are the pair `core/status/reasons.js` had already named an action code for and the
- * pending-removal list that `core/sync/deletions.js` had been keeping honestly with nobody reading it.
+ * The two added in the middle are the pair `core/status/reasons.js` had already named an action code for
+ * and the pending-removal list that `core/sync/deletions.js` had been keeping honestly with nobody
+ * reading it.
+ *
+ * THE FIFTH IS THE ONE THE APPLICATION EXISTS FOR, and it is the first that is not reached from Admin:
+ * the session runner is reached from the CALENDAR, which is where both doors into a session are. It is
+ * addressed with no session named here on purpose — that is the state a coach meets when he follows the
+ * standing link without a session running, and it is the state that must still be a screen with words
+ * on it rather than a blank frame.
  */
 const UNLISTED_SCREENS = [
   { what: 'the divergence picker', published: `${PUBLISHED_ORIGIN}#/${DIVERGENCES_PATH}`, id: 'id="screen-divergences"' },
   { what: 'the key-material condition screen', published: `${PUBLISHED_ORIGIN}#/${KEY_MATERIAL_PATH}`, id: 'id="screen-key-material"' },
   { what: 'the stopped-changes review', published: `${PUBLISHED_ORIGIN}#/${STOPPED_CHANGES_PATH}`, id: 'id="screen-stopped-changes"' },
   { what: 'the pending-removal list', published: `${PUBLISHED_ORIGIN}#/${REMOVALS_PATH}`, id: 'id="screen-removals"' },
+  { what: 'the session runner', published: `${PUBLISHED_ORIGIN}#/${SESSION_PATH}`, id: 'id="screen-session"' },
 ];
 
 const UNLISTED_ADDRESSES = UNLISTED_SCREENS.map((entry) => entry.published);

@@ -26,19 +26,25 @@
  * No validation, no wording, no judgement. `core/model/entities/session.js` is the schema and it is
  * sealed; `screens/launcher.ts` holds every sentence. This file moves records.
  *
- * ## THE ONE THING THAT IS HONEST RATHER THAN COMPLETE
+ * ## THE HANDLE IS NO LONGER LET GO — IT IS HANDED OVER, AND THIS IS THE STEP THAT SAID IT WOULD BE
  *
- * {@link startTheSession} starts a real session and then LETS THE HANDLE GO. The screen that runs a
- * session is the next step and does not exist, and a handle held by a screen that cannot run one
- * would hold the store's lease on it — locking the coach out of the session from every window,
- * including the one that will eventually be able to run it. `LiveSession.detach` is the core's own
- * verb for exactly this: it releases the lease and leaves the session at `in_progress`, which is
- * precisely where a power cut would have left it and is picked up the same way. So the session is
- * real, nothing is lost, and it appears among the unfinished ones. `launcher.ts` says so on screen;
- * the failure this avoids is a screen that starts something and then shows him nothing.
+ * This file used to RELEASE the store's lease on every session it opened, through a function called
+ * `letGo`, and its header said in as many words what would change here: "this function stops
+ * detaching and hands the live handle to the runner. Nothing else here moves." That is what happened.
+ * Releasing was correct while no screen could run a session — a held lease with no runner locks the
+ * coach out of his own session from every window — and it became wrong the moment the runner existed,
+ * because a runner handed an outcome with the handle stripped out is refused by the store at its
+ * first write, in front of a waiting client.
  *
- * WHAT THE NEXT STEP CHANGES: this function stops detaching and hands the live handle to the runner.
- * Nothing else here moves.
+ * BOTH DOORS HAND OVER, and that is the half a handover forgets. {@link startTheSession} and
+ * {@link pickUpTheSession} are the SAME operation as far as the core is concerned — `openSession` is
+ * its only door and does the same thing whether a session is seconds old or was disturbed forty
+ * minutes in. A handover written for the start path alone would strand every RESUMED session with a
+ * runner holding no lease, which is the case a real coach meets after a power cut and the case
+ * nobody thinks to try.
+ *
+ * `screens/session-handover.ts` holds the handle and every rule about holding it. Nothing else here
+ * moved.
  */
 
 import { previousSessionAtAGlance } from '../../core/session/glance.js';
@@ -50,6 +56,7 @@ import type { LocalStore } from '../../core/store/store.js';
 import type {
   ClientRecord, Glance, OpenOutcome, Page, RoutineRecord, SessionMode, SessionRecord,
 } from './launcher';
+import { handOver, heldSession } from './session-handover';
 
 /**
  * How many people, routines and sessions are read in one page.
@@ -311,6 +318,17 @@ export interface StartRequest {
   readonly mode: SessionMode;
   /** A link he pasted, or null. Never minted here, and never present on an in-person session. */
   readonly meetUrl: string | null;
+  /**
+   * The routine's own record, when the screen has it — and it does, because the coach chose it from
+   * the list this file read.
+   *
+   * PASSED SO THE RUNNER RECEIVES A VIEW WITH THE ROUTINE'S LINES IN IT. `projectSession` derives
+   * the plan from the routine envelope it is given; without one the view still describes everything
+   * that HAPPENED, but the lines the routine named — and therefore everything not yet recorded — are
+   * unknown. The handle is handed over already carrying it, so the runner does not re-read something
+   * the launcher had in its hand.
+   */
+  readonly routine?: RoutineRecord | null;
 }
 
 /**
@@ -327,8 +345,8 @@ export interface StartRequest {
  * any kind. `meetSource` is `pasted` for the same reason: it is the truth about where the link came
  * from, and the record holds a link and its origin to travelling together.
  *
- * The handle is released immediately — see the file header for why that is the honest thing and not
- * a shortcut.
+ * The handle is HANDED OVER to the runner rather than released — see the file header, and
+ * `screens/session-handover.ts` for what holding it means.
  */
 export async function startTheSession(
   store: LocalStore,
@@ -338,10 +356,11 @@ export async function startTheSession(
     routineId: request.routineId,
     clientIds: [...request.clientIds],
     mode: request.mode,
+    routine: request.routine ?? null,
     ...(request.meetUrl === null ? {} : { meetUrl: request.meetUrl, meetSource: 'pasted' }),
   });
 
-  return letGo(outcome);
+  return handOver(store, outcome);
 }
 
 /**
@@ -354,30 +373,22 @@ export async function startTheSession(
  * Its refusals are returned as values rather than thrown, because they are ordinary situations the
  * coach needs a sentence for: the session is open in his other window, it is not on this device, it
  * has already finished. `describeOutcome` shows the core's own sentence for each.
+ *
+ * IT HANDS OVER FOR THE SAME REASON THE START PATH DOES, and this is the half a handover forgets.
+ * Picking a session up is not a lesser operation than starting one; a resumed session whose handle
+ * was dropped here would put the coach in front of a runner that cannot write, forty minutes into a
+ * session that already has facts in it.
+ *
+ * IF THIS WINDOW IS ALREADY RUNNING THAT SESSION, IT IS NOT REOPENED. Asking the store for a lease
+ * this window already holds would be refused `held_elsewhere` — and the sentence that comes with that
+ * refusal says the session is open in his OTHER window, which would be a lie about a window he is
+ * looking at. What is held is handed straight back.
  */
 export async function pickUpTheSession(
   store: LocalStore,
   sessionId: string,
+  routine: RoutineRecord | null = null,
 ): Promise<OpenOutcome> {
-  return letGo(await openSession(store, sessionId));
-}
-
-/**
- * Release the live handle, keeping whatever the core said about opening it.
- *
- * A failure to release is reported and swallowed DELIBERATELY: the session itself started, which is
- * what the coach is being told, and turning a lease that would not release into a failed start would
- * report the wrong thing about the wrong operation. The lease is scoped to this window and goes when
- * it closes.
- */
-async function letGo(outcome: OpenOutcome): Promise<OpenOutcome> {
-  const live = (outcome as { session?: { detach: () => Promise<unknown> } }).session;
-  if (outcome.ok && live !== undefined) {
-    try {
-      await live.detach();
-    } catch (error: unknown) {
-      console.error('[calendar] the session started but its handle would not be released', error);
-    }
-  }
-  return { ok: outcome.ok, reason: outcome.reason, message: outcome.message, session_id: outcome.session_id };
+  if (heldSession(store, sessionId) !== null) return { ok: true, session_id: sessionId };
+  return handOver(store, await openSession(store, sessionId, { routine }));
 }

@@ -1567,6 +1567,24 @@ button[disabled],
   text-overflow: ellipsis;
 }
 
+/*
+ * A BLOCK THAT OPENS INSIDE A WRAPPING ROW — what is already recorded against that row, and the
+ * panel of values the session runner opens in place.
+ *
+ * MEASURED at 390px (s6/a4), not reasoned: a nested `ul.rows` dropped inside a `li.row` is a FLEX
+ * ITEM, so it was sized by its own content and ran 103px PAST THE VIEWPORT — its words were simply
+ * not there to be read, and every property check on it was green because none of them is a question
+ * about composition. `flex: 1 0 100%` makes it a line of its own inside the wrap the row already
+ * does, and `min-width: 0` is what lets its own children ellipsize instead of pushing outward.
+ *
+ * It belongs here rather than in the runner because a row that opens is a row shape, and the second
+ * screen that needs one would otherwise invent a second version of it.
+ */
+.row-panel {
+  flex: 1 0 100%;
+  min-width: 0;
+}
+
 /* A group of rows where the group itself is the control, rather than a card. */
 .rows-boxed {
   border: var(--border-control) solid var(--line-control);
@@ -2049,4 +2067,27 @@ input[type='checkbox'] {
 .row-sentence {
   flex: 1 1 auto;
   min-width: 0;
+}
+
+/*
+ * A LINE OF FEEDBACK WHOSE WORDS CHANGE WHILE THE PANEL STAYS OPEN, holding its own height. Added by
+ * the session runner's readings surface (s6/a5).
+ *
+ * MEASURED, at 390px, in a real session: the reading panel was 546px tall with "Nothing recorded from
+ * here yet." on this line and 572px with "Recorded for Marcus Bell: Heart rate 131 bpm." — the same
+ * line, one word longer than one line's worth. Those 26 pixels moved the routine the coach was
+ * reading, at the exact moment he recorded a reading, which is the one property
+ * `core/session/SESSION.md` §6 hands that screen.
+ *
+ * Chromium's scroll anchoring compensated for it exactly and hid it — scrollTop moved by the same 26
+ * pixels — and that is precisely why the height is reserved rather than left to the browser: this
+ * build is designed to the WEAKER iOS baseline by a recorded decision, WebKit does not implement
+ * `overflow-anchor`, and on the coach's own phone nothing would have compensated.
+ *
+ * TWO LINES at the reading floor's own leading, because that is what the longest sentence this line
+ * carries needs. It is a floor and not a cap: a third line still grows, so the words that go here are
+ * kept short at the point they are written.
+ */
+.status-held {
+  min-height: calc(2em * var(--leading-loose));
 }

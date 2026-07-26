@@ -179,3 +179,36 @@ export const STOPPED_CHANGES_PATH = 'stopped-changes';
  * local store — which is honest on day one and needs nothing from Google.
  */
 export const REMOVALS_PATH = 'removals';
+
+/**
+ * THE SESSION RUNNER'S ADDRESS — the fifth non-destination, and the first one the coach reaches by
+ * doing his job rather than by something having gone wrong.
+ *
+ * `screens/circular-navigation.ts` predicted this route before it existed: "its first real case is
+ * the session's own screen, which genuinely sits inside a destination rather than being one". A
+ * session is reached FROM the calendar and belongs to it; it is not a sixth place in the application.
+ *
+ * NOT A DESTINATION, and the reason is not the one the four above it give. Theirs is that they are
+ * episodic and would be empty almost every visit. This one is different: it is the screen the whole
+ * application exists for, and it is still not a destination — because a permanent entry in the
+ * navigation surface would be a way to walk INTO a session, and a session is not somewhere you walk
+ * into. It is opened by starting one or by picking one up, both of which are on the calendar, and
+ * both of which take the store's lease on it. An entry that could not do that would be a fifth door
+ * that only ever says "nothing is open".
+ *
+ * WHICH SESSION IS A QUERY, NOT A PATH SEGMENT, and the argument is `circular-navigation.ts`'s own:
+ * a query is the same place with one answer filled in, where a path segment would be a second
+ * address for one screen and `no-dead-ends.test.ts` would then be holding two routes where the
+ * application has one. The key itself is spelled once, in `screens/runner.ts`, beside the words that
+ * go with it. A record IDENTITY and nothing else travels in it — never a name, for the reason that
+ * file gives: an address is the part of this application that gets bookmarked and read over
+ * somebody's shoulder.
+ *
+ * The address therefore survives a refresh and a cold start, which matters more here than anywhere
+ * else in the application: the coach reopening the app after his laptop slept is the case the whole
+ * session layer is shaped around.
+ *
+ * Reachability is not free and is not assumed: `no-dead-ends.test.ts` proves the way in from the
+ * calendar exists, is labelled and resolves.
+ */
+export const SESSION_PATH = 'session';

@@ -731,10 +731,35 @@ export const NO_CLIENTS =
   'Nobody is on your register yet. Add the people you train under Clients, on the navigation, and '
   + 'they appear here.';
 
-/** Said when there is no routine in the library to choose from. */
+/**
+ * Said when there is no routine in the library to choose from.
+ *
+ * ## IT USED TO POINT AT ROUTINES, AND THAT WAS A SIGNPOST TO NOWHERE
+ *
+ * The words were "Build one under Routines, on the navigation, and it appears here." Routines is
+ * still a PLACEHOLDER destination — it says so honestly when he gets there, and it cannot build
+ * anything. Each half was defensible alone: an empty state that says what to do next is good
+ * practice, and a placeholder that admits it is unbuilt is honest. Together they were worse than
+ * either, because the app's single instruction led to a screen that could not help, and a coach who
+ * follows an instruction and finds nothing concludes the app is BROKEN rather than unfinished.
+ *
+ * ## SO IT NOW EXPLAINS RATHER THAN DIRECTS
+ *
+ * And what it explains has become true: the shipped library is now put on the device the first time
+ * the app opens there (`platform/library-seeding.ts`), so an empty routine list no longer means "you
+ * have not built one yet" — it means the routines that came with the app have been DELETED from this
+ * device, which is a decision the coach made and which the app deliberately does not undo behind
+ * him. There is no honest instruction to give him yet: putting the shipped set back is the admin
+ * reset, and that is not built. Naming it here would be the same fault in a new place.
+ *
+ * A DIFFERENT SENTENCE IS SHOWN when the seeding could not happen at all — that is not an empty
+ * library, it is a failure, and it has its own words and its own thing to do. See
+ * `platform/library-seeding.ts` and `librarySnag`.
+ */
 export const NO_ROUTINES =
-  'There are no routines in your library yet. Build one under Routines, on the navigation, and it '
-  + 'appears here.';
+  'There are no routines in your library. The exercises and routines this app comes with were put '
+  + 'on this device when it first opened here, so an empty list means they have since been deleted '
+  + 'from it.';
 
 /** Said above the glance panel before anybody has been chosen. */
 export const GLANCE_NOBODY_CHOSEN = 'Choose who is training and their last session appears here.';

@@ -10,7 +10,9 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { createEnvelope } from '../model/model.js';
-import { aClient, aSealedValue } from '../model/fixtures.js';
+import { aClient, aPerformedRecord, aSealedValue, aSession } from '../model/fixtures.js';
+import { PERFORMED_RECORD_FIELDS } from '../model/entities/performed-record.js';
+import { SESSION_FIELDS } from '../model/entities/session.js';
 import { DELETION_MANIFEST_VERSION } from '../store/store.js';
 import { SyncDocumentError, SyncPayloadRefused } from './errors.js';
 import {
@@ -89,6 +91,76 @@ describe('sync/payload — a whitelist, and why it is not a blacklist', () => {
     });
     const back = decodeDocument(text);
     assert.deepEqual(back.records[0].content.clinical_note, sealed, 'and survives the round trip byte for byte');
+  });
+
+  /**
+   * THE INTENSITY LEVEL ON THE WIRE, PROVED IN BOTH DIRECTIONS RATHER THAN ASSUMED.
+   *
+   * `intensity_level` is what the adapter calibrates against, and it is OPTIONAL on a performed
+   * record: it is genuinely absent on every fact written before the runner recorded one, on a line run
+   * under no accepted curve, and on a substitution the coach made himself. Both shapes therefore
+   * travel between the coach's two devices at the same time, and both must survive.
+   *
+   * The claim being tested is the strong one — that this costs the wire NOTHING. It is proved rather
+   * than argued because "adding nothing cannot break anything" is exactly the assumption that turns
+   * out to be false: the whitelist rebuild refuses any content key the contract does not know, so a
+   * field's presence in the contract is what makes it wire-legal, and nothing else.
+   */
+  const aPerformedEnvelope = (content) => createEnvelope({
+    type: 'performed-record', content, device: 'coach-laptop', now: T0,
+  });
+
+  it('a performed record travels WITH and WITHOUT its intensity level, at the same document version', () => {
+    const withLevel = aPerformedEnvelope(aPerformedRecord({ intensity_level: 'high' }));
+    const without = aPerformedEnvelope(aPerformedRecord());
+
+    // NEW READS NEW, and OLD READS NEW: one document carrying both shapes at once, which is what a
+    // device that has recorded under a curve and a device that has not actually produce.
+    const text = encodeDocument({
+      kind: DOCUMENT_KINDS.PUSH, device: 'coach-laptop', records: [withLevel, without], writtenAt: T0,
+    });
+    const back = decodeDocument(text);
+
+    assert.equal(back.document_version, DOCUMENT_VERSION);
+    assert.equal(DOCUMENT_VERSION, 1, 'reading an optional field is not a change of document shape');
+    assert.equal(back.records[0].content.intensity_level, 'high', 'the level survives the round trip');
+    assert.equal(Object.hasOwn(back.records[1].content, 'intensity_level'), false,
+      'and its ABSENCE survives too, rather than arriving as a null the reader would have to interpret');
+    assert.deepEqual(outboundRecord(withLevel).content, withLevel.content);
+    assert.deepEqual(outboundRecord(without).content, without.content,
+      'a level-less record goes out byte-identical to what a build that never wrote one produces');
+  });
+
+  it('NOTHING WAS ADDED for the intensity level: the record contracts are where they already were', () => {
+    // The level lives on the PERFORMED record and NOT on the session, and the reason belongs beside
+    // the assertion because two people have already conflated the two entities. A curve is CHOSEN once
+    // for a session, but PERFORMANCE is per client and per exercise: a session walks a curve, so its
+    // lines are deliberately at DIFFERENT points. A field on the session could only say which curve
+    // was chosen, never the point a particular line was worked at — and every guarantee the adapter
+    // makes reads the latter. On both would be two sources of truth about one fact, which this build
+    // has already refused over stored cursors and over seeding flags.
+    assert.ok(PERFORMED_RECORD_FIELDS.includes('intensity_level'),
+      'the field the adapter calibrates against is already part of the contract');
+    assert.equal(SESSION_FIELDS.includes('intensity_level'), false,
+      'a session records which curve was chosen at most, never the point one line was worked at');
+
+    // And putting one on a session is REFUSED ON THE WIRE rather than quietly ignored, so the wrong
+    // home for this fact cannot be reached by accident by a later editor. Refused at the OUTBOUND
+    // rebuild, which is where the content contract is actually applied — `createEnvelope` wraps
+    // whatever it is handed, and a probe caught this test asserting the refusal in the wrong place.
+    const wrongHome = createEnvelope({
+      type: 'session', content: { ...aSession(), intensity_level: 'high' },
+      device: 'coach-laptop', now: T0,
+    });
+    assert.throws(() => outboundRecord(wrongHome), SyncPayloadRefused,
+      'a level on the session record must not be able to travel, let alone be read as a second truth');
+
+    // NON-VACUITY: the same session WITHOUT it goes out fine, so the refusal above is about the field
+    // rather than about a fixture the contract was never going to accept.
+    const rightShape = createEnvelope({
+      type: 'session', content: aSession(), device: 'coach-laptop', now: T0,
+    });
+    assert.deepEqual(outboundRecord(rightShape).content, rightShape.content);
   });
 
   it('refuses a record whose envelope does not conform', () => {
