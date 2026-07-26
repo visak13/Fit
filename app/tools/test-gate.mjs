@@ -256,9 +256,17 @@ export async function runTestGate(plan) {
     if (failures.length > 0) {
       console.error('\nrefusing to record floors from a run that did not pass cleanly.');
     } else {
+      // measuredAt is written HERE, by the same statement as the counts, and never by hand: a
+      // spread that carries the old date across produces fresh counts under a stale date, which
+      // reads as verified and so stops the reader checking. There is no state in which the counts
+      // are right and the date is not.
       await writeFile(
         coverageFile,
-        `${JSON.stringify({ ...coverage, measured, total }, null, 2)}\n`,
+        `${JSON.stringify(
+          { ...coverage, measuredAt: new Date().toLocaleDateString('en-CA'), measured, total },
+          null,
+          2,
+        )}\n`,
         'utf8',
       );
       console.log(`\nrecorded new floors in ${path.basename(coverageFile)} (total ${total}).`);

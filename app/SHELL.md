@@ -217,6 +217,57 @@ Two elements would be worse than one in the wrong place: two live regions announ
 with a rule that only one of them counts that nothing could check. `src/shell/frame-structure.test.ts`
 holds this.
 
+## The interface does not open the store: every screen consumes a SEAM, and there are three
+
+The core is plain dependency-free modules with a test gate that needs no toolchain, and the shell
+mounts on top of it. A screen reaching into the local store would put the most safety-critical logic
+in the application behind a build step, so no screen does. Instead `main.tsx` fills in a required
+provider and screens read it:
+
+| seam | what it carries | filled with today |
+|---|---|---|
+| `PlatformStatusProvider` | this device's build, persistence answer, offline start | the real, measured answers |
+| `SyncStatusProvider` | the accountability reading from `core/status` | `NO_BACKUP_YET` |
+| `DivergenceProvider` | clashes the core surfaced and could not resolve, and the way to answer one | `NOTHING_TO_DECIDE` |
+
+**Two later screens will copy the third, so copy its SHAPE rather than only its mechanics** — the
+whole of it is stated in `src/shell/Divergences.tsx`:
+
+- The reading is a plain value, never a hook that fetches. A screen cannot start work of its own.
+- Its fields are the core's own, field for field and name for name. `pending` holds the objects
+  `describeDivergence` returned, unconverted. A screen reading a renamed copy drifts from the thing
+  it is showing.
+- **The way to ACT is nullable, and null means no control is drawn at all.** A button that cannot do
+  what its words say is worse than no button — the same argument `core/status/reasons.js` makes about
+  offering an action that does not help, and the reason the synchronisation indicator is a status
+  region rather than a tap today.
+- The provider is REQUIRED and the hook throws outside it. A default would be the layer inventing a
+  state, and the state it would invent — "nothing to decide" — is the one that looks like good news
+  while a clash sits unanswered.
+
+**The screen COLLECTS; the core APPLIES and RECORDS.** `core/sync/resolution.js` writes the chosen
+side at a strictly higher revision and is the one call site of `sync.conflict_resolved`. Nothing under
+`src` may write a journal entry: `core/journal/unwritten-kinds.test.js` asserts that every kind is
+either wired to a named owning file or unwritten with a stated reason, and **its scan walks `core/`
+alone** — a call site here would leave that suite green while the partition it asserts had quietly
+become false. `src/screens/divergence-picker.test.ts` scans `src` for exactly that, and proves the
+scan can find the known call site before believing its silence.
+
+## Not every route is a destination, and reachability is therefore CHECKED
+
+`#/decisions` — the divergence picker — is the first route the navigation surface does not carry. A
+clash between two devices is rare and episodic, and a permanent sixth entry that is empty almost
+every visit is an entry the coach learns to stop reading. It is reached from the Admin screen instead,
+by a link that is there PERMANENTLY rather than only when it has something to say.
+
+The path is named once, in `src/shell/navigation.ts`, and read by both the route table and the screen
+that links to it. `src/shell/no-dead-ends.test.ts` no longer asks whether a route is a destination —
+it asks the thing that actually matters: **every route the navigation surface does not carry must be
+reached by a LABELLED link that RESOLVES, from a screen that is itself reachable**, proven by
+rendering the screens. That is strictly harder to satisfy than membership of a list, and it also
+catches a destination linking onward to something that does not exist, which the old form could not
+see at all.
+
 ## The manifest's two colours are a NAMED exception to the no-literals rule
 
 `public/manifest.webmanifest` carries `theme_color` and `background_color` as literal hex values.
@@ -242,6 +293,12 @@ compares the copies against the token layer, so the two can no longer drift sile
 - **Real synchronisation.** The permanent indicator renders whatever the seam in `main.tsx` gives it,
   and today that is honestly "never synchronised, nothing queued" — there is no local store yet, so
   nothing has ever been backed up because nothing yet can be.
+- **A source behind the divergence seam.** The picker at `#/decisions` is built, and its behaviour is
+  proven against divergences genuinely induced between two real device stores in its own suite — but
+  the running application has no store, so it shows "nothing needs your decision" and offers no
+  buttons, which is what is true. The synchronisation step supplies `pending` from each `syncNow`
+  pass and `resolve` as a call through to `resolveDivergence`; it changes that one line in `main.tsx`
+  and nothing below it.
 
 ## Nothing here may carry a credential
 

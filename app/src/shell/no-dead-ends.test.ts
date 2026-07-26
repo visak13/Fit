@@ -62,8 +62,15 @@ import { createStaticHandler, createStaticRouter, matchRoutes, StaticRouterProvi
 import type { RouteObject } from 'react-router';
 
 import { PlatformStatusProvider } from '../platform/platform-status.tsx';
-import { DEFAULT_DESTINATION_PATH, DESTINATIONS } from './navigation.ts';
+import { DivergenceProvider, NOTHING_TO_DECIDE } from './Divergences.tsx';
+import { KeyMaterialProvider, NO_KEY_MATERIAL_CONDITION } from './KeyMaterial.tsx';
+import {
+  DEFAULT_DESTINATION_PATH, DESTINATIONS, DIVERGENCES_PATH, KEY_MATERIAL_PATH, REMOVALS_PATH,
+  STOPPED_CHANGES_PATH,
+} from './navigation.ts';
+import { NOTHING_AWAITING_REMOVAL, RemovalsProvider } from './Removals.tsx';
 import { ROUTE_TABLE } from './routes.tsx';
+import { NOTHING_STOPPED, StoppedChangesProvider } from './StoppedChanges.tsx';
 import { NO_BACKUP_YET, SyncStatusProvider } from './SyncStatus.tsx';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -179,7 +186,19 @@ async function render(published: string): Promise<string> {
       },
       children: createElement(SyncStatusProvider, {
         reading: NO_BACKUP_YET,
-        children: createElement(StaticRouterProvider, { router, context: context as never }),
+        children: createElement(DivergenceProvider, {
+          reading: NOTHING_TO_DECIDE,
+          children: createElement(KeyMaterialProvider, {
+            reading: NO_KEY_MATERIAL_CONDITION,
+            children: createElement(StoppedChangesProvider, {
+              reading: NOTHING_STOPPED,
+              children: createElement(RemovalsProvider, {
+                reading: NOTHING_AWAITING_REMOVAL,
+                children: createElement(StaticRouterProvider, { router, context: context as never }),
+              }),
+            }),
+          }),
+        }),
       }),
     }),
   );
@@ -238,16 +257,56 @@ describe('every destination the navigation surface offers', () => {
     });
   }
 
-  it('has no route reachable by address that the navigation surface never shows', () => {
+  /**
+   * WHAT THIS ASSERTION USED TO BE, AND WHY IT IS NOW STRONGER RATHER THAN RELAXED.
+   *
+   * It used to require every screen route to BE a destination. That was a proxy for the property
+   * that matters — no screen is reachable only by typing its address — and it held for exactly as
+   * long as every screen was a destination. The divergence picker is deliberately not one: a clash
+   * between two devices is rare, and a permanent sixth entry that is empty almost every visit is an
+   * entry the coach learns to stop reading.
+   *
+   * So the proxy is replaced by the property itself. A non-destination route must be reached by a
+   * LABELLED link that RESOLVES, from a screen that is itself reachable — which is a strictly harder
+   * thing to satisfy than membership of a list, and it is checked by rendering the screens rather
+   * than by reading them. It also now covers the case the old form could not see at all: a
+   * destination whose screen links onward to something that does not exist.
+   */
+  it('reaches every route the navigation surface does NOT carry by a labelled link that resolves', async () => {
     const offered = new Set(DESTINATIONS.map((destination) => destination.path));
-    for (const entry of SCREEN_ROUTES) {
-      if (entry.route.path === '*') continue;
+    const unlisted = SCREEN_ROUTES.map((entry) => entry.route.path ?? '').filter(
+      (path) => path !== '*' && !offered.has(path),
+    );
+
+    // Every link on every screen the coach can already get to, with where it was found.
+    const ways: Array<{ href: string; label: string; from: string }> = [];
+    for (const { published } of DESTINATION_ADDRESSES) {
+      // eslint-disable-next-line no-await-in-loop
+      const html = await render(published);
+      for (const link of links(screenRegion(html))) ways.push({ ...link, from: published });
+    }
+
+    for (const path of unlisted) {
+      const found = ways.filter((way) => {
+        if (way.label.length === 0) return false;
+        const matched = matchRoutes(ROUTES, way.href);
+        return matched !== null && matched.at(-1)?.route.path === path;
+      });
+
       assert.ok(
-        offered.has(entry.route.path ?? ''),
-        `the route table answers to "${entry.route.path}", which no destination offers. A screen ` +
-          'reachable only by typing its address is a screen the coach cannot find.',
+        found.length > 0,
+        `the route table answers to "${path}", which no destination carries and no screen links ` +
+          'to with words. A screen reachable only by typing its address is a screen the coach ' +
+          'cannot find — and it is worse than a missing screen, because the work in it looks done.',
       );
     }
+
+    assert.ok(
+      unlisted.length > 0,
+      'no route is outside the navigation surface, so this check exercised nothing. It is not ' +
+        'wrong yet — but a check that currently proves nothing must not be trusted later, so ' +
+        'delete it or give it something to hold when that becomes true.',
+    );
   });
 });
 
@@ -320,9 +379,52 @@ describe('an address the application does not have', () => {
   }
 });
 
+/**
+ * Every route this table carries that is not a destination, as an address a coach could restore.
+ *
+ * FOUR of them now, and the second is why each entry carries the identifier of the screen it must
+ * produce rather than the suite asserting one screen by name. All four are reached from Admin and all
+ * four would fall through to not-found in exactly the same way; an assertion that only ever named the
+ * picker would have gone on passing for the picker while the others resolved to nothing.
+ *
+ * The two added last are the pair `core/status/reasons.js` had already named an action code for and the
+ * pending-removal list that `core/sync/deletions.js` had been keeping honestly with nobody reading it.
+ */
+const UNLISTED_SCREENS = [
+  { what: 'the divergence picker', published: `${PUBLISHED_ORIGIN}#/${DIVERGENCES_PATH}`, id: 'id="screen-divergences"' },
+  { what: 'the key-material condition screen', published: `${PUBLISHED_ORIGIN}#/${KEY_MATERIAL_PATH}`, id: 'id="screen-key-material"' },
+  { what: 'the stopped-changes review', published: `${PUBLISHED_ORIGIN}#/${STOPPED_CHANGES_PATH}`, id: 'id="screen-stopped-changes"' },
+  { what: 'the pending-removal list', published: `${PUBLISHED_ORIGIN}#/${REMOVALS_PATH}`, id: 'id="screen-removals"' },
+];
+
+const UNLISTED_ADDRESSES = UNLISTED_SCREENS.map((entry) => entry.published);
+
+describe('the screens that are deliberately not destinations', () => {
+  for (const { what, published, id } of UNLISTED_SCREENS) {
+    it(`resolves ${published} to a screen that renders rather than to not-found`, async () => {
+      const { matches } = match(published);
+      assert.ok(matches !== null, `${published} matches no route at all`);
+      assert.notEqual(
+        matches.at(-1)?.route.path,
+        '*',
+        'a screen linked from the admin screen must not fall through to not-found — that is the ' +
+          'dead end wearing a button',
+      );
+
+      const screen = screenRegion(await render(published));
+      assert.ok(
+        !screen.includes('id="screen-not-found"'),
+        `${published} rendered the not-found screen`,
+      );
+      assert.ok(screen.includes(id), `${published} did not render ${what}`);
+    });
+  }
+});
+
 describe('a way onward that is not the browser back button', () => {
   const everyAddress = [
     ...DESTINATION_ADDRESSES.map((entry) => entry.published),
+    ...UNLISTED_ADDRESSES,
     ...UNMATCHED_ADDRESSES,
   ];
 

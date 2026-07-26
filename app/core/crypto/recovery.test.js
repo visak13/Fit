@@ -33,13 +33,15 @@ const NOTE_CTX = { type: 'client', recordId: 'client-7', field: 'clinical_note' 
 const NOTE = 'knee injury — avoid deep squats and box jumps';
 
 function device(deviceId) {
-  return { deviceId, deviceKeys: new InMemoryDeviceKeyStore() };
+  return { deviceId, deviceKeys: new InMemoryDeviceKeyStore(), recorded: /** @type {string[]} */ ([]) };
 }
 
 function establish(remote, dev, over = {}) {
   return establishKeyMaterial({
     remote, deviceId: dev.deviceId, deviceKeys: dev.deviceKeys,
-    hasEverSynchronised: true, now, ...over,
+    hasEverSynchronised: true, now,
+    journal: async (/** @type {any} */ fields) => { dev.recorded.push(fields.kind); },
+    ...over,
   });
 }
 

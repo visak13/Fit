@@ -72,7 +72,20 @@ export function outboundRecord(record) {
 
   /** @type {Record<string, unknown>} */
   const out = {};
-  for (const field of ENVELOPE_FIELDS) out[field] = record[field];
+  for (const field of ENVELOPE_FIELDS) {
+    // `resolved_from` is the one envelope field that is OMITTED when it has nothing to say, and the
+    // reason is about what happens when the coach's two devices are running different builds of this
+    // application. An envelope key a reader does not recognise is refused, `areas.js` catches that
+    // refusal PER FILE and skips the file, and the pass still reports a clean completion — so the
+    // older device would show green while holding none of the newer one's work. Omitting the null
+    // keeps every record that has never answered a divergence byte-identical to what a build without
+    // this field writes, which is the whole population except the handful he has actually resolved.
+    //
+    // This is not a hole in the rebuild: the field is still rebuilt from the declared list rather
+    // than copied, and a value that IS present is still written. Nothing unrecognised can travel.
+    if (field === 'resolved_from' && (record[field] === null || record[field] === undefined)) continue;
+    out[field] = record[field];
+  }
   return out;
 }
 
@@ -168,6 +181,13 @@ export function decodeDocument(text, where = {}) {
         { ...where, record_id: record?.record_id, issues: result.issues },
       );
     }
+    // Absent means null, and it is settled HERE rather than left for each reader to remember. A
+    // record arrives without this key from two places that will both keep happening: a build older
+    // than the field, and this engine's own writer, which omits it when it is null so that an older
+    // device is never handed an envelope key it would refuse. Normalising once at the boundary is
+    // what keeps a record identical to itself across a round trip; leaving it to the readers means
+    // one of them eventually treats missing as different from null and compares them for equality.
+    if (record.resolved_from === undefined) record.resolved_from = null;
   }
   return parsed;
 }

@@ -30,6 +30,10 @@ import type { OfflineStartOutcome } from './platform/offline-start';
 import { PlatformStatusProvider } from './platform/platform-status';
 import { LocalStorageJournal, StoragePersistence } from './platform/storage-persistence';
 import type { PersistenceRecord } from './platform/storage-persistence';
+import { DivergenceProvider, NOTHING_TO_DECIDE } from './shell/Divergences';
+import { KeyMaterialProvider, NO_KEY_MATERIAL_CONDITION } from './shell/KeyMaterial';
+import { NOTHING_AWAITING_REMOVAL, RemovalsProvider } from './shell/Removals';
+import { NOTHING_STOPPED, StoppedChangesProvider } from './shell/StoppedChanges';
 import { createAppRouter } from './shell/routes';
 import { NO_BACKUP_YET, SyncStatusProvider } from './shell/SyncStatus';
 
@@ -116,7 +120,74 @@ function Application() {
         contract, including the action the tap is waiting for.
       */}
       <SyncStatusProvider reading={NO_BACKUP_YET}>
-        <RouterProvider router={router} />
+        {/*
+          THE DIVERGENCE SEAM, filled in here for the same reason and on the same terms.
+
+          `NOTHING_TO_DECIDE` is not a placeholder: this build has no local store, so no two devices
+          have ever been compared, so nothing is waiting to be decided and nothing can be answered.
+          `resolve` is null, and the picker therefore offers no buttons — a control that cannot do
+          what its words say is worse than no control.
+
+          THE LATER STEP CHANGES THIS LINE AND NOTHING BELOW IT: it takes `report.divergences` from
+          each `syncNow` pass and pushes them in as `pending`, and supplies `resolve` as a call
+          through to `resolveDivergence` from `core/sync/resolution.js` — the one place a divergence
+          is ever applied and the one call site of `sync.conflict_resolved`. It must re-read after
+          every resolution, so an answered question stops being asked. `shell/Divergences.tsx`
+          states the whole contract.
+        */}
+        <DivergenceProvider reading={NOTHING_TO_DECIDE}>
+          {/*
+            THE KEY-MATERIAL SEAM, filled in here on the same terms as the two above it.
+
+            `NO_KEY_MATERIAL_CONDITION` is not a placeholder either: this build never reaches the
+            hidden space, so no survey has ever run and no duplicate can have been detected. The
+            reading carries a condition and NOTHING ELSE — there is deliberately no way back on it,
+            because the user ruled this surface read-only on 2026-07-26.
+
+            THE LATER STEP CHANGES THIS LINE AND NOTHING BELOW IT: it catches the `CryptoError`
+            thrown by `establishKeyMaterial` in `core/crypto/guard.js` and pushes it in as
+            `condition`, unchanged and with its `found` array intact. It adds no function here, and
+            it words any further condition by adding a member in
+            `screens/key-material-condition.ts`. `shell/KeyMaterial.tsx` states the whole contract.
+          */}
+          <KeyMaterialProvider reading={NO_KEY_MATERIAL_CONDITION}>
+            {/*
+              THE STOPPED-CHANGES SEAM, on the same terms as the three above it.
+
+              `NOTHING_STOPPED` is not a placeholder: this build has no local store, so nothing has ever
+              been queued, so nothing can have stopped — which is exactly what `needsAttention` returns
+              over a store in that condition.
+
+              THE LATER STEP CHANGES THIS LINE AND NOTHING BELOW IT: it opens the local store, calls
+              `needsAttention(store, { limit, after })` from `core/outbox/status.js`, and pushes the
+              result in UNCHANGED — BOTH PAGES, separately. Merging them into one list is the one thing
+              it must not do; `core/outbox/status.js` returns two because the two need different words
+              in front of the coach. It re-reads after every flush, because an entry that stops does so
+              during a pass and at no other moment. It adds NO retry and NO discard here: both are
+              deliveries and belong to the step that owns the credential. `shell/StoppedChanges.tsx`
+              states the whole contract.
+            */}
+            <StoppedChangesProvider reading={NOTHING_STOPPED}>
+              {/*
+                THE PENDING-REMOVAL SEAM, and the last of the five.
+
+                `NOTHING_AWAITING_REMOVAL` is not a placeholder either: no client has ever been removed
+                on a device with no store, so nothing can be waiting to be confirmed gone.
+
+                THE LATER STEP CHANGES THIS LINE AND NOTHING BELOW IT: it calls `pendingDeletions(store,
+                { limit, after })` from `core/store/purge.js` and pushes the page in as `pending`,
+                manifests unchanged. It re-reads after every synchronisation pass, because
+                `verifyAndMarkPropagated` is what moves a manifest out of pending and it only runs
+                during one. The remote half — which record identities are STILL PRESENT in the backup —
+                rides `SyncReport.deletions.still_present` and is S16's to add to this same surface, not
+                a second screen. `shell/Removals.tsx` states the whole contract.
+              */}
+              <RemovalsProvider reading={NOTHING_AWAITING_REMOVAL}>
+                <RouterProvider router={router} />
+              </RemovalsProvider>
+            </StoppedChangesProvider>
+          </KeyMaterialProvider>
+        </DivergenceProvider>
       </SyncStatusProvider>
     </PlatformStatusProvider>
   );

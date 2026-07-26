@@ -29,3 +29,4 @@ import './sealing.test.js';
 import './passphrase.test.js';
 import './guard.test.js';
 import './recovery.test.js';
+import './journal-wiring.test.js';

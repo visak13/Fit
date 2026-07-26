@@ -50,8 +50,33 @@
  * It never picks between duplicates, never merges two envelopes, never deletes anything, and
  * never writes an envelope without having listed first. Every one of those would be a
  * plausible-looking recovery that silently loses a key.
+ *
+ * ## Everything here is recorded, and the sink is REQUIRED rather than optional
+ *
+ * This is the highest-value domain in the whole event log. Every outcome below — the key coming
+ * into existence, a device adopting it, the recovery material being used, the refusal on a device
+ * that has never synchronised, and both duplicate detections — is written through
+ * `ctx.journal`, an async `(fields) => void` the caller supplies.
+ *
+ * **It is a required argument, and that is deliberate. Do not make it optional.** This build has
+ * twice shipped a correct routine that nothing reached — outbox entries pruned only by a caller who
+ * decided to, and a purge manifest carrying a reason nothing consumed — and the durable layer
+ * answered that by making retention's caller structural rather than scheduled. The same answer
+ * applies here: an optional sink is one a later call site omits and still compiles, and the omission
+ * is invisible afterwards, because a log with nothing in it looks exactly like a device where
+ * nothing happened. Required means a new caller cannot quietly skip it.
+ *
+ * **This module does not import the log.** It takes a function and calls it, so `core/crypto` gains
+ * no dependency on `core/store` or `core/journal`'s durable half; the kind constants are the one
+ * exception, and they are frozen strings whose whole purpose is that a typo fails at the call site
+ * rather than at runtime.
+ *
+ * **A refusal is recorded before it is thrown.** The entry for a refusal that never got written
+ * would be missing at exactly the moment somebody is trying to work out what went wrong, which is
+ * the moment the log exists for.
  */
 
+import { JOURNAL_KINDS } from '../journal/kinds.js';
 import { SPACES, hasMoved } from '../remote/remote.js';
 import {
   ENVELOPE_DOCUMENT, RECOVERY_DOCUMENT, SLOT_KINDS,
@@ -143,26 +168,52 @@ export async function surveyKeyObjects(remote, opts = {}) {
  * @param {string} ctx.deviceId       Stable per installation. Names this device's slot.
  * @param {boolean} ctx.hasEverSynchronised  False on a device that has never reached the space.
  * @param {() => string} ctx.now      Injected, so a test controls the timestamps it asserts on.
+ * @param {(fields: {kind: string, affected_count?: number|null}) => Promise<any>} ctx.journal
+ *   REQUIRED. Where this domain's events are recorded. See the note at the top of this file for why
+ *   it is not optional — an optional one is one a later caller omits, silently.
  * @param {number} [ctx.timeoutMs]
  * @returns {Promise<{dataKey: CryptoKey, envelope: any, meta: any, outcome: string, addedDeviceSlot: boolean}>}
  */
 export async function establishKeyMaterial(ctx) {
-  const { remote, deviceKeys, deviceId, hasEverSynchronised, now, timeoutMs } = ctx;
+  const { remote, deviceKeys, deviceId, hasEverSynchronised, now, journal, timeoutMs } = ctx;
   requireText(deviceId, 'deviceId');
   if (typeof now !== 'function') throw new CryptoInvalidRequest('A clock function is required.');
+  if (typeof journal !== 'function') {
+    throw new CryptoInvalidRequest(
+      'A journal function is required. Key and recovery activity is the highest-value thing the '
+      + 'event log holds, and this argument is required rather than optional so that a call site '
+      + 'cannot omit it and still work — an unrecorded key event is invisible afterwards, because a '
+      + 'log with nothing in it looks exactly like a device where nothing happened.',
+    );
+  }
 
   // The refusal comes FIRST, before any listing is attempted, because the whole point is that
   // this device cannot know what exists. Reaching the store to find out is the thing it cannot do.
-  if (hasEverSynchronised !== true) throw new NotConnectedYet();
+  // Recorded BEFORE it is thrown: an entry that is missing at the moment somebody is working out
+  // why the coach cannot write a note is missing at exactly the moment the log exists for.
+  if (hasEverSynchronised !== true) {
+    await journal({ kind: JOURNAL_KINDS.ESTABLISH_REFUSED });
+    throw new NotConnectedYet();
+  }
 
   const survey = await surveyKeyObjects(remote, { timeoutMs });
 
   // Case three, for BOTH objects, and it is checked before anything else can act on the
   // listing. Neither is resolved, neither is picked, nothing is written.
   if (survey.envelopes.state === LISTING_STATES.MORE_THAN_ONE) {
+    // The count and nothing else. Which files they were is a question for the listing in front of
+    // the coach, not for the log — and the entry has no field that could carry them anyway.
+    await journal({
+      kind: JOURNAL_KINDS.DUPLICATE_ENVELOPE_DETECTED,
+      affected_count: survey.envelopes.found.length,
+    });
     throw new MultipleKeyObjectsFound('key envelope', survey.envelopes.found);
   }
   if (survey.recoveries.state === LISTING_STATES.MORE_THAN_ONE) {
+    await journal({
+      kind: JOURNAL_KINDS.DUPLICATE_RECOVERY_DETECTED,
+      affected_count: survey.recoveries.found.length,
+    });
     throw new MultipleKeyObjectsFound('recovery key', survey.recoveries.found);
   }
 
@@ -184,7 +235,7 @@ export async function establishKeyMaterial(ctx) {
  * @param {any} ctx
  */
 async function adoptEnvelope(ctx) {
-  const { remote, deviceKeys, deviceId, now, timeoutMs, survey } = ctx;
+  const { remote, deviceKeys, deviceId, now, journal, timeoutMs, survey } = ctx;
   const [meta] = survey.envelopes.found;
   const file = await remote.read(meta.file_id, { timeoutMs });
   let envelope = parseEnvelope(file.content);
@@ -195,6 +246,13 @@ async function adoptEnvelope(ctx) {
 
   // The happy path, and the one that runs almost every time: this device has its slot and the
   // key it wraps under, so nothing is prompted and nothing is written.
+  //
+  // NOTHING IS LOGGED HERE EITHER, and that is a decision rather than an omission. This branch
+  // changes nothing: no slot is added, no material is read, no envelope is written. Recording it
+  // would put an entry in the log every time the application opens, and retention on this log is
+  // COUNTED rather than dated — so the noise would not merely be noise, it would push the real key
+  // events off the end of the chain. What is worth recording is an adoption that DID something,
+  // which is the branch below.
   if (held && ourSlot) {
     return {
       dataKey: await openWithDeviceSlot(envelope, deviceId, held),
@@ -204,11 +262,19 @@ async function adoptEnvelope(ctx) {
 
   // Otherwise this device is new to the envelope, or its stored key vanished — which is an
   // ordinary state, not an exceptional one. Either way the way back in is the recovery slot.
-  const recoveryKeyBytes = await readRecoveryMaterial(remote, survey, timeoutMs);
+  const recoveryKeyBytes = await readRecoveryMaterial(remote, survey, timeoutMs, journal);
   if (!recoveryKeyBytes) {
+    // No device slot and no recovery object: this device cannot reach the key at all. Recorded as a
+    // refused recovery because that is what it is — the attempt to get back in did not open the key
+    // — and recorded before the throw, for the reason every other refusal here is.
+    await journal({ kind: JOURNAL_KINDS.RECOVERY_REFUSED });
     throw new NoUsableSlot([SLOT_KINDS.DEVICE, SLOT_KINDS.RECOVERY]);
   }
   const dataKey = await openWithRecoveryMaterial(envelope, recoveryKeyBytes);
+
+  // The recovery material was genuinely used to open the data key. This is the entry that makes
+  // "when did another device get in, and how" answerable at all.
+  await journal({ kind: JOURNAL_KINDS.RECOVERY_USED });
 
   const wrappingKey = await generateDeviceWrappingKey();
   const slot = await makeDeviceSlot(dataKey, wrappingKey, {
@@ -222,6 +288,10 @@ async function adoptEnvelope(ctx) {
   // Held only after the envelope carrying its slot is durably written. The other order would
   // leave a device holding a key that opens nothing, which presents as a corrupted envelope.
   await deviceKeys.store(deviceId, wrappingKey);
+
+  // After the write, not before: a slot recorded as added and then not written is the log asserting
+  // a way into the key that does not exist, which is the more dangerous of the two directions.
+  await journal({ kind: JOURNAL_KINDS.KEY_SLOT_ADDED });
 
   return {
     dataKey,
@@ -247,12 +317,12 @@ async function adoptEnvelope(ctx) {
  * @param {any} ctx
  */
 async function createKeyMaterial(ctx) {
-  const { remote, deviceKeys, deviceId, now, timeoutMs, survey } = ctx;
+  const { remote, deviceKeys, deviceId, now, journal, timeoutMs, survey } = ctx;
   const at = now();
 
   // A recovery object may already exist with no envelope beside it — see above. Adopt it
   // rather than making a second, which is the same rule as the envelope's and for the same reason.
-  let recoveryKeyBytes = await readRecoveryMaterial(remote, survey, timeoutMs);
+  let recoveryKeyBytes = await readRecoveryMaterial(remote, survey, timeoutMs, journal);
   let recoveryObjectId;
   if (recoveryKeyBytes) {
     const existing = await remote.read(survey.recoveries.found[0].file_id, { timeoutMs });
@@ -279,6 +349,13 @@ async function createKeyMaterial(ctx) {
     name: ENVELOPE_OBJECT_NAME, content: serializeEnvelope(envelope),
   }, { timeoutMs });
   await deviceKeys.store(deviceId, wrappingKey);
+
+  // ONE entry, written once in the lifetime of an installation, and the single most consequential
+  // line the log will ever hold: this is the moment the data key came into existence. Its device
+  // slot and its recovery slot went on as part of establishing it, so they are not recorded
+  // separately — a `key.slot_added` beside this would suggest a slot added to a key that already
+  // existed, which is a different and much later event.
+  await journal({ kind: JOURNAL_KINDS.KEY_ESTABLISHED });
 
   return { dataKey, envelope, meta, outcome: OUTCOMES.CREATED, addedDeviceSlot: true };
 }
@@ -344,12 +421,21 @@ export async function addSlotToEnvelope({ remote, meta, envelope, slot, timeoutM
  *
  * @param {import('../remote/port.js').RemoteStoragePort} remote
  * @param {{recoveries: {state: string, found: any[]}}} survey
- * @param {number} [timeoutMs]
+ * @param {number|undefined} timeoutMs
+ * @param {(fields: {kind: string, affected_count?: number|null}) => Promise<any>} journal
  * @returns {Promise<Uint8Array|null>}
  */
-async function readRecoveryMaterial(remote, survey, timeoutMs) {
+async function readRecoveryMaterial(remote, survey, timeoutMs, journal) {
   if (survey.recoveries.state === LISTING_STATES.ABSENT) return null;
   if (survey.recoveries.state === LISTING_STATES.MORE_THAN_ONE) {
+    // Unreachable through `establishKeyMaterial`, which refuses this case before any decision is
+    // taken. Recorded here anyway rather than trusted, for the same reason the refusal itself is
+    // duplicated: a caller added later could reach this by another road, and the detection matters
+    // more than the tidiness of asserting it cannot happen.
+    await journal({
+      kind: JOURNAL_KINDS.DUPLICATE_RECOVERY_DETECTED,
+      affected_count: survey.recoveries.found.length,
+    });
     throw new MultipleKeyObjectsFound('recovery key', survey.recoveries.found);
   }
   const file = await remote.read(survey.recoveries.found[0].file_id, { timeoutMs });

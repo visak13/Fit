@@ -125,6 +125,35 @@ export function randomId() {
   return globalThis.crypto.randomUUID();
 }
 
+/**
+ * The digest algorithm, named here because this file is the only place an algorithm name appears.
+ *
+ * SHA-256 and not something newer: it is one of the four digests Web Crypto implements, it is what
+ * every other part of this design already leans on through HMAC and the key derivations above, and
+ * a chain of hashes needs collision resistance and nothing else. Naming a fifth algorithm would
+ * raise `NotSupportedError` on both of the coach's devices.
+ */
+export const DIGEST_ALGORITHM = 'SHA-256';
+
+/**
+ * Hash bytes with {@link DIGEST_ALGORITHM}.
+ *
+ * A thin call into the platform, like everything else in this file. It exists because the event
+ * log chains each entry to its predecessor by hash, and the alternative — a digest assembled at
+ * the call site — is exactly the invented construction this file was written to prevent.
+ *
+ * **This is an UNKEYED digest.** It detects accidental corruption and after-the-fact editing by
+ * anyone who does not simply recompute the chain; it is not a signature and proves nothing about
+ * WHO wrote an entry. See `core/journal/JOURNAL.md` for what that does and does not buy.
+ *
+ * @param {Uint8Array} bytes
+ * @returns {Promise<Uint8Array>} The 32-byte digest.
+ */
+export async function sha256(bytes) {
+  if (!(bytes instanceof Uint8Array)) throw new TypeError('sha256 needs a byte array.');
+  return new Uint8Array(await subtle().digest(DIGEST_ALGORITHM, bytes));
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Base64 — written out rather than borrowed, because neither host's helper is universal
 // ═══════════════════════════════════════════════════════════════════════════════

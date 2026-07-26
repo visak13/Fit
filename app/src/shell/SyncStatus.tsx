@@ -47,8 +47,16 @@
  *        declared in `SYNC_TRIGGERS` (`core/sync/engine.js`) — open, foreground, leave, periodic
  *        while open, and the manual tap — and on a modest interval besides, because the ladder
  *        climbs with the clock even when nothing happens;
- *     4. supply an action for `reason.action` (`connect_google`, `reconnect_google`, `sync_now`,
- *        `review_refused`, `review_unconfirmed`) — see *the tap* below.
+ *     4. supply an action for `reason.action` — see *the tap* below, and see
+ *        `shell/action-destinations.ts` for WHICH of the five codes it is actually responsible for.
+ *
+ * **That fourth point used to list all five codes as one undifferentiated job, and naming no step is
+ * how two of them came to be waiting on work they never needed.** `review_refused` and
+ * `review_unconfirmed` are reads over the LOCAL outbox queue — `needsAttention` in
+ * `core/outbox/status.js`, whose refusal reason is already kept verbatim — and they now have a screen
+ * and an address. `connect_google`, `reconnect_google` and `sync_now` genuinely need the Google
+ * integration and the report wire, and `action-destinations.ts` names the step that owns each one, with
+ * a check that fails if a code ever has neither an address nor an owner.
  *
  * **The tap is deliberately absent today, and that is the honest choice.** There is nothing to
  * connect to and nothing to send, so this renders as a status region rather than as a control: a

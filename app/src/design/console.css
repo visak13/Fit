@@ -1565,6 +1565,97 @@ button[disabled],
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────────────
+ * COMPARE. One field of one record, with what EACH of the two devices holds for it, side by side.
+ *
+ * It is `.pairs` with a second value column, and it is a primitive rather than one screen's markup
+ * because the shape recurs: any surface that has to put two versions of the same thing in front of
+ * the coach and ask him to choose needs the columns to line up ROW BY ROW. Two independent lists
+ * beside each other line up only while both hold the same fields in the same order, which is exactly
+ * what stops being true in the case that matters — one side deleted, the other changed.
+ *
+ * THE NARROW SURFACE IS THE SAME INFORMATION, NOT A SECOND DESIGN. The three columns become one, and
+ * each value then carries the device it came from in `.compare-whose`, which is hidden on the wide
+ * surface because the column heading already says it. Dropping a value, or dropping which device it
+ * came from, would make the narrow screen unanswerable rather than merely narrower.
+ * ───────────────────────────────────────────────────────────────────────────────────── */
+.compare {
+  display: grid;
+  grid-template-columns: fit-content(var(--pair-label-column)) minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-2) var(--space-4);
+  align-items: baseline;
+  margin: 0;
+  min-width: 0;
+  border-collapse: collapse;
+}
+
+/*
+ * It is a real `<table>` — a field is a row and a device is a column, which is what a table IS, and
+ * `<th scope>` is the only way a screen reader can say "notes, this device" rather than reading
+ * three unrelated cells. `display: contents` lets the grid above place the cells directly while the
+ * table keeps its semantics; the alternative, a `<div>` grid, would have had to reinvent the
+ * row-and-column association in ARIA and get it right by hand.
+ */
+.compare thead,
+.compare tbody,
+.compare tr {
+  display: contents;
+}
+
+.compare-label {
+  min-width: 0;
+  color: var(--text-muted);
+  font-weight: var(--weight-medium);
+  text-align: start;
+}
+
+/* The column heading: which device this column holds. It is a heading, so it reads as one. */
+.compare-head {
+  min-width: 0;
+  color: var(--text-primary);
+  font-weight: var(--weight-medium);
+  text-align: start;
+  border-bottom: var(--border-hairline) solid var(--line-divider);
+  padding-block-end: var(--space-1);
+}
+
+.compare-value {
+  margin: 0;
+  min-width: 0;
+  /* Two of the values this shows are a note and a reference label, neither of which is guaranteed
+   * to contain a space to break at. */
+  overflow-wrap: anywhere;
+}
+
+/* Which device this value came from. Redundant on the wide surface, load-bearing on the narrow one. */
+/* Body size, not meta: at the narrow width this is how he tells the two versions apart, which makes
+ * it a value read to make a decision — and those never go below 16px. */
+.compare-whose {
+  display: none;
+  color: var(--text-muted);
+  font-weight: var(--weight-medium);
+}
+
+@media (max-width: 839px) {
+  .compare {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-1);
+  }
+
+  /* The headings say which column is which, and at this width there are no columns. */
+  .compare thead {
+    display: none;
+  }
+
+  .compare-whose {
+    display: block;
+  }
+
+  .compare-label {
+    margin-block-start: var(--space-3);
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────────
  * CHIPS. Every state carries a WORD as well as a colour, so nothing depends on telling green from
  * amber — or on seeing colour at all, through sunlight on a phone, a greyscale screenshot, or the
  * compression of the video call this application will actually be introduced over.

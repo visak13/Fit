@@ -74,10 +74,17 @@ export {
 // Where the device slot's key is held.
 export { DeviceKeyStore, InMemoryDeviceKeyStore } from './device-key-store.js';
 
-// The parameters, so a caller can display them rather than restate them.
+// The parameters, so a caller can display them rather than restate them — and the three thin
+// native calls the event log needs. `core/journal` chains its entries by hash, and the rule it is
+// built to is that no package outside this one may name an algorithm or assemble a construction of
+// its own. Withholding `sha256` here would not prevent the chain; it would only push the digest
+// call into a package where the algorithm name is invisible to anyone auditing the cryptography.
+// `textToBytes` and `toBase64` come with it because a digest is useless without the encoding either
+// side of it, and a second hand-written base64 is precisely the drift this barrel exists to stop.
 export {
   CONTENT_ALGORITHM,
   DATA_KEY_BITS,
+  DIGEST_ALGORITHM,
   IV_BYTES,
   KDF_HASH,
   KDF_SALT_BYTES,
@@ -87,6 +94,9 @@ export {
   WRAP_ALGORITHM,
   WRAP_KEY_BITS,
   generateDeviceWrappingKey,
+  sha256,
+  textToBytes,
+  toBase64,
 } from './primitives.js';
 
 // The failures, so a caller can branch on a class rather than on a message.

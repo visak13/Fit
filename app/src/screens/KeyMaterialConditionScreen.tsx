@@ -1,0 +1,192 @@
+/**
+ * THE KEY-MATERIAL CONDITION SCREEN — both candidates shown, nothing changed, and who to ask.
+ *
+ * This file is the DRAWING and nothing else. Every judgement it renders — what each condition is
+ * called, what it means for the coach, which one is the more dangerous, what is shown per candidate,
+ * and all four of the sentences that must never be softened — is decided in
+ * `key-material-condition.ts`, where it can be asserted. A sentence written into markup is a sentence
+ * only a human reading the file would notice going missing, and on this screen the sentences ARE the
+ * deliverable.
+ *
+ * ## What it does NOT have, and why the absence is the design
+ *
+ * There is no button on this screen. Not a disabled one, not one behind a flag, not a "let the app
+ * try" — nothing that discards, picks, merges or tidies. The user ruled on 2026-07-26 that this
+ * surface SHOWS BOTH CANDIDATES, CHANGES NOTHING, AND TELLS HIM TO GET HELP, and the reason is
+ * arithmetic rather than caution: discarding the wrong key makes every clinical note encrypted under
+ * it permanently unreadable, and the person who would be pressing it is a non-technical coach
+ * mid-recovery of a wiped device with no second device left to check against.
+ *
+ * `key-material-condition.test.ts` holds that absence rather than trusting it, in three ways that
+ * fail differently: nothing in the report is callable, the reading has no way back on it at all, and
+ * a scan of this file's own code — with its comments stripped, so this paragraph cannot be what makes
+ * the scan pass or fail — finds no control and no handler, proven in the same run against the
+ * divergence picker, which has both.
+ *
+ * ## Where the dense-screen rule lands here
+ *
+ * ONE FIGURE THE SCREEN IS FOR: how many were found where one was expected. On every visit but the
+ * one that matters it is 1, and that is a good state worded as one rather than as an empty screen.
+ *
+ * THE SECONDARY FOLDS AND IS COUNTED: the candidates' own detail — identifiers, dates, sizes — is the
+ * forensic half, and it is what the person helping him will read out. It sits behind a
+ * `<details className="disclose">` whose summary carries the count, so what is folded is still
+ * accounted for and nothing is discarded.
+ *
+ * WHAT MUST NOT FOLD: the four standing sentences and the danger note. They are the whole of what
+ * changes what he should do next, and disclosure is for detail BEHIND a decision, never the decision
+ * — the same argument `admin-report.ts` makes about a persistence failure.
+ *
+ * ONE CARD PER QUESTION: what happened, what to do, and the evidence are three different moments.
+ */
+
+import { Fragment } from 'react';
+
+import { Glyph } from '../design/Glyph';
+import { useKeyMaterial } from '../shell/KeyMaterial';
+import { describeCondition, describeSettled } from './key-material-condition';
+import type { CandidateReport, ConditionReport, SettledReport } from './key-material-condition';
+
+/** One candidate's facts, drawn with the label-and-value primitive the admin screen established. */
+function Candidate({ candidate }: { candidate: CandidateReport }) {
+  return (
+    <div className="stack-tight">
+      <h4 className="title-section">{candidate.heading}</h4>
+      <dl className="pairs">
+        {candidate.facts.map((fact) => (
+          <Fragment key={fact.label}>
+            <dt className="pair-label">{fact.label}</dt>
+            <dd className="pair-value">{fact.literal ? <code>{fact.value}</code> : fact.value}</dd>
+          </Fragment>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
+/** The normal state: one set, nothing to do, and said as the good news it is. */
+function Settled({ report }: { report: SettledReport }) {
+  return (
+    <div className="screen">
+      <section className="card stack" aria-labelledby="screen-key-material">
+        <h2 id="screen-key-material" className="title-screen">
+          {report.title}
+        </h2>
+        <p className="value-display">{report.count}</p>
+        <p className="screen-intro read">{report.countMeans}</p>
+        <p className="read">{report.intro}</p>
+      </section>
+    </div>
+  );
+}
+
+function Condition({ report }: { report: ConditionReport }) {
+  return (
+    <div className="screen">
+      <section className="card stack" aria-labelledby="screen-key-material">
+        <h2 id="screen-key-material" className="title-screen">
+          {report.title}
+        </h2>
+        <p className="value-display">{report.count}</p>
+        <p className="screen-intro read">{report.countMeans}</p>
+      </section>
+
+      <section className="card card-tight" aria-labelledby="key-material-what">
+        <div className="card-header">
+          <h3 id="key-material-what" className="title-section">
+            What has happened
+          </h3>
+          <span className="spacer" />
+          {/* The WORD carries the state. The tone is a second channel and never the only one. */}
+          <span className={report.moreDangerous ? 'chip chip-danger' : 'chip chip-warning'}>
+            {report.moreDangerous ? 'Sort this out now' : 'Needs sorting out'}
+          </span>
+        </div>
+
+        <div className="card-body stack">
+          <p className="read">{report.whatHappened}</p>
+          <p className="read">{report.whatItMeans}</p>
+
+          {/* NOT foldable. The one condition that is silent until it is too late has to say so where
+              he cannot miss it, and a fold is a place a sentence goes to be unread. */}
+          {report.dangerNote !== null && (
+            <p className="note note-danger read">
+              <Glyph name="protected-clinical-note" size="inline" decorative />
+              <span>{report.dangerNote}</span>
+            </p>
+          )}
+
+          <p className="note read">
+            <Glyph name="note" size="inline" decorative />
+            <span>{report.nothingWasChanged}</span>
+          </p>
+        </div>
+      </section>
+
+      <section className="card card-tight" aria-labelledby="key-material-what-to-do">
+        <div className="card-header">
+          <h3 id="key-material-what-to-do" className="title-section">
+            What to do
+          </h3>
+        </div>
+
+        <div className="card-body stack">
+          {/* The human exit, and it is the first thing under the heading rather than the last thing
+              on the screen. Read-only means the application will not resolve this; if the person who
+              set it up for him is not named here, he has been stopped with nowhere to go. */}
+          <p className="read">{report.whoToAsk}</p>
+
+          <p className="note note-danger read">
+            <Glyph name="delete" size="inline" decorative />
+            <span>{report.doNotDelete}</span>
+          </p>
+
+          <p className="note note-warning read">
+            <Glyph name="note" size="inline" decorative />
+            <span>{report.doNotContinue}</span>
+          </p>
+        </div>
+      </section>
+
+      <section className="card card-tight" aria-labelledby="key-material-candidates">
+        <div className="card-header">
+          <h3 id="key-material-candidates" className="title-section">
+            What was found
+          </h3>
+          <span className="spacer" />
+          <span className="chip">{report.count}</span>
+        </div>
+
+        <div className="card-body stack">
+          {report.candidates.map((candidate) => (
+            <Candidate key={candidate.heading} candidate={candidate} />
+          ))}
+        </div>
+
+        {/* The app's own wording, folded and carried through unchanged for whoever is helping him.
+            It is not what he reads first: for the recovery key the core words both conditions the
+            same way and names the wrong object — measured, and stated in `key-material-condition.ts`
+            rather than papered over here. */}
+        <details className="disclose">
+          <summary>
+            What the app itself reported
+            <span className="count">1</span>
+          </summary>
+          <div className="card-body">
+            <p className="muted read">{report.asTheAppPutIt}</p>
+          </div>
+        </details>
+      </section>
+    </div>
+  );
+}
+
+export function KeyMaterialConditionScreen() {
+  const { condition } = useKeyMaterial();
+
+  return condition === null ? (
+    <Settled report={describeSettled()} />
+  ) : (
+    <Condition report={describeCondition(condition)} />
+  );
+}

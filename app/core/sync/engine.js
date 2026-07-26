@@ -40,8 +40,35 @@
  * The one value permitted to say "everything is backed up" is the outbox's own completion marker,
  * which refuses any best-effort run, any interrupted run, and any run that left an entry undelivered.
  * This engine does not compute its own.
+ *
+ * ## What a pass writes to the event log, and what it deliberately does not
+ *
+ * A pass writes exactly TWO entries: `sync.started` before it attempts anything, and one of
+ * `sync.completed` or `sync.refused` at the end. Both stand alone rather than riding a transaction,
+ * because a pass running is not a change to any record — there is no paired write for the entry to
+ * be consistent with, which is the test for which of the log's two doors a call site uses.
+ *
+ * The verdict is **taken from the completion marker and not recomputed**. A second opinion in the
+ * audit log would be a second authority, able to disagree with the surface the coach is reading.
+ *
+ * **The records this pass moves record themselves**, and not from here. A pull applies through
+ * `store.putRecord` and a purge notice through `purgeClient`, both of which are mutating methods of
+ * the local store and both of which already commit their own entry in their own transaction. Adding
+ * a per-record entry here would either duplicate those or, worse, assert a change from outside the
+ * transaction that made it. The deletions manifest needs no wiring of its own for the same reason:
+ * an inbound notice reaches the records through `purgeClient`, so the removal is recorded by the
+ * code that performs it.
+ *
+ * **`sync.conflict_resolved` is not written here and must never be.** Nothing in this engine resolves
+ * a divergence — see `divergence.js`, where refusing to is a declared value with a test on it — so it
+ * has nothing to attest to: an entry here would say the coach answered a question nobody has put to
+ * him. The kind belongs to `resolution.js`, which applies the side he actually picked, and a test
+ * scans the whole core to assert that it has exactly one writer. A call site at this ordinary
+ * last-write-wins path would relabel every routine pull as a collision and make the log overstate how
+ * often his two devices genuinely clashed.
  */
 
+import { JOURNAL_KINDS, recordEvent } from '../journal/journal.js';
 import { timestamp } from '../model/model.js';
 import { RECORD_TYPES } from '../model/model.js';
 import {
@@ -438,6 +465,13 @@ export async function syncNow(store, remote, options) {
   /** @type {any[]} */
   const failures = [];
 
+  // ── 0. the log ──────────────────────────────────────────────────────────────────────────────
+  // A pass BEGINNING is an event in its own right and not a change to any record, so it stands
+  // alone rather than riding a transaction — there is no paired write for it to be consistent with.
+  // It is written before anything is attempted, so a pass that dies partway through still left a
+  // mark: "started, never finished" is exactly the shape the log has to be able to show.
+  await recordEvent(store, { kind: JOURNAL_KINDS.SYNC_STARTED });
+
   // ── 1. push, 2. flush ───────────────────────────────────────────────────────────────────────
   // The push is local: it commits to the durable queue, so it does not depend on the service being
   // reachable at all. Everything after this point does, and each step reports rather than throws.
@@ -502,6 +536,32 @@ export async function syncNow(store, remote, options) {
   const outbox = await outboxStatus(store, { now: options.now });
   const remaining = await pendingPurges(store);
 
+  // ── 8. how the pass ended ───────────────────────────────────────────────────────────────────
+  // The log takes its verdict from the completion marker and computes nothing of its own, for the
+  // same reason this engine does not compute one: the outbox's marker is the ONE value permitted to
+  // say everything is backed up, and a second opinion in the audit log would be a second authority
+  // — the one able to disagree with the surface the coach is actually looking at.
+  //
+  // So `sync.completed` means exactly what the marker means, and `sync.refused` covers every way a
+  // pass can fall short of it: a step that could not reach the service, a credential that expired
+  // with entries still queued, and the best-effort flush on `leave`, which is deliberately incapable
+  // of completing. Calling that last one refused is not a slight on it — the pass genuinely stopped
+  // without draining, which is the fact the log exists to hold.
+  const completion = failures.length === 0 ? syncCompletionMarker(flush) : null;
+  await recordEvent(store, {
+    kind: completion ? JOURNAL_KINDS.SYNC_COMPLETED : JOURNAL_KINDS.SYNC_REFUSED,
+    // Records that actually moved in this pass. A count, and a count cannot carry a name, a note or
+    // a reading — which is the whole of what an entry is allowed to say about them.
+    //
+    // DELETIONS COUNT AS MOVEMENT, in both directions, and leaving them out was a real defect: a
+    // pass whose only effect was propagating a removal — purge notices pushed outward, or notices
+    // arriving and removing records here — recorded `sync.completed` with a count of zero. The log
+    // then said a pass moved nothing while a departed client's removal crossed the device boundary,
+    // which is precisely the event this log is most valuable for holding. A removal that reaches the
+    // remote copy is the deletions manifest doing its job, and the log has to be able to say it did.
+    affected_count: pushed.records + pulled.applied + pushed.purges + notices.applied.length,
+  });
+
   return {
     trigger,
     device,
@@ -513,7 +573,7 @@ export async function syncNow(store, remote, options) {
     // left anything undelivered has no completion, and this engine cannot manufacture one. A step
     // that could not reach the service withholds it as well: the queue may have drained before the
     // pull failed, and "synchronised" would then mean "sent mine, never read yours".
-    completion: failures.length === 0 ? syncCompletionMarker(flush) : null,
+    completion,
     failures,
     pulled: {
       applied: pulled.applied, kept: pulled.kept, same: pulled.same,

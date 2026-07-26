@@ -29,9 +29,11 @@
  */
 
 import './double.test.js';
+import './schema.test.js';
 import './db.test.js';
 import './local-store.test.js';
 import './queries.test.js';
 import './coordination.test.js';
 import './purge.test.js';
 import './capabilities.test.js';
+import './journal-wiring.test.js';

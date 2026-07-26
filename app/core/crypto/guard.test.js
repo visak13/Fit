@@ -37,16 +37,23 @@ function newRemote(opts = {}) {
   return new InMemoryRemoteStorage({ clock: opts.clock ?? manualClock() });
 }
 
-/** One device: its own identifier and its own key store, exactly as a real installation has. */
+/**
+ * One device: its own identifier, its own key store, and the kinds it has recorded — exactly as a
+ * real installation has, except that the log is collected in memory here rather than written to a
+ * database. This suite is `core/crypto`, which owns no store; that the sink reaches a real durable
+ * log is proved in `journal-wiring.test.js` beside this file, against a real one.
+ */
 function device(deviceId) {
-  return { deviceId, deviceKeys: new InMemoryDeviceKeyStore() };
+  return { deviceId, deviceKeys: new InMemoryDeviceKeyStore(), recorded: /** @type {string[]} */ ([]) };
 }
 
 /** @param {any} remote @param {any} dev @param {object} [over] */
 function establish(remote, dev, over = {}) {
   return establishKeyMaterial({
     remote, deviceId: dev.deviceId, deviceKeys: dev.deviceKeys,
-    hasEverSynchronised: true, now, ...over,
+    hasEverSynchronised: true, now,
+    journal: async (/** @type {any} */ fields) => { dev.recorded.push(fields.kind); },
+    ...over,
   });
 }
 

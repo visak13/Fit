@@ -278,6 +278,7 @@ Every gap you write is one of the eight steps of the shared spacing scale, throu
 | `.spread` | one thing at each end |
 | `.rows` + `.row` | the dense list: 40px, hairline-separated, `.row-name` `.row-value` `.row-actions` inside |
 | `.pairs` + `.pair-label` `.pair-value` | a `<dl>` of facts you read: label column beside the values, stacked on the narrow surface |
+| `.compare` + `.compare-head` `.compare-label` `.compare-value` `.compare-whose` | `.pairs` with a SECOND value column: one field, what each of the two devices holds for it, rows lining up by construction. One column on the narrow surface, where `.compare-whose` carries the device instead of the heading |
 
 ## A dense screen that stays legible
 

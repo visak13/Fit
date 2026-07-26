@@ -39,7 +39,7 @@ import { RECORD_TYPES } from '../model/model.js';
 export const DB_NAME = 'fit';
 
 /** Current schema version. Bumped when a store or index is added, with a migration beside it. */
-export const DB_VERSION = 2;
+export const DB_VERSION = 3;
 
 /** The derived store answering "this client's sessions, in time order". */
 export const PARTICIPANTS_STORE = 'session_participants';
@@ -64,6 +64,47 @@ export const META_STORE = 'meta';
 export const OUTBOX_STORE = 'outbox';
 
 /**
+ * The append-only event log: what was let in, what changed, what left, what synchronised, what
+ * happened to the keys.
+ *
+ * `core/journal` owns its shape, its vocabulary and its chain; this file owns only the fact that the
+ * store exists, because {@link ALL_STORES} is what a transaction is checked against.
+ *
+ * ## Not a record kind, deliberately
+ *
+ * It is absent from {@link RECORD_STORES} and present here and in {@link ALL_STORES}, following
+ * {@link OUTBOX_STORE}, {@link DELETIONS_STORE} and {@link META_STORE}. A journal entry is not an
+ * envelope: it has no `record_id` of its own, no revision, no tombstone, and it is never synchronised
+ * as a record. Putting it in `RECORD_STORES` would also break the bijection {@link schemaCoverage}
+ * asserts between the model's kinds and the mapped stores.
+ *
+ * ## Why the KEY is `[device, seq]` and there is not one index on this store
+ *
+ * The log's chain is per device — two devices append independently with no coordinator, so `seq`
+ * counts from 1 on each. Every question this store is asked is therefore a question about ONE
+ * device's chain in sequence order:
+ *
+ *  - *the latest entry on this device*, which every append must link to — one step of a REVERSE
+ *    cursor over the device's prefix;
+ *  - *this device's chain from the oldest*, which verification walks — the same prefix, forward,
+ *    a page at a time;
+ *  - *the oldest entries, to discard* — the front of that same range;
+ *  - *how many entries this device holds* — a count over that range.
+ *
+ * A compound primary key answers all four by itself, so an index beside it would be maintained on
+ * every write to answer nothing. The discipline this file is written to is that an index names the
+ * question it answers; the honest consequence of that rule here is no index at all.
+ *
+ * **And there is no flag anywhere in it.** A boolean is not a valid key on this platform: an index on
+ * one silently holds zero entries while every query against it returns empty and looks perfectly
+ * reasonable — measured twice on this build, on the outbox and on listing clients by `active`. The
+ * log therefore carries its result in the KIND (`auth.unlocked` against `auth.unlock_refused`, both
+ * keyable text) rather than in an `ok` field, and its ordering in the key rather than in a
+ * `pruned`-style marker. See the note on `by_status_seq` below, and `core/journal/JOURNAL.md`.
+ */
+export const JOURNAL_STORE = 'journal';
+
+/**
  * Record kind → object store name.
  *
  * Spelled out rather than derived from the kind by rule, so that a kind added to the model
@@ -85,6 +126,7 @@ export const RECORD_STORES = Object.freeze({
 /** Every object store the database holds. @type {readonly string[]} */
 export const ALL_STORES = Object.freeze([
   ...Object.values(RECORD_STORES), PARTICIPANTS_STORE, DELETIONS_STORE, META_STORE, OUTBOX_STORE,
+  JOURNAL_STORE,
 ]);
 
 /**
@@ -111,7 +153,11 @@ export function storeNameFor(type) {
  * field rather than a content one on purpose: it stays valid on a tombstone, whose content is
  * null and whose content-derived index entries have all gone.
  */
-const UPDATED_AT_INDEX = Object.freeze({ name: 'by_updated_at', keyPath: 'updated_at' });
+const UPDATED_AT_INDEX = Object.freeze({
+  name: 'by_updated_at',
+  keyPath: 'updated_at',
+  answers: 'what changed since — for the outbox and the synchronisation engine, without reading every record',
+});
 
 /**
  * The full schema, as data.
@@ -257,6 +303,15 @@ export const SCHEMA = Object.freeze([
       { name: 'by_idempotency_key', keyPath: 'idempotency_key', options: { unique: true }, answers: 'has this exact delivery already been queued or already landed' },
     ],
   },
+  {
+    store: JOURNAL_STORE,
+    // [device, seq] and no index beside it. The chain is per device and every question asked of this
+    // store is "one device's chain, in order" — see the note on JOURNAL_STORE above for the four of
+    // them and for why an index here would be maintained on every write to answer nothing.
+    keyPath: ['device', 'seq'],
+    since: 3,
+    indexes: [],
+  },
 ]);
 
 /**
@@ -294,6 +349,12 @@ export function applySchema(db, tx, fromVersion) {
  * Empty at version 1, and deliberately present anyway: the first person who needs one should find
  * the seam rather than invent it, because a migration written ad hoc inside the upgrade handler is
  * how a store loses data.
+ *
+ * **Still empty at version 3, and that is a decision rather than an omission.** Version 3 adds the
+ * journal store, which starts empty: no existing row changes shape, moves store or acquires a field,
+ * so there is nothing to reshape. `applySchema` creates it from the `since: 3` entry above and a
+ * database upgraded from version 2 ends up identical to one created fresh. A migration step that
+ * reshaped nothing would be a step every later upgrade has to read past and reason about.
  *
  * @type {readonly {to: number, run: (db: IDBDatabase, tx: IDBTransaction) => void}[]}
  */

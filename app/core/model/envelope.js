@@ -78,8 +78,39 @@ import { ENVELOPE_FIELD_TOKENS, matchToken, RECORD_TYPES } from './vocabularies.
  */
 export const ENVELOPE_FIELDS = Object.freeze([
   'record_id', 'type', 'rev', 'device', 'deleted', 'deleted_at',
-  'created_at', 'updated_at', 'content',
+  'created_at', 'updated_at', 'resolved_from', 'content',
 ]);
+
+/**
+ * The revision of the divergence this line of history ANSWERED, or null for a record that has never
+ * answered one. Written by `core/sync/resolution.js` alone and by nothing else.
+ *
+ * ## Why a field and not an inference
+ *
+ * When the coach picks a side, the answer is written at a revision strictly above both — so from the
+ * outside it is indistinguishable from an ordinary edit that happens to outrank them. The union read
+ * needs to tell those two apart, and it cannot: the difference is not in the numbers.
+ *
+ * That mattered, and it cost a real edit. `core/sync/areas.js` used to drop a same-revision clash
+ * whenever ANY higher revision existed, reading "something outranks both" as "he answered it". Two
+ * devices write revision N unaware of each other; one of them, still never having seen the other,
+ * edits again to N+1 in the ordinary way. Nothing was resolved and nobody was asked — but a higher
+ * revision now exists, so the clash was suppressed and the other device's edit was discarded with
+ * nothing said anywhere. This field is what makes that question answerable: N+1 written by an
+ * ordinary edit carries the same `resolved_from` its parent did, and only the resolution seam
+ * raises it.
+ *
+ * It is INHERITED rather than cleared, because that inheritance is the whole meaning of the field —
+ * it says this line of history descends from an answer, not that this particular write was one.
+ * `reviseEnvelope` and `tombstoneEnvelope` carry it forward by spreading the envelope, which is
+ * correct and is asserted.
+ *
+ * It is envelope rather than content by the module's own test: it exists only because there are two
+ * devices and a history. It is nullable rather than required so that a record written before this
+ * field existed still validates — an absent value means the same thing as null, which is "no answer
+ * anywhere in this record's past".
+ */
+export const RESOLVED_FROM_IS_WRITTEN_ONLY_BY_THE_RESOLUTION_SEAM = true;
 
 /**
  * A device tag: which installation last wrote this revision.
@@ -103,6 +134,7 @@ export const DEVICE_TAG_MAX = 60;
  * @property {string|null} deleted_at When the tombstone was raised; null while alive.
  * @property {string} created_at   When this record first existed, anywhere.
  * @property {string} updated_at   When this revision was written.
+ * @property {number|null} resolved_from The revision of the divergence this line of history answered.
  * @property {Record<string, unknown>|null} content The content record; null once tombstoned.
  */
 
@@ -144,6 +176,8 @@ export function createEnvelope({ type, content, device, now, record_id }) {
     deleted_at: null,
     created_at: at,
     updated_at: at,
+    // A record that has just come into existence has answered nothing.
+    resolved_from: null,
     content,
   };
 }
@@ -283,6 +317,18 @@ export function validateEnvelope(envelope) {
   checkTimestamp(c, 'updated_at', e.updated_at, { required: true });
   checkChronological(c, 'updated_at', e.created_at, e.updated_at,
     'A record cannot have been updated before it was created.');
+
+  // Absent means the same as null. A record written before this field existed is not malformed, and
+  // refusing it would make an already-stored record unreadable to answer a question about divergence.
+  if (!isAbsent(e.resolved_from)) {
+    checkInteger(c, 'resolved_from', e.resolved_from, { required: true, min: 1 });
+    if (typeof e.resolved_from === 'number' && typeof e.rev === 'number' && e.resolved_from > e.rev) {
+      c.add('resolved_from', CODES.MISMATCH,
+        'A record cannot descend from an answer given at a revision it has not reached. The answer '
+        + 'to a divergence is written ABOVE both sides, so the revision it settled is always below '
+        + "this one — a value above it means something other than the resolution seam wrote it.");
+    }
+  }
 
   // --- the tombstone is a state, and the three fields that express it must agree ---
   if (e.deleted === true) {

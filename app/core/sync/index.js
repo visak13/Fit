@@ -22,9 +22,12 @@
 import './partition.test.js';
 import './payload.test.js';
 import './divergence.test.js';
+import './divergence-provenance.test.js';
+import './resolution.test.js';
 import './revisions.test.js';
 import './snapshot.test.js';
 import './deletions.test.js';
 import './purge-outbox.test.js';
 import './engine.test.js';
 import './durability.test.js';
+import './journal-wiring.test.js';

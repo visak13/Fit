@@ -267,19 +267,42 @@ has left for a client's device, nothing in this application can unsend it.
 Stated explicitly, because an integration write-up is exactly the kind of document that gets read
 later as a warranty.
 
-- **There is no audit trail, and that is a decision rather than an omission.** The standard that
-  requires an append-only integrity-protected event stream is written for multi-user clinical
-  systems: it answers *who did what to whose record*. This application has exactly one user, no
-  second party who can act in it, no clinical detail beyond an encrypted note and a pointer, and it
-  refuses every compliance claim. The trail that actually protects the coach — what synced, what is
-  pending, what failed and why — is the accountability surface, and that is not an audit trail.
-  **Nothing anywhere may claim or imply the application has one.**
-- **No compliance claim of any kind.** Not HIPAA, not GDPR, not the DPDP Act. The architecture
-  minimises hard — no clinical text stored at all, only a pointer; no client email, phone, address,
-  date of birth or photo ever collected — and that posture is defensible without needing a claim
-  attached to it.
-- **Sign-out is undefined behaviour and is not settled here.** It is owned by the Google integration
-  step. Nothing above should be read as an answer to what a signed-out device leaves behind.
+**One rule about the shape of this list, because two entries in it went stale the same way.** This
+document may say what is **NOT BUILT**. It may **NOT** say what is **NOT DECIDED**. Whether a thing
+is built is a fact about this repository, which this file can see and a reader can check. Whether a
+question is settled is a fact about the decision record, which lives outside this file and which this
+file has no way of learning has changed — so a "nobody has decided this yet" written here stays
+written long after somebody did, and it reads as an invitation. State what exists, and point at
+decisions rather than restating or characterising them.
+
+- **This is not a multi-user clinical audit trail.** The standard that requires an append-only
+  integrity-protected event stream is written for multi-user clinical systems: it answers *who did
+  what to whose record*. This application has exactly one user, no second party who can act in it,
+  and no clinical detail beyond an encrypted note and a pointer — so the *who* is a device tag, not a
+  person, and on a shared device the log cannot say which person acted. **The application does now
+  have an append-only, integrity-protected event log** (`core/journal`, per d105, which overturned
+  the earlier decision not to build one). It covers authentication, record changes, exports,
+  synchronisation, and key and recovery activity as a closed vocabulary; three of those five domains
+  have call sites today and the other two are defined and deliberately unwritten until the steps that
+  own them are built. Its notes are at `core/journal/JOURNAL.md`, including — with equal weight — the
+  section on what it does **not** establish. Two things from the paragraph this replaces survive
+  unchanged and are not softened by the log existing: **the accountability surface is a different
+  thing from a log** — it reports what synced, what is pending and what failed, which is the present
+  state and not the record of what happened, and neither substitutes for the other — and **the
+  integrity protection is tamper-EVIDENCE, not tamper-proofing**: anyone who can write the local
+  database can rewrite a chain from any point forward, and what it buys is that a single altered or
+  removed entry becomes detectable. Do not read "has an audit log" as more than that.
+- **No compliance claim of any kind.** Not HIPAA, not GDPR, not the DPDP Act. This is unchanged by
+  the event log and the log makes no such claim either: drawing a vocabulary from a standard's list
+  of domains is not conforming to that standard. The architecture minimises hard — no clinical text
+  stored at all, only a pointer; no client email, phone, address, date of birth or photo ever
+  collected — and that posture is defensible without needing a claim attached to it.
+- **Sign-out is settled, and this file is not where it is settled.** It is **d110**: signing out
+  drops the Google connection only and keeps local data, and erasing the device is a separate,
+  separately confirmed action that will not run until everything pending has synced. That is the
+  whole of what belongs here — read d110 for the shape and the Google integration step owns building
+  it. What is **not built** is the implementation, which is the honest version of what the entry
+  replaced here once said.
 - **Android is unknown.** The platform proof that gates this build was cleared on **iOS only** —
   install, share delivery, image, comma-separated and spreadsheet export. Android behaviour is
   untested for all of it. No claim in this document is an Android claim.

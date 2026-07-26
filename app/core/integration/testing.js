@@ -20,6 +20,7 @@
 import { InMemoryDeviceKeyStore } from '../crypto/device-key-store.js';
 import { establishKeyMaterial } from '../crypto/guard.js';
 import { sealField } from '../crypto/sealing.js';
+import { recordEvent } from '../journal/journal.js';
 import { aClient } from '../model/fixtures.js';
 import { seedContentFor } from '../seed/content.js';
 import { importSeed } from '../seed/import.js';
@@ -64,6 +65,10 @@ export function aPractice(options = {}) {
         deviceKeys: dev.deviceKeys,
         hasEverSynchronised: true,
         now: () => world.now(),
+        // The REAL sink, not a collector: key events go into this device's own event log, through
+        // the same append every other entry uses. A harness that handed the guard a spy would prove
+        // the guard calls something, and prove nothing about whether a key event survives to disk.
+        journal: (fields) => recordEvent(dev.store, fields),
         ...over,
       });
 

@@ -64,6 +64,13 @@ export async function readUnion(remote, args) {
     unrecognised,
   };
 
+  /**
+   * The first envelope met at each `record_id@rev`, so that a clash is found by structure rather
+   * than by whatever the fold happens to be holding. See the detection note in the loop below.
+   * @type {Map<string, any>}
+   */
+  const firstAtRevision = new Map();
+
   // Oldest first, so that within one area a later file's revision meets an earlier one in the order
   // they were written. Between areas the order does not matter: last-write-wins is commutative.
   const metas = [...areas.values()].flat()
@@ -92,13 +99,68 @@ export async function readUnion(remote, args) {
       const held = union.records.get(incoming.record_id);
       const verdict = classify(held, incoming);
       if (verdict === VERDICT.APPLY) union.records.set(incoming.record_id, incoming);
-      else if (verdict === VERDICT.DIVERGED) {
-        union.divergences.push(describeDivergence(held, incoming));
-        // Neither side is chosen. The record stays as it was in the union, and the clash travels with
-        // the result so the caller shows it rather than the snapshot quietly picking one.
+      // Nothing else is applied. A divergence in particular chooses neither side: the record stays
+      // as it was in the union and the clash is reported below, rather than the snapshot quietly
+      // picking one.
+
+      // ── detection does NOT go through the fold, and that is the whole point ──────────────────
+      //
+      // Comparing each incoming against the CURRENT WINNER only finds a clash that happens to be
+      // standing when its counterpart arrives. It misses one the fold has already walked past, and
+      // whether it has walked past depends on the order the files were written in:
+      //
+      //   two devices write revision N unaware of each other; one of them, still never having seen
+      //   the other, edits on to N+1. If that N+1 file is read BEFORE the other device's N, the
+      //   rev-N copy from its own line has already been replaced by the time the clash arrives, and
+      //   the comparison is N+1 against N — an ordinary supersede. Nothing is ever reported.
+      //
+      // So a clash is detected structurally instead: the FIRST envelope seen at each record and
+      // revision is remembered, and a second envelope at that same revision from a DIFFERENT device
+      // is a divergence whenever it turns up and whatever has happened to the winner since. The
+      // memory cost is one reference per record-and-revision actually present in the areas, which is
+      // bounded by the records already being read.
+      const at = `${incoming.record_id}@${incoming.rev}`;
+      const first = firstAtRevision.get(at);
+      if (!first) firstAtRevision.set(at, incoming);
+      else if (first.device !== incoming.device) {
+        union.divergences.push(describeDivergence(first, incoming));
       }
     }
   }
+
+  // ── clashes the coach has already ANSWERED ──────────────────────────────────────────────────
+  //
+  // An area file is history, not a current statement. Two files holding revision N from two devices
+  // are a clash the moment they are read — but if the coach has already answered it, `resolution.js`
+  // wrote the side he picked at a strictly higher revision, and the older files carrying the two
+  // rev-N copies stay in the areas until compaction removes them. Reporting those anyway would ask
+  // him the same question on every pass FOREVER after he answered it, which is how a surface teaches
+  // the person reading it to stop reading it. That protection is real and it is kept.
+  //
+  // ## The test used to be "a higher revision exists", and that was wrong
+  //
+  // It read "something outranks both sides" as "the question was answered". It is true when the
+  // resolution seam wrote the higher revision — but the seam is not the only thing that can. Two
+  // devices write revision N unaware of each other; one of them, STILL never having seen the other,
+  // edits again in the ordinary way to N+1. Nothing was resolved, nobody was asked, and there is now
+  // a revision above both sides. The clash was dropped, the other device's edit was discarded, and
+  // nothing anywhere said so — which is exactly the silent-loss shape this whole area exists to
+  // prevent, arriving inside the guard against it.
+  //
+  // The two cases differ in provenance, not in arithmetic, so provenance is what is asked for.
+  // `resolved_from` is written by the resolution seam alone and inherited by later revisions, so it
+  // says "this line of history descends from an answer" and names the revision that answer settled.
+  // A clash is dropped only when the settled record descends from an answer given at or above the
+  // revision the two sides claim. An ordinary edit carries its parent's mark and cannot raise it, so
+  // it can no longer speak for a question the coach was never asked.
+  //
+  // Nothing is chosen here and nothing is discarded either way; this only decides what he is shown.
+  union.divergences = union.divergences.filter((divergence) => {
+    const settled = union.records.get(divergence.record_id);
+    if (!settled || settled.rev <= divergence.rev) return true;
+    const answered = Number(settled.resolved_from);
+    return !(Number.isInteger(answered) && answered >= divergence.rev);
+  });
 
   return union;
 }

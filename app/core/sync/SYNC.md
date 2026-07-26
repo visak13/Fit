@@ -22,7 +22,7 @@ A reader who cannot tell these apart will either over-trust the snapshot or over
 |---|---|---|
 | **STRUCTURAL** | per-device areas (§2) | Cross-device overwrite **cannot occur**. There is no shared writable object, so there is nothing to lose. Not "unlikely" — absent. |
 | **DETECTED AND RECOVERABLE** | the derived snapshot (§4) | A lost update **can** occur, is noticed by read-compare-write, and is **repaired** by rebuilding from the areas, which still hold every record. |
-| **DETECTED ONLY** | genuine divergence (§5) | Two devices edited one record in ignorance of each other. The data cannot say who is right, so **a person decides**. Both sides are kept and shown. |
+| **DETECTED ONLY** | genuine divergence (§5) | Two devices edited one record in ignorance of each other. The data cannot say who is right, so **a person decides**. Both sides are kept and shown; `resolution.js` applies the side he picks, above both, and never picks one itself. |
 
 Everything else in this file is one of those three, or the machinery that makes them true.
 
@@ -142,6 +142,55 @@ history.
 **When you cannot tell, surface.** `NEVER_RESOLVED_BY_GUESSING` is a declared value asserted by a
 test, not an absent check — an absence reads as an oversight to the next editor, who helpfully adds
 "just take the newer timestamp".
+
+**Once he has answered, `resolution.js` applies it — and nothing else does.** The screen collects the
+choice; the core applies it. Three things make that seam worth having rather than a line in a
+component. It writes the chosen side at a **strictly higher** revision than either side claims, so
+the answer survives the round trip instead of losing the last-write-wins race and returning the
+discarded edit minutes later (§0 and `revisions.js` — the same rule the admin reset paid for). It
+re-classifies the pair and **refuses anything that is not genuinely a divergence**, so the ordinary
+supersede path cannot launder a routine pull through the conflict kind. And it is the **only** call
+site of `sync.conflict_resolved` in the application, asserted by a scan of the whole core — a second
+writer would relabel every routine pull as a collision and the log could no longer answer how often
+his two devices genuinely clashed.
+
+It still chooses nothing: there is no default side and no "prefer newer", and
+`NOTHING_HERE_CHOOSES_A_SIDE` is a declared value with its own test, so there is no seam between the
+classifier and the applier for a default to be helpfully added to.
+
+**A clash he has already ANSWERED is not asked again.** Area files are history: the two rev-N copies
+stay on the remote until compaction removes them, so the union would otherwise re-surface an answered
+conflict on every single pass, forever. That protection is real and it is kept.
+
+The test it uses is **provenance, not arithmetic**, and the difference cost a real edit. `readUnion`
+used to drop a divergence whenever the winner carried a revision above both sides, reading "something
+outranks both" as "he answered it". The resolution seam is not the only thing that can produce such a
+revision:
+
+> Two devices write revision N unaware of each other. One of them, **still never having seen the
+> other**, edits again in the ordinary way to N+1. Nothing was resolved and nobody was asked — but a
+> revision above both sides now exists.
+
+The clash was dropped, the other device's edit was discarded, and nothing said so anywhere. So the
+envelope carries `resolved_from`: the revision of the divergence this line of history answered,
+written by `resolution.js` **alone** and inherited by later revisions. A divergence is dropped only
+when the winner descends from an answer given at or above the revision the two sides claim. An
+ordinary edit carries its parent's mark and cannot raise it, so it can no longer speak for a question
+the coach was never asked. Nothing is discarded either way; this only decides what he is shown.
+
+**Detection does not go through the fold.** Comparing each incoming record against the current winner
+alone finds only a clash that happens to be standing when its counterpart arrives — so whether the
+clash above was even *detected* depended on the order the files were written in. `readUnion`
+remembers the first envelope seen at each `record_id@rev` and reports a second one at that revision
+from a different device whenever it turns up. `divergence-provenance.test.js` runs the history in
+**both** file orderings and asserts the same verdict.
+
+`resolved_from` is **additive and optional in both directions**, and `DOCUMENT_VERSION` does not move
+for it. An envelope that lacks the field is valid and means "no answer"; the writer omits the field
+when it is null, so a record the coach has never resolved goes out byte-identical to what a build
+without the field writes; the reader puts the null back. This matters because an unrecognised
+envelope key is refused, a refused file is **skipped per file** while the pass still reports a clean
+completion — the older device would show green while holding none of the newer one's work.
 
 ---
 
@@ -327,7 +376,9 @@ the trade-offs and the case it refuses to decide silently are in `OUTBOX.md` §8
 
 - **Do not add a conditional write.** The port refuses to offer one because the service cannot honour
   it. See `PORT.md`.
-- **Do not resolve a divergence.** See §5.
+- **Do not resolve a divergence anywhere but `resolution.js`, and do not let it choose.** No default
+  side, no "prefer newer", no option to enable one, and no second writer of
+  `sync.conflict_resolved`. See §5.
 - **Do not adopt one file from a listing of several.** See §4.
 - **Do not add a background trigger.** See §9.
 - **Do not write into another device's area**, and do not add a parameter that would allow it. The

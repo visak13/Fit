@@ -21,11 +21,32 @@ import { fileURLToPath } from 'node:url';
 
 import {
   DATA_KEY_BITS, IV_BYTES, KDF_SALT_BYTES, PBKDF2_ITERATIONS, RECOVERY_KEY_BYTES, WRAP_KEY_BITS,
-  fromBase64, generateDataKey, generateDeviceWrappingKey, open, randomBytes, seal, textToBytes,
-  toBase64, unwrapDataKey, wrapDataKey, wrappingKeyFromPassphrase, wrappingKeyFromRecoveryMaterial,
+  fromBase64, generateDataKey, generateDeviceWrappingKey, open, randomBytes, seal, sha256,
+  textToBytes, toBase64, unwrapDataKey, wrapDataKey, wrappingKeyFromPassphrase,
+  wrappingKeyFromRecoveryMaterial,
 } from './primitives.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
+
+test('the digest is REAL SHA-256, checked against the published vector rather than against itself', () => {
+  // A digest test that hashes something and compares it to what the same function produced a moment
+  // ago proves only that the function is deterministic — a constant would pass it. This is the
+  // published SHA-256 of "abc" (FIPS 180-4), so it fails if the algorithm name is ever changed to
+  // something else that also returns 32 plausible bytes. The event log chains its entries with this.
+  return sha256(textToBytes('abc')).then((digest) => {
+    assert.equal(digest.length, 32);
+    assert.equal(
+      toBase64(digest),
+      'ungWv48Bz+pBQUDeXa4iI7ADYaOWF3qctBD/YfIAFa0=',
+    );
+  });
+});
+
+test('the digest refuses anything that is not bytes, rather than hashing its string form', async () => {
+  // It is `async`, so the refusal arrives as a rejection. Text must be encoded deliberately —
+  // silently accepting a string would make the encoding a property of whoever called it.
+  await assert.rejects(() => sha256('abc'), TypeError);
+});
 
 test('base64 round-trips every byte value, including the ones that need padding', () => {
   for (let length = 0; length <= 8; length += 1) {
@@ -136,7 +157,17 @@ test('nothing in this directory imports anything outside the core', () => {
       const allowed = specifier.startsWith('./')
         || specifier.startsWith('../model/')
         || specifier.startsWith('../remote/')
-        || (file.endsWith('.test.js') && specifier.startsWith('node:'));
+        // ONE file of the event log, and it is named exactly rather than by prefix. `kinds.js` is
+        // frozen strings and a refusal — it imports only its own error class, reaches no database,
+        // no port and no network, and nothing else under `../journal/` is admitted by this rule.
+        // The guard records key and recovery activity, and it names those kinds from the vocabulary
+        // instead of spelling them, so a typo is a TypeError here rather than a refusal discovered
+        // the one time the recovery path actually runs. The durable half of the log stays out: this
+        // directory is handed a function to call and never learns what a store is.
+        || specifier === '../journal/kinds.js'
+        || (file.endsWith('.test.js') && specifier.startsWith('node:'))
+        || (file.endsWith('.test.js') && specifier.startsWith('../store/'))
+        || (file.endsWith('.test.js') && specifier.startsWith('../journal/'));
       if (!allowed) offenders.push(`${file} imports ${specifier}`);
     }
   }
@@ -144,6 +175,23 @@ test('nothing in this directory imports anything outside the core', () => {
   assert.deepEqual(offenders, [],
     'this directory consumes the remote storage PORT abstractly and makes no live provider '
     + 'call; a provider client appearing here would give the encryption a network dependency');
+});
+
+test('the guard is handed its log rather than importing one — the boundary that matters', () => {
+  const guard = readFileSync(join(HERE, 'guard.js'), 'utf8');
+  const reached = importSpecifiers(guard).filter((s) => s.startsWith('../journal/'));
+
+  assert.deepEqual(
+    reached, ['../journal/kinds.js'],
+    'the ONLY thing guard.js may take from the event log is the vocabulary. The moment it imports '
+    + 'the durable half it has acquired a database, and `core/crypto` stops being the pure, '
+    + 'port-abstract package the rest of these tests rely on it being.',
+  );
+  assert.equal(
+    /recordEvent|recordChange|openLocalStore/.test(guard), false,
+    'and it must not reach an append function by any name: the sink arrives as ctx.journal, which '
+    + 'is what lets a caller decide where key events land without this file knowing.',
+  );
 });
 
 test('the application modules pull in no test runner and no filesystem', () => {

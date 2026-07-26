@@ -60,6 +60,7 @@
  * what forecloses it.
  */
 
+import { JOURNAL_KINDS, recordChange } from '../journal/journal.js';
 import { newRecordId, reviseEnvelope, timestamp, validateRecord } from '../model/model.js';
 import { scrubClientFromOutbox } from '../outbox/scrub.js';
 import { runWrite } from './db.js';
@@ -147,116 +148,22 @@ export async function purgeClient(store, clientId, options = {}) {
   const { now } = options;
   const at = timestamp(now);
   const device = store.device;
+  // Minted out here, not inside the work: the work may repeat, and a second identity would mean the
+  // retry wrote a different manifest from the one the first attempt built.
+  const deletionId = newRecordId();
 
-  const manifest = await runWrite(store.handle, PURGE_STORES, async (scope) => {
-    const { KeyRange } = scope;
-    /** @type {{type: string, record_id: string}[]} */
-    const removed = [];
-    /** @type {{type: string, record_id: string, rev: number}[]} */
-    const revised = [];
-    /** The revised envelopes themselves, for the queue sweep. Never leave this device. @type {any[]} */
-    const revisedRecords = [];
-
-    const client = await scope.get(RECORD_STORES.client, clientId);
-    if (!client) {
-      throw new StoreNotFoundError(
-        'No client is stored with that identity, so there is nothing to remove.',
-        { record_id: clientId },
-      );
-    }
-
-    // ── 1. every row that belongs to this client alone ───────────────────────────────────────
-    for (const type of CLIENT_OWNED_TYPES) {
-      const storeName = RECORD_STORES[type];
-      const keys = await scope.keysByIndex(storeName, 'by_client', KeyRange.only(clientId));
-      for (const key of keys) {
-        await scope.delete(storeName, key);
-        removed.push({ type, record_id: key });
-      }
-    }
-
-    // ── 2. sessions: revise the shared ones, remove the ones left with nobody ────────────────
-    const sessionIds = await scope.keysByIndex(
-      RECORD_STORES.session, 'by_client', KeyRange.only(clientId),
-    );
-    for (const sessionId of sessionIds) {
-      const session = await scope.get(RECORD_STORES.session, sessionId);
-      if (!session) continue;
-
-      const remaining = (session.content?.client_ids || []).filter((id) => id !== clientId);
-
-      if (remaining.length > 0) {
-        // Somebody else's history. Take the departed client out of it and leave the rest alone.
-        const next = reviseEnvelope(session, { ...session.content, client_ids: remaining }, { device, now });
-        const { ok, issues } = validateRecord(next);
-        if (!ok) {
-          throw new StoreValidationError(
-            'Removing this client from a shared session would leave the session invalid, so nothing was removed.',
-            issues, { session_id: sessionId },
-          );
-        }
-        await scope.put(RECORD_STORES.session, next);
-        await rebuildParticipants(scope, next);
-        revised.push({ type: 'session', record_id: sessionId, rev: next.rev });
-        revisedRecords.push(next);
-        continue;
-      }
-
-      // Nobody left in it. Remove the session and anything still pointing at it — including a note
-      // that was about the session as a whole rather than about a person.
-      for (const type of ['performed-record', 'reading', 'session-note']) {
-        const storeName = RECORD_STORES[type];
-        const keys = await scope.keysByIndex(storeName, 'by_session', KeyRange.only(sessionId));
-        for (const key of keys) {
-          await scope.delete(storeName, key);
-          removed.push({ type, record_id: key });
-        }
-      }
-      const rows = await scope.keysByIndex(
-        PARTICIPANTS_STORE, 'by_session', KeyRange.only(sessionId),
-      );
-      for (const key of rows) await scope.delete(PARTICIPANTS_STORE, key);
-
-      await scope.delete(RECORD_STORES.session, sessionId);
-      removed.push({ type: 'session', record_id: sessionId });
-    }
-
-    // ── 3. the derived index rows for this client ────────────────────────────────────────────
-    const participantKeys = await scope.keysInRange(
-      PARTICIPANTS_STORE, prefixRange(KeyRange, [clientId]),
-    );
-    for (const key of participantKeys) await scope.delete(PARTICIPANTS_STORE, key);
-
-    // ── 4. the client record itself, last, so a failure above leaves it findable ─────────────
-    await scope.delete(RECORD_STORES.client, clientId);
-    removed.push({ type: 'client', record_id: clientId });
-
-    // ── 5. the queue, which is where their detail was living on ──────────────────────────────
-    // After the sweep above, so the removal list is complete: an entry is judged against what was
-    // actually removed as well as against the record in front of it.
-    const outbox = await scrubClientFromOutbox(scope, {
-      clientId, removed, revised: revisedRecords,
-    });
-
-    // ── 6. the manifest: identities only, no content of any kind ─────────────────────────────
-    /** @type {DeletionManifest} */
-    const record = {
-      deletion_id: newRecordId(),
-      manifest_version: DELETION_MANIFEST_VERSION,
-      subject_client_id: clientId,
-      requested_at: at,
-      device,
-      status: 'pending',
-      attempts: 0,
-      last_error: null,
-      propagated_at: null,
-      removed,
-      revised,
-      outbox,
-      sweep: { archived_copies: true, remote_backups: true },
-    };
-    await scope.put(DELETIONS_STORE, record);
-    return record;
+  const { result: manifest } = await recordChange(store, {
+    stores: PURGE_STORES,
+    // The one kind whose entry outlives everything it names. The purge removes the rows; the entry
+    // stays, holding the departed client's identity and NOTHING else — no name, no note, no reading
+    // — so the log can still answer "was this removal actually carried out" once there is nothing
+    // left to look at. `JOURNAL.md` states that residual deliberately rather than sweeping the log
+    // too, which would delete the evidence that the deletion happened.
+    fields: {
+      kind: JOURNAL_KINDS.RECORD_PURGED,
+      subject: { type: 'client', record_id: clientId },
+    },
+    work: (scope) => purgeInScope(scope, { clientId, at, device, now, deletionId }),
   });
 
   store.coordinator.announce({
@@ -266,6 +173,133 @@ export async function purgeClient(store, clientId, options = {}) {
     record_ids: manifest.removed.map((r) => r.record_id),
   });
   return manifest;
+}
+
+/**
+ * The purge itself, inside a transaction somebody else opened.
+ *
+ * Split out from {@link purgeClient} because the entry recording the purge commits in the same
+ * transaction, so the body is now a `work` callback rather than the whole of the function — and
+ * because that callback **may run more than once**, if another window appends to this device's chain
+ * in between. Everything here reads current state through `scope` and computes from it, so repeating
+ * is free. The two values that are NOT re-derived — the instant and the manifest identity — are
+ * passed in deliberately: a repeat that minted a second `deletion_id` would leave the retry writing
+ * a different manifest from the one the first attempt built.
+ *
+ * @param {import('./db.js').Scope} scope
+ * @param {{clientId: string, at: string, device: string, deletionId: string,
+ *          now?: number|string|Date}} args
+ * @returns {Promise<DeletionManifest>}
+ */
+async function purgeInScope(scope, { clientId, at, device, now, deletionId }) {
+  const { KeyRange } = scope;
+  /** @type {{type: string, record_id: string}[]} */
+  const removed = [];
+  /** @type {{type: string, record_id: string, rev: number}[]} */
+  const revised = [];
+  /** The revised envelopes themselves, for the queue sweep. Never leave this device. @type {any[]} */
+  const revisedRecords = [];
+
+  const client = await scope.get(RECORD_STORES.client, clientId);
+  if (!client) {
+    throw new StoreNotFoundError(
+      'No client is stored with that identity, so there is nothing to remove.',
+      { record_id: clientId },
+    );
+  }
+
+  // ── 1. every row that belongs to this client alone ───────────────────────────────────────
+  for (const type of CLIENT_OWNED_TYPES) {
+    const storeName = RECORD_STORES[type];
+    const keys = await scope.keysByIndex(storeName, 'by_client', KeyRange.only(clientId));
+    for (const key of keys) {
+      await scope.delete(storeName, key);
+      removed.push({ type, record_id: key });
+    }
+  }
+
+  // ── 2. sessions: revise the shared ones, remove the ones left with nobody ────────────────
+  const sessionIds = await scope.keysByIndex(
+    RECORD_STORES.session, 'by_client', KeyRange.only(clientId),
+  );
+  for (const sessionId of sessionIds) {
+    const session = await scope.get(RECORD_STORES.session, sessionId);
+    if (!session) continue;
+
+    const remaining = (session.content?.client_ids || []).filter((id) => id !== clientId);
+
+    if (remaining.length > 0) {
+      // Somebody else's history. Take the departed client out of it and leave the rest alone.
+      const next = reviseEnvelope(session, { ...session.content, client_ids: remaining }, { device, now });
+      const { ok, issues } = validateRecord(next);
+      if (!ok) {
+        throw new StoreValidationError(
+          'Removing this client from a shared session would leave the session invalid, so nothing was removed.',
+          issues, { session_id: sessionId },
+        );
+      }
+      await scope.put(RECORD_STORES.session, next);
+      await rebuildParticipants(scope, next);
+      revised.push({ type: 'session', record_id: sessionId, rev: next.rev });
+      revisedRecords.push(next);
+      continue;
+    }
+
+    // Nobody left in it. Remove the session and anything still pointing at it — including a note
+    // that was about the session as a whole rather than about a person.
+    for (const type of ['performed-record', 'reading', 'session-note']) {
+      const storeName = RECORD_STORES[type];
+      const keys = await scope.keysByIndex(storeName, 'by_session', KeyRange.only(sessionId));
+      for (const key of keys) {
+        await scope.delete(storeName, key);
+        removed.push({ type, record_id: key });
+      }
+    }
+    const rows = await scope.keysByIndex(
+      PARTICIPANTS_STORE, 'by_session', KeyRange.only(sessionId),
+    );
+    for (const key of rows) await scope.delete(PARTICIPANTS_STORE, key);
+
+    await scope.delete(RECORD_STORES.session, sessionId);
+    removed.push({ type: 'session', record_id: sessionId });
+  }
+
+  // ── 3. the derived index rows for this client ────────────────────────────────────────────
+  const participantKeys = await scope.keysInRange(
+    PARTICIPANTS_STORE, prefixRange(KeyRange, [clientId]),
+  );
+  for (const key of participantKeys) await scope.delete(PARTICIPANTS_STORE, key);
+
+  // ── 4. the client record itself, last, so a failure above leaves it findable ─────────────
+  await scope.delete(RECORD_STORES.client, clientId);
+  removed.push({ type: 'client', record_id: clientId });
+
+  // ── 5. the queue, which is where their detail was living on ──────────────────────────────
+  // After the sweep above, so the removal list is complete: an entry is judged against what was
+  // actually removed as well as against the record in front of it.
+  const outbox = await scrubClientFromOutbox(scope, {
+    clientId, removed, revised: revisedRecords,
+  });
+
+  // ── 6. the manifest: identities only, no content of any kind ─────────────────────────────
+  /** @type {DeletionManifest} */
+  const record = {
+    deletion_id: deletionId,
+    manifest_version: DELETION_MANIFEST_VERSION,
+    subject_client_id: clientId,
+    requested_at: at,
+    device,
+    status: 'pending',
+    attempts: 0,
+    last_error: null,
+    propagated_at: null,
+    removed,
+    revised,
+    outbox,
+    sweep: { archived_copies: true, remote_backups: true },
+  };
+  await scope.put(DELETIONS_STORE, record);
+  return record;
 }
 
 /**

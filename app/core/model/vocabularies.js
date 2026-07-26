@@ -245,6 +245,7 @@ export const ENVELOPE_FIELD_TOKENS = Object.freeze([
   'recordid', 'rev', 'revision', 'deviceid', 'devicetag', 'device',
   'tombstone', 'deleted', 'deletedat',
   'createdat', 'updatedat', 'modifiedat', 'syncedat', 'lastsync',
+  'resolvedfrom',
   'encrypted', 'ciphertext', 'iv', 'keyid',
 ]);
 

@@ -106,6 +106,8 @@ describe('integration — the second device adopts, and can read what the first 
     after(() => world.close());
     await world.signedInDevice('coach-laptop');
 
+    /** @type {string[]} */
+    const recorded = [];
     await assert.rejects(
       establishKeyMaterial({
         remote: world.remote,
@@ -113,12 +115,18 @@ describe('integration — the second device adopts, and can read what the first 
         deviceKeys: new InMemoryDeviceKeyStore(),
         hasEverSynchronised: false,
         now: () => world.now(),
+        journal: async (/** @type {any} */ fields) => { recorded.push(fields.kind); },
       }),
       /connect|sync/i,
       'an offline device that has never synchronised REFUSES, and says why. Generating a fresh key '
       + 'to keep working is precisely the helpful act that splits the ciphertext for ever.',
     );
     assert.deepEqual(await census(world.remote), { envelopes: 1, recoveries: 1 });
+    assert.deepEqual(
+      recorded, ['key.establish_refused'],
+      'and the refusal is RECORDED before it is thrown. A refusal nobody can see afterwards is how '
+      + 'this becomes a mystery rather than an explanation the moment somebody investigates it.',
+    );
   });
 });
 

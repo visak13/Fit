@@ -30,8 +30,11 @@
  *     remain the authority.
  *  3. **Read-compare-write is DETECTION, not a lock.** This service has no conditional match, and the
  *     window between the compare and the write cannot be closed.
- *  4. **A genuine divergence is surfaced, never resolved.** Ordinary sequential use is per-record
+ *  4. **A genuine divergence is surfaced, never GUESSED at.** Ordinary sequential use is per-record
  *     last-write-wins; two devices at the same revision is a question only the coach can answer.
+ *     Nothing here answers it. `resolution.js` APPLIES an answer once he has given one, writing the
+ *     side he chose above both — and it is the only thing in the application that ever records
+ *     `sync.conflict_resolved`.
  *  5. **There is no background synchronisation and there cannot be.** Five opportunities, all of them
  *     in the foreground.
  *
@@ -44,6 +47,7 @@ export * from './errors.js';
 export * from './partition.js';
 export * from './payload.js';
 export * from './divergence.js';
+export * from './resolution.js';
 export * from './revisions.js';
 export * from './areas.js';
 export * from './snapshot.js';

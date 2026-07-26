@@ -26,10 +26,17 @@ import { createHashRouter, Navigate } from 'react-router-dom';
 import type { RouteObject } from 'react-router-dom';
 
 import { AdminScreen } from '../screens/AdminScreen';
+import { DivergencePickerScreen } from '../screens/DivergencePickerScreen';
+import { KeyMaterialConditionScreen } from '../screens/KeyMaterialConditionScreen';
 import { NotFoundScreen } from '../screens/NotFoundScreen';
 import { PlaceholderScreen } from '../screens/PlaceholderScreen';
+import { RemovalsScreen } from '../screens/RemovalsScreen';
+import { StoppedChangesScreen } from '../screens/StoppedChangesScreen';
 import { AppFrame } from './AppFrame';
-import { DEFAULT_DESTINATION_PATH, DESTINATIONS } from './navigation';
+import {
+  DEFAULT_DESTINATION_PATH, DESTINATIONS, DIVERGENCES_PATH, KEY_MATERIAL_PATH, REMOVALS_PATH,
+  STOPPED_CHANGES_PATH,
+} from './navigation';
 
 /** The one destination that already has content; the rest are placeholders for later steps. */
 const ADMIN_PATH = 'admin';
@@ -38,8 +45,13 @@ const ADMIN_PATH = 'admin';
  * Every address this application answers to, and the only place they are declared.
  *
  * The destination routes are MAPPED from the navigation list rather than written out, so a
- * destination added there is reachable here without anyone remembering, and a route can never exist
- * that the navigation surface does not show.
+ * destination added there is reachable here without anyone remembering.
+ *
+ * A route that is NOT a destination is allowed, and the picker is the first — see
+ * {@link DIVERGENCES_PATH}. What is not allowed is a route nothing links to, and that is checked
+ * rather than trusted: `no-dead-ends.test.ts` renders every screen this table carries and requires
+ * each non-destination route to be reached by a LABELLED link that resolves, from a screen that is
+ * itself reachable. A screen findable only by typing its address is a screen the coach cannot find.
  */
 export const ROUTE_TABLE: readonly RouteObject[] = [
   {
@@ -56,6 +68,10 @@ export const ROUTE_TABLE: readonly RouteObject[] = [
             <PlaceholderScreen destination={destination} />
           ),
       })),
+      { path: DIVERGENCES_PATH, element: <DivergencePickerScreen /> },
+      { path: KEY_MATERIAL_PATH, element: <KeyMaterialConditionScreen /> },
+      { path: STOPPED_CHANGES_PATH, element: <StoppedChangesScreen /> },
+      { path: REMOVALS_PATH, element: <RemovalsScreen /> },
       { path: '*', element: <NotFoundScreen /> },
     ],
   },

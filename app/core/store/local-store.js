@@ -32,8 +32,42 @@
  * live can only be written by the window holding that session's lease, so the second window running
  * a different routine cannot append to the first window's session even by accident. See
  * `coordination.js`.
+ *
+ * ## Every mutation records itself, in its own transaction
+ *
+ * This object is the application's only way to change a record on this device, which makes it the
+ * one place the event log has to be wired into for the record-change domain to be complete. Each
+ * mutating method below goes through {@link LocalStore.#recordingWrite} — one `recordChange` from
+ * `core/journal`, which opens ONE transaction over this write's stores AND the log's, runs the work
+ * inside it, and commits the entry there. Both land or neither does.
+ *
+ * **The wiring is here rather than at the callers deliberately.** A screen, an importer, the
+ * synchronisation engine and the seed loader all reach the database through these five methods, so
+ * wiring them is what makes the log complete; wiring the callers instead would make it complete only
+ * for the callers somebody remembered. `journal-wiring.test.js` asserts the mutating surface against
+ * this file rather than against a list, so a sixth mutating method added later fails the gate
+ * instead of quietly writing nothing.
+ *
+ * **An entry says only THAT a record changed, and which one.** No name, no note, no content, no
+ * revision payload — see `core/journal/entry.js`, which structurally refuses anything else.
+ *
+ * Three consequences worth knowing before editing these methods:
+ *
+ *  1. **`work` may run more than once.** If another window appends to this device's chain between
+ *     the entry being hashed and the transaction committing, the whole unit repeats. Every body
+ *     below already reads current state inside the transaction and computes from it, which is what
+ *     makes repeating free — keep it that way.
+ *  2. **A mutation that turns out to change nothing ABORTS rather than recording.** `putRecord` and
+ *     `importRecords` can decide, inside the transaction, that the local copy already wins. They
+ *     throw {@link NothingApplied}, the transaction aborts, and the entry goes with it — because an
+ *     entry asserting an import that did not happen is the same defect as a missing one, pointing
+ *     the other way. Nothing is lost by aborting: on that path nothing had been written.
+ *  3. **The change announcement still happens after the commit**, exactly as before. A peer told
+ *     about a write that has not landed is an acknowledgement by another door, and that is as true
+ *     now that the write carries an entry as it was before.
  */
 
+import { JOURNAL_KINDS, recordChange } from '../journal/journal.js';
 import {
   createEnvelope, laterOf, reviseEnvelope, supersedes, timestamp, tombstoneEnvelope,
   validateRecord, LIBRARY_TYPES, RECORD_TYPES,
@@ -188,7 +222,11 @@ export class LocalStore {
     assertValid(record);
 
     const store = storeNameFor(type);
-    const stored = await runWrite(this.handle, storesFor(type), async (scope) => {
+    const stored = await this.#recordingWrite({
+      kind: JOURNAL_KINDS.RECORD_CREATED,
+      stores: storesFor(type),
+      subject: { type, record_id: record.record_id },
+    }, async (scope) => {
       await this.#guardLiveSession(scope, lease, sessionIdOf(record));
 
       if (LIBRARY_TYPES.includes(type) && typeof content?.id === 'string') {
@@ -234,7 +272,11 @@ export class LocalStore {
     const { expectRev, now, lease = null } = options;
     const store = storeNameFor(type);
 
-    const stored = await runWrite(this.handle, storesFor(type), async (scope) => {
+    const stored = await this.#recordingWrite({
+      kind: JOURNAL_KINDS.RECORD_UPDATED,
+      stores: storesFor(type),
+      subject: { type, record_id: recordId },
+    }, async (scope) => {
       const current = await scope.get(store, recordId);
       if (!current) throw notFound(type, recordId);
       if (current.deleted) {
@@ -289,7 +331,11 @@ export class LocalStore {
     const { expectRev, now, lease = null } = options;
     const store = storeNameFor(type);
 
-    const stored = await runWrite(this.handle, storesFor(type), async (scope) => {
+    const stored = await this.#recordingWrite({
+      kind: JOURNAL_KINDS.RECORD_DELETED,
+      stores: storesFor(type),
+      subject: { type, record_id: recordId },
+    }, async (scope) => {
       const current = await scope.get(store, recordId);
       if (!current) throw notFound(type, recordId);
       assertExpectedRevision(current, expectRev, type);
@@ -329,10 +375,18 @@ export class LocalStore {
     const type = record.type;
     const store = storeNameFor(type);
 
-    const result = await runWrite(this.handle, storesFor(type), async (scope) => {
+    // The local copy already winning is not a change, so it must not produce an entry. The decision
+    // can only be taken inside the transaction — the entry was hashed before it opened — so the work
+    // throws and the transaction takes the entry down with it. Nothing is lost: on this path nothing
+    // was written. See NothingApplied.
+    const result = await this.#recordingWrite({
+      kind: JOURNAL_KINDS.RECORD_IMPORTED,
+      stores: storesFor(type),
+      subject: { type, record_id: record.record_id },
+    }, async (scope) => {
       const current = await scope.get(store, record.record_id);
       if (current && !supersedes(current, record)) {
-        return { applied: false, record: laterOf(current, record) };
+        throw new NothingApplied({ applied: false, record: laterOf(current, record) });
       }
       await scope.put(store, record);
       if (type === 'session') await rebuildParticipants(scope, record);
@@ -368,7 +422,17 @@ export class LocalStore {
     const types = Array.from(new Set(records.map((r) => r.type)));
     const stores = Array.from(new Set(types.flatMap((t) => storesFor(t))));
 
-    const result = await runWrite(this.handle, stores, async (scope) => {
+    const result = await this.#recordingWrite({
+      kind: JOURNAL_KINDS.RECORD_IMPORTED,
+      stores,
+      // No subject: an import is about many records, and the vocabulary makes the subject optional
+      // on this kind for exactly that reason. The count is how many records the import CARRIED, and
+      // it is fixed before the transaction opens because that is when the entry is hashed — the
+      // platform offers no way to amend a hashed entry from inside a transaction, and inventing one
+      // would mean hashing in there. A carried record the local copy already superseded was still
+      // examined and still part of what arrived.
+      affectedCount: records.length,
+    }, async (scope) => {
       let written = 0;
       let skipped = 0;
       for (const record of records) {
@@ -381,6 +445,9 @@ export class LocalStore {
         if (record.type === 'session') await rebuildParticipants(scope, record);
         written += 1;
       }
+      // An import in which every record lost is not an import. Same reasoning as putRecord: nothing
+      // was written, so aborting costs nothing and stops the log claiming records arrived.
+      if (written === 0) throw new NothingApplied({ written, skipped });
       return { written, skipped };
     });
 
@@ -428,6 +495,61 @@ export class LocalStore {
     if (!session || session.deleted) return;
     if (session.content?.status !== 'in_progress') return;
     assertLease(this.coordinator, lease, sessionId);
+  }
+
+  /**
+   * Make a change and record it in the log, in ONE transaction. **Every mutation goes through here.**
+   *
+   * It is `recordChange` from `core/journal` with this store's stores and the log's held open
+   * together, and it exists so that the five mutating methods share one wiring rather than five
+   * copies of it — five copies being how the sixth method ends up with none.
+   *
+   * `work` may run more than once; see the note at the top of this file. Throwing
+   * {@link NothingApplied} from it aborts the transaction and returns the carried value instead,
+   * which is how a decision taken inside the transaction unwrites an entry that was hashed before it.
+   *
+   * @template T
+   * @param {{kind: string, stores: string|readonly string[],
+   *          subject?: {type: string, record_id: string}|null, affectedCount?: number}} spec
+   * @param {(scope: import('./db.js').Scope) => Promise<T>|T} work
+   * @returns {Promise<T>}
+   */
+  async #recordingWrite(spec, work) {
+    try {
+      const { result } = await recordChange(this, {
+        stores: spec.stores,
+        fields: {
+          kind: spec.kind,
+          subject: spec.subject ?? null,
+          ...(spec.affectedCount === undefined ? {} : { affected_count: spec.affectedCount }),
+        },
+        work,
+      });
+      return result;
+    } catch (error) {
+      if (error instanceof NothingApplied) return error.value;
+      throw error;
+    }
+  }
+}
+
+/**
+ * The signal that a write decided, INSIDE its transaction, that it was changing nothing.
+ *
+ * Not an error the application ever sees — {@link LocalStore} catches it and returns the value it
+ * carries. It exists because the entry is hashed before the transaction opens (a digest cannot be
+ * taken inside one; see `core/journal/durable.js`), so by the time `putRecord` discovers the local
+ * copy already wins, the only way to unwrite the entry is to abort the transaction it is in.
+ *
+ * Aborting is free here and only here: on both paths that throw this, nothing had been put. Reaching
+ * for it anywhere something HAS been written would silently discard that write.
+ */
+class NothingApplied extends Error {
+  /** @param {any} value What the caller should receive instead. */
+  constructor(value) {
+    super('Nothing was applied, so nothing is recorded.');
+    this.name = 'NothingApplied';
+    this.value = value;
   }
 }
 

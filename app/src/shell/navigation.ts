@@ -81,3 +81,101 @@ export const DESTINATIONS: readonly Destination[] = Object.freeze([
 
 /** Where an empty path lands. The calendar is the screen a session starts from. */
 export const DEFAULT_DESTINATION_PATH = 'calendar';
+
+/**
+ * THE DIVERGENCE PICKER'S ADDRESS — the first route in this application that is NOT a destination.
+ *
+ * It lives in this file, beside the list, because this is the module that owns where things are; and
+ * it lives OUTSIDE `DESTINATIONS` because it is deliberately not one. The five destinations are the
+ * five places the application HAS. A clash between two devices is rare and episodic: a permanent
+ * sixth entry would be empty almost every visit, and an entry that is always empty is one the coach
+ * learns to stop reading — which would cost him the one time it was not empty.
+ *
+ * So it has an address, and it is reached from the Admin screen, which already carries
+ * synchronisation, backup and this device's own record. The cost of that choice is that its
+ * reachability stops being free: a destination is reachable from everywhere by construction, and
+ * this is not. `no-dead-ends.test.ts` therefore proves the way in EXISTS, is labelled and resolves —
+ * for this route and for every non-destination route added after it.
+ *
+ * It is named once here and read by both the route table and the screen that links to it. A second
+ * spelling in the linking markup is how a link ends up pointing at an address the table does not
+ * answer to, which is the not-found-with-a-button shape that shipped once already.
+ */
+export const DIVERGENCES_PATH = 'decisions';
+
+/**
+ * THE KEY-MATERIAL CONDITION SCREEN'S ADDRESS — the second route that is deliberately NOT a
+ * destination, and the reasoning is not simply copied from the first.
+ *
+ * The question was genuinely open, because two things pull against each other here.
+ *
+ * FOR a sixth destination: this state is not transient. A clash between two devices is answered and
+ * gone; a duplicate key sits there until a person sorts it out, and in the meantime the coach may
+ * need to come back to it more than once and read it out to whoever is helping him. A surface he can
+ * only arrive at by failing is a surface he cannot get back to.
+ *
+ * AGAINST: the condition is RARE and it arrives from a FAILURE rather than from navigation. Nobody
+ * ever goes looking for it the way they go looking for the calendar. A permanent sixth entry would
+ * be empty on virtually every visit, and an entry that is always empty is one he learns to stop
+ * reading — which is the exact opposite of what is wanted from the one screen whose job is to stop
+ * him.
+ *
+ * AN ADDRESS TAKES BOTH HALVES rather than trading one away. Routing here is by fragment, so a real
+ * address survives a refresh, a cold start from the home screen and a stray tap: he can return to it,
+ * bookmark it, and read it out. And the navigation surface keeps its five real places. What an
+ * address alone does NOT give him is arrival at the moment of failure, so the way in from Admin is
+ * PERMANENT and never conditional on there being something to show — the same choice, for the same
+ * reason, as the divergence picker's link.
+ *
+ * Reachability is therefore not free, and it is not assumed: `no-dead-ends.test.ts` proves the way in
+ * exists, is labelled, and resolves. That check asks for the PROPERTY — a labelled link from a screen
+ * that is itself reachable — rather than for membership of `DESTINATIONS`, so a non-destination is a
+ * thing it can hold rather than a thing it forbids.
+ *
+ * Named once here and read by the route table and by the screen that links to it. A second spelling
+ * in the linking markup is how a link ends up pointing at an address the table does not answer to.
+ */
+export const KEY_MATERIAL_PATH = 'encryption-details';
+
+/**
+ * THE STOPPED-CHANGES REVIEW ADDRESS — and this one is not a judgement call, it is a debt being paid.
+ *
+ * `core/status/reasons.js` gives two of its eight reasons an action code that names a screen:
+ * `review_refused` for a change the service refused, and `review_unconfirmed` for one whose outcome
+ * cannot be told. `SyncStatus.tsx` lists all five codes as things "the later step" must supply without
+ * naming WHICH step — and three of the five genuinely need the Google integration. **These two do
+ * not.** `needsAttention` in `core/outbox/status.js` is index reads over the local queue; the reason
+ * strings are already written; nothing about telling the coach WHICH change stopped and what the
+ * service actually said needs a token or a live service. They had been carried along behind the
+ * Google step by PROXIMITY rather than by need.
+ *
+ * So the address exists now, and `action-destinations.ts` is where each of the five codes is mapped to
+ * either an address in this file or the step that owns it — by name, so the unnamed later step this
+ * file's neighbours kept referring to stops being unnamed.
+ *
+ * NOT A DESTINATION, and for the same reason as the two above: a stopped change is episodic. It is
+ * reached from Admin, permanently and not conditionally on there being something to show, and
+ * `no-dead-ends.test.ts` proves the way in exists, is labelled and resolves.
+ */
+export const STOPPED_CHANGES_PATH = 'stopped-changes';
+
+/**
+ * THE PENDING-REMOVAL ADDRESS — the fourth non-destination, and the one with the longest silence
+ * behind it.
+ *
+ * `core/sync/deletions.js` opens by naming the exact failure it exists to prevent: "A clinical
+ * reference living on in a backup forever... and it is invisible: nothing errors, and the coach
+ * believes the client is gone." The core does the honest half — a removal is marked propagated only
+ * after this device's area has been READ BACK and shown not to contain the removed identities — and
+ * until now the belief was never corrected, because no screen anywhere listed a removal still sitting
+ * pending.
+ *
+ * The word is `removals` rather than `deletions` because that is the coach's own word for what he did,
+ * and this screen is about the ones NOT yet confirmed gone from the backup.
+ *
+ * WHAT IS DELIBERATELY NOT HERE: the remote detail naming which record identities are still present.
+ * That rides `SyncReport.deletions.still_present` and therefore needs the report-to-surface wire S16
+ * is building. This address carries the LOCAL half — the pending manifest, read straight from the
+ * local store — which is honest on day one and needs nothing from Google.
+ */
+export const REMOVALS_PATH = 'removals';

@@ -27,8 +27,29 @@ describe('sync/payload — a whitelist, and why it is not a blacklist', () => {
   it('rebuilds a record from the envelope’s declared fields', () => {
     const record = aClientRecord();
     const out = outboundRecord(record);
-    assert.deepEqual(out, record);
+    // `resolved_from` is the ONE field omitted when it is null, so that a record the coach has never
+    // resolved goes out byte-identical to what a build without that field writes. The reason is in
+    // `payload.js`: an older device refuses an envelope key it does not know, `areas.js` catches
+    // that per file and SKIPS the file, and the pass still reports a clean completion — so it would
+    // show him green while holding none of the newer device's work. Decoding puts the null back, so
+    // a record still round trips to itself; that is asserted below.
+    const withoutTheMark = { ...record };
+    delete withoutTheMark.resolved_from;
+    assert.deepEqual(out, withoutTheMark);
+    assert.equal(Object.hasOwn(out, 'resolved_from'), false, 'omitted, not sent as null');
     assert.notEqual(out, record, 'a new object, not the stored one');
+  });
+
+  it('rebuilds every OTHER declared field even when it is empty, null or false', () => {
+    // The omission above is a deliberate, single exception. This is the assertion that stops it
+    // spreading into "skip anything that looks empty", which would quietly stop sending a tombstone
+    // flag or a deletion time and make a removal fail to cross the device boundary.
+    const record = { ...aClientRecord(), deleted: false, deleted_at: null, resolved_from: 3, rev: 4 };
+    const out = outboundRecord(record);
+    for (const field of ['record_id', 'type', 'rev', 'device', 'deleted', 'deleted_at',
+      'created_at', 'updated_at', 'resolved_from', 'content']) {
+      assert.equal(Object.hasOwn(out, field), true, `${field} is rebuilt, whatever its value`);
+    }
   });
 
   it('refuses a record carrying a field the content contract does not know', () => {
