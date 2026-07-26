@@ -138,6 +138,21 @@ export const STARTED_SESSION_STATUSES = Object.freeze([
 export const ENDED_SESSION_STATUSES = Object.freeze(['completed', 'abandoned']);
 
 /**
+ * Whether a session is run on a call or in a room.
+ *
+ * This is RECORDED rather than derived from the absence of a joining link, and the difference
+ * matters. A session planned online before its link is minted carries no link either, so
+ * reading "no link means in person" would make the two indistinguishable — and the requirement
+ * is that in person creates no calendar event and no meeting link AT ALL. The mark is a choice
+ * the coach makes at the moment he starts, and a choice made is a fact to record.
+ *
+ * There is deliberately no third value. He runs a session on a call or in a room; `hybrid`
+ * would be a value nobody sets and a branch nobody tests.
+ * @type {readonly string[]}
+ */
+export const SESSION_MODES = Object.freeze(['online', 'in_person']);
+
+/**
  * Where a session's Meet link came from. Both paths are supported deliberately: minting via
  * the calendar can fail at the moment a session starts, and a pasted link costs nothing and
  * covers a call that is already running.

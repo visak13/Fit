@@ -242,6 +242,7 @@ test('reset REVERTS an edited shipped record and leaves client-side records UNTO
     routine_id: seedContentFor('routine')[0].id,
     client_ids: [client.record_id],
     status: 'completed',
+    mode: 'online',
     scheduled_at: '2026-07-20T09:00:00.000Z',
     started_at: '2026-07-20T09:01:00.000Z',
     ended_at: '2026-07-20T10:00:00.000Z',

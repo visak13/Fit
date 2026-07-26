@@ -247,8 +247,8 @@ only a pointer to it. See §5.
 
 ### 4.5 `session`
 
-`routine_id`, `client_ids`, `status`, `scheduled_at?`, `started_at?`, `ended_at?`, `meet_url?`,
-`meet_source?`, `summary?`.
+`routine_id`, `client_ids`, `status`, `mode`, `scheduled_at?`, `started_at?`, `ended_at?`,
+`meet_url?`, `meet_source?`, `summary?`.
 
 A session is **one routine and one to many clients** — not a client plus a routine. A single app
 instance always drives a single routine however many people are in the call; two people needing
@@ -267,6 +267,15 @@ and a half-finished one is still saved as a partial record rather than lost.
 
 There is deliberately **no cursor field** recording where the app thinks he should be. What
 happened is reconstructed from the performed records. The app tracks; it never dictates.
+
+`mode` is one of `online` or `in_person`, and it is **required**. It is recorded rather than
+worked out from whether a joining link is present, because a session planned online before its
+link is minted has no link either — reading "no link means in person" would make the two
+indistinguishable. In person creates **no calendar event and no meeting link at all**, so the mark
+is a choice the coach makes at the moment he starts, and a session marked `in_person` carrying a
+link or a link origin is refused as a `MISMATCH`. There is deliberately no third value such as
+`hybrid`: he runs a session on a call or in a room, and a value nobody sets is a branch nobody
+tests.
 
 `meet_url` holds the **joining link only**, and `meet_source` says whether it was minted through
 the calendar or pasted in from a call already running — both paths are supported on purpose. A

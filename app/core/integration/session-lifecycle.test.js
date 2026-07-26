@@ -64,7 +64,7 @@ describe('integration — a session, an interruption, and the queue that carries
 
     // ── run the first half of the session ───────────────────────────────────────────────────
     const started = await startSession(laptop.store, {
-      routineId: routine.content.id, clientIds: [clientId], routine, now: world.now(),
+      routineId: routine.content.id, clientIds: [clientId], mode: 'online', routine, now: world.now(),
     });
     const sessionId = started.session.sessionId;
     const first = routine.content.entries[0].exercise_id;
@@ -179,7 +179,7 @@ describe('integration — a session, an interruption, and the queue that carries
     world.adversity.expireCredential();
 
     const started = await startSession(laptop.store, {
-      routineId: routine.content.id, clientIds: [clientId], routine, now: world.now(),
+      routineId: routine.content.id, clientIds: [clientId], mode: 'online', routine, now: world.now(),
     });
     const sessionId = started.session.sessionId;
 

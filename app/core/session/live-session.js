@@ -50,8 +50,28 @@ import { clientViewOf, hasEnded, projectSession, RESUMABLE_STATUSES } from './pr
 /**
  * Write down a session that is going to happen. It is not running yet.
  *
+ * `mode` says whether the session is run on a call or in a room. It is REQUIRED, it comes from the
+ * caller, and it is never worked out from whether a link is present — a session planned online
+ * before its link is minted has no link either, so the two would be indistinguishable. A session
+ * marked `in_person` may carry no link at all, and the record refuses one that does.
+ *
+ * ## There is no default here, and the default that used to be is worth naming
+ *
+ * This function used to write `online` when a caller passed nothing. It existed only because no
+ * caller existed yet: nothing in the interface could ask the coach, so something had to be written.
+ * The calendar screen is now that caller and asks him every time, so the fallback has been REMOVED
+ * rather than left as a safety net. A net that invents a fact about where a session happened is
+ * worse than a refusal, because a plausible wrong answer is one nobody investigates — a session run
+ * in a room would have been recorded as online, which is the exact ambiguity the field was added to
+ * end, in a quieter form.
+ *
+ * NOTHING IS THROWN HERE, DELIBERATELY. An absent mode travels to `store.create` and the RECORD
+ * refuses it, with the sentence the schema already writes for a missing required field. The
+ * authority that owns the rule is the one that enforces it; a second check here would be a second
+ * rule, free to drift from the first.
+ *
  * @param {import('../store/store.js').LocalStore} store
- * @param {{routineId: string, clientIds: string[], scheduledAt?: string|null,
+ * @param {{routineId: string, clientIds: string[], mode: string, scheduledAt?: string|null,
  *   meetUrl?: string|null, meetSource?: string|null, now?: number|string|Date}} args
  * @returns {Promise<any>} the session envelope
  */
@@ -60,6 +80,7 @@ export function planSession(store, args) {
     routine_id: args.routineId,
     client_ids: args.clientIds,
     status: 'planned',
+    mode: args.mode,
   };
   if (args.scheduledAt) content.scheduled_at = timestamp(args.scheduledAt);
   if (args.meetUrl) {
@@ -77,8 +98,11 @@ export function planSession(store, args) {
  * window that does not hold it. Creating one already running would be a way around that guard, and
  * the guard is what stops two windows both believing they are running the same session.
  *
+ * `mode` is required and is passed straight through to {@link planSession}, which no longer invents
+ * one. See its note for why the fallback was removed rather than kept.
+ *
  * @param {import('../store/store.js').LocalStore} store
- * @param {{routineId: string, clientIds: string[], routine?: any|null,
+ * @param {{routineId: string, clientIds: string[], routine?: any|null, mode: string,
  *   meetUrl?: string|null, meetSource?: string|null, now?: number|string|Date}} args
  * @returns {Promise<OpenResult>}
  */

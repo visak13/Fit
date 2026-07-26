@@ -23,6 +23,17 @@
  * about them — identities only, no content of any kind — so this screen cannot say who. It says WHY it
  * cannot, in plain words, rather than showing a bare identifier and letting it read as a defect.
  *
+ * ## AND THERE IS A THIRD STATE NOW: THE STORE MAY NOT HAVE OPENED
+ *
+ * This screen reads from the local database, and a local database can refuse — a private window, a
+ * device with no room, a second window holding the old version open. When it has, this screen says
+ * SO, and it says what he can do about it, in his words and never as an exception message.
+ *
+ * It emphatically does not fall back on the empty reading. "Nothing is waiting" is the reassuring
+ * answer, and reporting it from a store that never opened would be this surface telling him every
+ * removal is confirmed gone on the strength of never having looked — the same failure as the one
+ * `core/sync/deletions.js` opens by naming, arriving through the screen built to correct it.
+ *
  * ## Where the dense-screen rule lands here
  *
  * ONE FIGURE: how many removals are not yet confirmed. Almost always nought, which is a good state and
@@ -36,8 +47,9 @@
 import { Fragment } from 'react';
 
 import { Glyph } from '../design/Glyph';
+import { LocalStoreNotice, useLocalStore } from '../platform/LocalStore';
 import { useRemovals } from '../shell/Removals';
-import { NO_NAME_IS_DELIBERATE, describeRemovals } from './removals';
+import { NO_NAME_IS_DELIBERATE, REMOVALS_TITLE, describeRemovals } from './removals';
 import type { RemovalItem } from './removals';
 import type { ReportPair } from './admin-report';
 
@@ -115,30 +127,46 @@ function RemovalCard({ item }: { item: RemovalItem }) {
 }
 
 export function RemovalsScreen() {
+  const opening = useLocalStore();
   const report = describeRemovals(useRemovals());
+  const known = opening.state === 'open';
 
   return (
     <div className="screen">
       <section className="card stack" aria-labelledby="screen-removals">
+        {/* The heading is drawn in every state, so a coach who arrived from a link still knows where
+            he is even when the screen cannot tell him anything else. */}
         <h2 id="screen-removals" className="title-screen">
-          {report.title}
+          {known ? report.title : REMOVALS_TITLE}
         </h2>
-        <p className="value-display">{report.count}</p>
-        <p className="screen-intro read">{report.intro}</p>
 
-        {/* Drawn in BOTH states, as a plain note rather than a warning: it is equally true on the good
-            day, and a permanent warning band is one he stops seeing. */}
-        <p className="note read">
-          <Glyph name="note" size="inline" decorative />
-          <span>{report.meaning}</span>
-        </p>
+        {/*
+          THE FIGURE AND THE ANSWER ARE DRAWN ONLY WHEN THE STORE IS OPEN, and that is the whole
+          point of this branch. The empty reading says "nothing is waiting", which on a device whose
+          storage never opened would be a nought this app never counted and a sentence saying every
+          removal is confirmed gone — the exact false good news `removals.ts` exists to prevent. What
+          is NOT known is said instead, and it is said in his words.
+        */}
+        {known ? (
+          <>
+            <p className="value-display">{report.count}</p>
+            <p className="screen-intro read">{report.intro}</p>
 
-        {report.moreWords !== null && <p className="muted read">{report.moreWords}</p>}
+            {/* Drawn in BOTH states, as a plain note rather than a warning: it is equally true on the
+                good day, and a permanent warning band is one he stops seeing. */}
+            <p className="note read">
+              <Glyph name="note" size="inline" decorative />
+              <span>{report.meaning}</span>
+            </p>
+
+            {report.moreWords !== null && <p className="muted read">{report.moreWords}</p>}
+          </>
+        ) : (
+          <LocalStoreNotice opening={opening} />
+        )}
       </section>
 
-      {report.items.map((item) => (
-        <RemovalCard key={item.deletionId} item={item} />
-      ))}
+      {known && report.items.map((item) => <RemovalCard key={item.deletionId} item={item} />)}
     </div>
   );
 }

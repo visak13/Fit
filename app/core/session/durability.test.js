@@ -57,7 +57,7 @@ test('an interruption at ANY point resumes EXACTLY and loses nothing', async () 
     const [client] = clientIds;
 
     const opened = await startSession(store, {
-      routineId: routine.content.id, clientIds, routine, now: T.start,
+      routineId: routine.content.id, clientIds, mode: 'online', routine, now: T.start,
     });
     const live = opened.session;
     const sessionId = live.sessionId;
@@ -114,7 +114,7 @@ test('a half-finished session is a PARTIAL RECORD, not a loss', async () => {
   const [client] = clientIds;
 
   const opened = await startSession(store, {
-    routineId: routine.content.id, clientIds, routine, now: T.start,
+    routineId: routine.content.id, clientIds, mode: 'online', routine, now: T.start,
   });
   const live = opened.session;
   await live.recordPerformed(client, {
@@ -149,7 +149,7 @@ test('an abandoned session keeps what happened — it is finished, not discarded
   const [client] = clientIds;
 
   const opened = await startSession(store, {
-    routineId: routine.content.id, clientIds, routine, now: T.start,
+    routineId: routine.content.id, clientIds, mode: 'online', routine, now: T.start,
   });
   await opened.session.recordPerformed(client, {
     exerciseId: EXERCISES.push, sets: 1, repetitions: 4, recordedAt: T.one, now: T.one,
@@ -170,12 +170,12 @@ test('a session left running and one left interrupted are both offered back, and
   const { store, routine, clientIds } = await aFurnishedStore();
 
   const cut = await startSession(store, {
-    routineId: routine.content.id, clientIds, routine, now: T.start,
+    routineId: routine.content.id, clientIds, mode: 'online', routine, now: T.start,
   });
   await cut.session.detach();                               // the power-cut shape: still in_progress
 
   const left = await startSession(store, {
-    routineId: routine.content.id, clientIds, routine, now: T.start,
+    routineId: routine.content.id, clientIds, mode: 'online', routine, now: T.start,
   });
   await left.session.interrupt({ now: T.cut });             // the courteous shape
 
@@ -198,7 +198,7 @@ test('a session left running and one left interrupted are both offered back, and
 test('a finished session is not reopened as live, and says so plainly', async () => {
   const { store, routine, clientIds } = await aFurnishedStore();
   const opened = await startSession(store, {
-    routineId: routine.content.id, clientIds, routine, now: T.start,
+    routineId: routine.content.id, clientIds, mode: 'online', routine, now: T.start,
   });
   await opened.session.complete({ now: T.end });
 

@@ -30,7 +30,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
  */
 async function aSessionThatHappened(store, routine, clientIds, detail) {
   const opened = await startSession(store, {
-    routineId: routine.content.id, clientIds, routine, now: detail.at,
+    routineId: routine.content.id, clientIds, mode: 'online', routine, now: detail.at,
   });
   await opened.session.recordPerformed(clientIds[0], {
     exerciseId: EXERCISES.push, sets: 3, repetitions: 12, observedLoad: detail.load,
@@ -77,7 +77,7 @@ test('starting a session shows the one BEFORE it, not the one he is looking at',
   await aSessionThatHappened(store, routine, clientIds, { load: '20kg', hr: 138, at: T.start });
 
   const opened = await startSession(store, {
-    routineId: routine.content.id, clientIds, routine, now: T.back,
+    routineId: routine.content.id, clientIds, mode: 'online', routine, now: T.back,
   });
 
   const glance = await previousSessionAtAGlance(store, clientIds[0], {
@@ -92,7 +92,7 @@ test('starting a session shows the one BEFORE it, not the one he is looking at',
 test('an interrupted session is still the previous session, and says that it did not finish', async () => {
   const { store, routine, clientIds } = await aFurnishedStore();
   const opened = await startSession(store, {
-    routineId: routine.content.id, clientIds, routine, now: T.start,
+    routineId: routine.content.id, clientIds, mode: 'online', routine, now: T.start,
   });
   await opened.session.recordPerformed(clientIds[0], {
     exerciseId: EXERCISES.push, sets: 2, repetitions: 8, observedLoad: '15kg',

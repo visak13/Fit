@@ -27,7 +27,7 @@ test('three clients, one routine, and each keeps their own record of what they d
   const [ana, ben, cal] = clientIds;
 
   const opened = await startSession(store, {
-    routineId: routine.content.id, clientIds, routine, now: T.start,
+    routineId: routine.content.id, clientIds, mode: 'online', routine, now: T.start,
   });
   const live = opened.session;
 
@@ -91,7 +91,7 @@ test('a shared session appears in EVERY attendee\'s history, with only their own
   const [ana, ben] = clientIds;
 
   const opened = await startSession(store, {
-    routineId: routine.content.id, clientIds, routine, now: T.start,
+    routineId: routine.content.id, clientIds, mode: 'online', routine, now: T.start,
   });
   await opened.session.recordPerformed(ana, {
     exerciseId: EXERCISES.push, sets: 3, repetitions: 12, observedLoad: '8kg',
@@ -121,7 +121,7 @@ test('somebody arriving late joins the session that is already running', async (
   const [ana, ben] = clientIds;
 
   const opened = await startSession(store, {
-    routineId: routine.content.id, clientIds: [ana], routine, now: T.start,
+    routineId: routine.content.id, clientIds: [ana], mode: 'online', routine, now: T.start,
   });
   const live = opened.session;
   await live.recordPerformed(ana, {
@@ -153,7 +153,7 @@ test('somebody added by mistake can be taken out — until they have done someth
   const [ana, ben] = clientIds;
 
   const opened = await startSession(store, {
-    routineId: routine.content.id, clientIds, routine, now: T.start,
+    routineId: routine.content.id, clientIds, mode: 'online', routine, now: T.start,
   });
   const live = opened.session;
 
@@ -179,7 +179,7 @@ test('the roster is the session\'s own, and a fact needs a person who is on it',
   const [ana] = clientIds;
 
   const opened = await startSession(store, {
-    routineId: routine.content.id, clientIds: [ana], routine, now: T.start,
+    routineId: routine.content.id, clientIds: [ana], mode: 'online', routine, now: T.start,
   });
 
   await assert.rejects(

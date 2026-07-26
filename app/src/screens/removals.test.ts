@@ -43,6 +43,9 @@ import {
 } from '../../core/store/purge.js';
 import { SYNC_TRIGGERS, syncNow } from '../../core/sync/engine.js';
 import { T0, aWorld } from '../../core/sync/testing.js';
+import { LocalStoreProvider } from '../platform/LocalStore.tsx';
+import { describeOpeningFailure, STILL_OPENING } from '../platform/local-store.ts';
+import type { LocalStoreOpening } from '../platform/local-store.ts';
 import { NOTHING_AWAITING_REMOVAL, RemovalsProvider } from '../shell/Removals.tsx';
 import type { RemovalsReading } from '../shell/Removals.tsx';
 import { RemovalsScreen } from './RemovalsScreen.tsx';
@@ -127,12 +130,30 @@ async function readingFrom(store: any): Promise<RemovalsReading> {
   return { pending: await pendingDeletions(store, { limit: 25 }) } as RemovalsReading;
 }
 
+/**
+ * A REAL opened store, held for the whole file.
+ *
+ * The screen now asks the local store what state it is in, because "nothing is waiting" read from a
+ * store that never opened would be the exact false good news this surface exists to prevent. So every
+ * render below is a render on a device whose store genuinely opened — the state these tests are about
+ * — and the other two states are asserted in the block at the bottom of this file.
+ */
+const openedWorld = aWorld();
+worlds.push(openedWorld);
+const OPEN: LocalStoreOpening = {
+  state: 'open',
+  store: (await openedWorld.device('coach-laptop')).store,
+};
+
 /** The screen, rendered exactly as the router renders it: through the seam and nothing else. */
-function render(reading: RemovalsReading): string {
+function render(reading: RemovalsReading, opening: LocalStoreOpening = OPEN): string {
   return renderToStaticMarkup(
-    createElement(RemovalsProvider, {
-      reading,
-      children: createElement(RemovalsScreen),
+    createElement(LocalStoreProvider, {
+      opening,
+      children: createElement(RemovalsProvider, {
+        reading,
+        children: createElement(RemovalsScreen),
+      }),
     }),
   );
 }
@@ -457,5 +478,105 @@ describe('the way in from Admin', () => {
       'the link must not promise more than the screen behind it delivers',
     );
     assert.equal(busy.title, empty.title);
+
+    // AND THE VERB AGREES WITH THE COUNT. It did not: with one removal pending the Admin screen
+    // read "1 removal ARE done on this device", which is the number the coach meets first and the
+    // only one the sentence got wrong. Found by looking at the rendered screen during the s5 join,
+    // with every gate green — the count was interpolated and the verb was not.
+    assert.ok(
+      busy.intro.startsWith('1 removal is done on this device'),
+      `the sentence must open with the singular verb, and it opened with: ${busy.intro}`,
+    );
+  });
+
+  it('agrees its verb with the count for more than one as well, so neither number is left wrong', async () => {
+    const { laptop } = await anUnconfirmedRemoval();
+    const second = await laptop.store.create('client', aClient({ name: 'Test Person Second' }));
+    await purgeClient(laptop.store, second.record_id);
+
+    const busy = describeRemovalsAdminEntry(await readingFrom(laptop.store));
+    assert.equal(busy.count, 2);
+    assert.ok(
+      busy.intro.startsWith('2 removals are done on this device'),
+      `the sentence must open with the plural verb, and it opened with: ${busy.intro}`,
+    );
+  });
+});
+
+/**
+ * THE STATE THIS SCREEN NEVER HAD BEFORE THE STORE WAS WIRED, AND IT IS THE ONE THAT MATTERS.
+ *
+ * Every test above renders on a device whose local store opened. A local store can also refuse — a
+ * private window, a device with no room, another window holding the old version open — and until the
+ * store was wired there was no such thing as this screen being asked on a device that had not
+ * answered yet.
+ *
+ * The failure being asserted against is precise: the seam's empty reading says "nothing is waiting",
+ * and the report built from it says every removal is confirmed gone from the backup. Rendering THAT
+ * on a store which never opened would be this screen telling him the good news on the strength of
+ * never having looked — the same belief `core/sync/deletions.js` opens by naming, arriving through
+ * the screen built to correct it. So it is asserted that the reassuring sentence is ABSENT, not
+ * merely that a notice is present: a notice above the old words would still have said them.
+ */
+describe('when the local store has not opened', () => {
+  const REASSURANCE = describeRemovals(NOTHING_AWAITING_REMOVAL).intro;
+
+  /** The two states that are not `open`, each with what the coach must be told in it. */
+  const NOT_OPEN: Array<{ what: string; opening: LocalStoreOpening }> = [
+    { what: 'still opening', opening: STILL_OPENING },
+    {
+      what: 'could not be opened',
+      opening: {
+        state: 'unavailable',
+        condition: describeOpeningFailure(new Error('This browser has no local database, so nothing could be saved on this device.')),
+      },
+    },
+  ];
+
+  for (const { what, opening } of NOT_OPEN) {
+    it(`does NOT say every removal is confirmed gone when the store is ${what}`, () => {
+      const html = render(NOTHING_AWAITING_REMOVAL, opening);
+
+      assert.ok(
+        !html.includes(REASSURANCE),
+        `the screen reported "nothing is waiting" from a store that is ${what}. That is a claim about `
+          + 'the coach\'s backup made without having read anything, and it is the precise false good '
+          + 'news this whole surface exists to prevent.',
+      );
+    });
+
+    it(`still renders, still says where he is, and says something when the store is ${what}`, () => {
+      const html = render(NOTHING_AWAITING_REMOVAL, opening);
+
+      assert.ok(
+        html.includes('id="screen-removals"'),
+        'the screen went blank rather than reporting the condition. The standing rule is that this '
+          + 'application always opens and always works; a store that will not open is a state to '
+          + 'REPORT, never an empty frame.',
+      );
+      assert.ok(
+        html.includes(REMOVALS_TITLE),
+        'the screen stopped naming itself, so a coach who arrived from a stale link cannot tell where he is',
+      );
+      assert.ok(
+        html.length > `id="screen-removals"${REMOVALS_TITLE}`.length + 100,
+        'the screen rendered a heading and nothing else, which is a blank screen with a title on it',
+      );
+    });
+  }
+
+  it('says what is wrong and what he can do about it, in his words rather than as an exception', () => {
+    const condition = describeOpeningFailure(
+      new Error('This browser has no local database, so nothing could be saved on this device.'),
+    );
+    const html = render(NOTHING_AWAITING_REMOVAL, { state: 'unavailable', condition });
+
+    assert.ok(html.includes(condition.headline), 'the refusal is not named on the screen');
+    assert.ok(html.includes(condition.whatToDo), 'the screen does not say what he can do about it');
+    assert.ok(
+      !html.includes('IndexedDB') && !html.includes('StoreWriteError'),
+      'the screen put the machinery in front of the coach. The browser\'s own words are kept verbatim '
+        + 'because he may have to read them out, but they are never what the screen SAYS.',
+    );
   });
 });

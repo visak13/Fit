@@ -23,9 +23,12 @@
  */
 
 import { createHashRouter, Navigate } from 'react-router-dom';
+import type { ReactElement } from 'react';
 import type { RouteObject } from 'react-router-dom';
 
 import { AdminScreen } from '../screens/AdminScreen';
+import { CalendarScreen } from '../screens/CalendarScreen';
+import { ClientsScreen } from '../screens/ClientsScreen';
 import { DivergencePickerScreen } from '../screens/DivergencePickerScreen';
 import { KeyMaterialConditionScreen } from '../screens/KeyMaterialConditionScreen';
 import { NotFoundScreen } from '../screens/NotFoundScreen';
@@ -37,9 +40,26 @@ import {
   DEFAULT_DESTINATION_PATH, DESTINATIONS, DIVERGENCES_PATH, KEY_MATERIAL_PATH, REMOVALS_PATH,
   STOPPED_CHANGES_PATH,
 } from './navigation';
+import type { Destination } from './navigation';
 
-/** The one destination that already has content; the rest are placeholders for later steps. */
-const ADMIN_PATH = 'admin';
+/** What a destination with no screen of its own shows: its own one-line summary, and no dead end. */
+const defaultScreen = (destination: Destination): ReactElement => (
+  <PlaceholderScreen destination={destination} />
+);
+
+/**
+ * The destinations that have a real screen, by path. Everything else is still a placeholder.
+ *
+ * A LOOKUP rather than a chain of comparisons, because this list grows once per step for the next
+ * several steps and a chain is where the fourth one gets added to the wrong branch. A destination
+ * missing from here is not an error — it is a destination whose screen has not been built yet, and
+ * `PlaceholderScreen` says exactly that in the destination's own words.
+ */
+const DESTINATION_SCREENS: Readonly<Record<string, (destination: Destination) => ReactElement>> = {
+  admin: (destination) => <AdminScreen destination={destination} />,
+  calendar: (destination) => <CalendarScreen destination={destination} />,
+  clients: (destination) => <ClientsScreen destination={destination} />,
+};
 
 /**
  * Every address this application answers to, and the only place they are declared.
@@ -61,12 +81,7 @@ export const ROUTE_TABLE: readonly RouteObject[] = [
       { index: true, element: <Navigate to={DEFAULT_DESTINATION_PATH} replace /> },
       ...DESTINATIONS.map((destination) => ({
         path: destination.path,
-        element:
-          destination.path === ADMIN_PATH ? (
-            <AdminScreen destination={destination} />
-          ) : (
-            <PlaceholderScreen destination={destination} />
-          ),
+        element: (DESTINATION_SCREENS[destination.path] ?? defaultScreen)(destination),
       })),
       { path: DIVERGENCES_PATH, element: <DivergencePickerScreen /> },
       { path: KEY_MATERIAL_PATH, element: <KeyMaterialConditionScreen /> },

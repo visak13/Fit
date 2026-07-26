@@ -348,6 +348,33 @@ test('a completed session must say when it ended, and cannot end before it start
     CODES.ORDERING);
 });
 
+test('a session says whether it was run online or in person, and will not be left unsaid', () => {
+  assertValid(validateSession(aSession({ mode: 'online' })));
+  assertValid(validateSession(aSession({ mode: 'in_person' })));
+  // Deriving the answer from a missing link is what this field exists to replace, so a session
+  // that does not say is refused rather than assumed.
+  const { mode, ...unsaid } = aSession();
+  assertCode(validateSession(unsaid), CODES.REQUIRED);
+});
+
+test('there is no third way to run a session', () => {
+  // He runs it on a call or in a room. A value nobody sets is a branch nobody tests.
+  assertCode(validateSession(aSession({ mode: 'hybrid' })), CODES.ENUM);
+});
+
+test('a session run in person has no meeting to join', () => {
+  // In person creates no calendar event and no link AT ALL, so a link here is a contradiction
+  // in the record rather than a spare field.
+  assertCode(validateSession(aSession({
+    mode: 'in_person', meet_url: 'https://meet.google.com/abc-defg-hij', meet_source: 'minted',
+  })), CODES.MISMATCH);
+  assertCode(validateSession(aSession({ mode: 'in_person', meet_source: 'pasted' })),
+    CODES.MISMATCH);
+  // An online session that has not been given its link yet is perfectly ordinary — which is
+  // precisely why the absence of a link cannot be read as "in person".
+  assertValid(validateSession(aSession({ mode: 'online' })));
+});
+
 test('a link and its origin travel together, and only the joining URL is stored', () => {
   assertValid(validateSession(aSession({
     meet_url: 'https://meet.google.com/abc-defg-hij', meet_source: 'minted',

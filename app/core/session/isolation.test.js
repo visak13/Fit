@@ -27,10 +27,10 @@ test('two windows run two different sessions at once, and neither loses anything
   const [ana, ben] = clientIds;
 
   const first = await startSession(storeA, {
-    routineId: routine.content.id, clientIds: [ana], routine, now: T.start,
+    routineId: routine.content.id, clientIds: [ana], mode: 'online', routine, now: T.start,
   });
   const second = await startSession(storeB, {
-    routineId: routine.content.id, clientIds: [ben], routine, now: T.start,
+    routineId: routine.content.id, clientIds: [ben], mode: 'online', routine, now: T.start,
   });
   assert.equal(first.ok, true);
   assert.equal(second.ok, true);
@@ -78,7 +78,7 @@ test('the second window is TOLD the session is open in the first, not left appen
   const { storeA, storeB, routine, clientIds } = await aTwoWindowStore({ clients: 1 });
 
   const first = await startSession(storeA, {
-    routineId: routine.content.id, clientIds, routine, now: T.start,
+    routineId: routine.content.id, clientIds, mode: 'online', routine, now: T.start,
   });
   const alsoHere = await openSession(storeB, first.session.sessionId, { routine, now: T.two });
 
@@ -110,7 +110,7 @@ test('a window that does not hold a session cannot record into it, even going ar
   const [ana] = clientIds;
 
   const first = await startSession(storeA, {
-    routineId: routine.content.id, clientIds, routine, now: T.start,
+    routineId: routine.content.id, clientIds, mode: 'online', routine, now: T.start,
   });
 
   // The store is the enforcement, not this layer: a session-scoped write with no lease on a LIVE
@@ -135,14 +135,14 @@ test('resuming picks up the RIGHT session when two are waiting', async () => {
   const [ana, ben] = clientIds;
 
   const first = await startSession(storeA, {
-    routineId: routine.content.id, clientIds: [ana], routine, now: T.start,
+    routineId: routine.content.id, clientIds: [ana], mode: 'online', routine, now: T.start,
   });
   await first.session.recordPerformed(ana, {
     exerciseId: EXERCISES.push, sets: 3, repetitions: 12, recordedAt: T.one, now: T.one,
   });
 
   const second = await startSession(storeB, {
-    routineId: routine.content.id, clientIds: [ben], routine, now: T.start,
+    routineId: routine.content.id, clientIds: [ben], mode: 'online', routine, now: T.start,
   });
   await second.session.recordPerformed(ben, {
     exerciseId: EXERCISES.row, sets: 4, repetitions: 10, recordedAt: T.one, now: T.one,
@@ -177,7 +177,7 @@ test('two windows editing ONE finished session compose rather than overwrite', a
   const [ana] = clientIds;
 
   const opened = await startSession(storeA, {
-    routineId: routine.content.id, clientIds, routine, now: T.start,
+    routineId: routine.content.id, clientIds, mode: 'online', routine, now: T.start,
   });
   const stored = await opened.session.recordPerformed(ana, {
     exerciseId: EXERCISES.push, sets: 3, repetitions: 12, recordedAt: T.one, now: T.one,

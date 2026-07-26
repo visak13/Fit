@@ -30,15 +30,15 @@
  * single-user, it is reopened constantly, and a stuck install is far worse than a reload.
  */
 
-const BUILD_STAMP = "77f68431b22999b8";
+const BUILD_STAMP = "e44a33d04dcdc53f";
 const BASE_PATH = "/Fit/";
 const CACHE_NAME = `fit-shell-${BUILD_STAMP}`;
 
 /** Written by the build from the files it actually emitted, so the list cannot drift. */
 const PRECACHE_URLS = [
   "/Fit/",
-  "/Fit/assets/index-CbnRLEtp.js",
-  "/Fit/assets/index-DnbCGNed.css",
+  "/Fit/assets/index-CKR6YAqw.js",
+  "/Fit/assets/index-aJF326jT.css",
   "/Fit/icons/apple-touch-icon-180.png",
   "/Fit/icons/icon-192.png",
   "/Fit/icons/icon-512.png",

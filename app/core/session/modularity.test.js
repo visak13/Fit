@@ -21,7 +21,7 @@ import { aFurnishedStore, EXERCISES, T } from './testing.js';
 async function aLiveSession() {
   const { store, routine, clientIds } = await aFurnishedStore();
   const opened = await startSession(store, {
-    routineId: routine.content.id, clientIds, routine, now: T.start,
+    routineId: routine.content.id, clientIds, mode: 'online', routine, now: T.start,
   });
   return { store, routine, client: clientIds[0], live: opened.session };
 }

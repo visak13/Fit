@@ -37,7 +37,7 @@ test('a journal filled TO the cap is read back complete — nothing is silently 
   const { store, routine, clientIds } = await aFurnishedStore();
   const [client] = clientIds;
   const opened = await startSession(store, {
-    routineId: routine.content.id, clientIds, routine, now: T.start,
+    routineId: routine.content.id, clientIds, mode: 'online', routine, now: T.start,
   });
   const live = opened.session;
 
@@ -78,7 +78,7 @@ test('resuming reads ONE session, whatever else is on the device', async () => {
   /** Record a session of six facts and leave it. @returns {Promise<string>} */
   async function aFinishedSession() {
     const opened = await startSession(store, {
-      routineId: routine.content.id, clientIds, routine, now: T.start,
+      routineId: routine.content.id, clientIds, mode: 'online', routine, now: T.start,
     });
     for (let i = 0; i < 5; i += 1) {
       // eslint-disable-next-line no-await-in-loop
@@ -116,7 +116,7 @@ test('an append costs the same whether it is the first fact of the session or th
   const { store, routine, clientIds } = await aFurnishedStore();
   const [client] = clientIds;
   const opened = await startSession(store, {
-    routineId: routine.content.id, clientIds, routine, now: T.start,
+    routineId: routine.content.id, clientIds, mode: 'online', routine, now: T.start,
   });
   const live = opened.session;
 

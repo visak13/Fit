@@ -31,6 +31,16 @@
  * and what happened is reconstructed from the performed records rather than dictated by a
  * cursor. The app tracks what happened; it never dictates what happens next.
  *
+ * ## Online or in person
+ *
+ * `mode` is required, and it is RECORDED rather than worked out from whether a joining link is
+ * present. The cheap answer — no link means in person — is wrong: a session planned online
+ * before its link is minted has no link either, so the two would be indistinguishable. In
+ * person means no calendar event and no meeting link at all, which makes the mark a choice the
+ * coach makes at the moment he starts, and a choice made is a fact to record. A session marked
+ * in person therefore carries neither a link nor a link origin, and one that does is reported
+ * as a contradiction.
+ *
  * ## The Meet link
  *
  * Both paths are supported on purpose. A link can be MINTED at session start through the
@@ -53,12 +63,13 @@ import {
   checkRecordId, checkString, checkStringArray, checkTimestamp, isAbsent,
 } from '../primitives.js';
 import {
-  ENDED_SESSION_STATUSES, MEET_SOURCES, SESSION_STATUSES, STARTED_SESSION_STATUSES,
+  ENDED_SESSION_STATUSES, MEET_SOURCES, SESSION_MODES, SESSION_STATUSES,
+  STARTED_SESSION_STATUSES,
 } from '../vocabularies.js';
 
 /** @type {readonly string[]} */
 export const SESSION_FIELDS = Object.freeze([
-  'routine_id', 'client_ids', 'status',
+  'routine_id', 'client_ids', 'status', 'mode',
   'scheduled_at', 'started_at', 'ended_at',
   'meet_url', 'meet_source', 'summary',
 ]);
@@ -93,6 +104,7 @@ export function validateSession(session) {
   });
 
   const statusOk = checkEnum(c, 'status', s.status, SESSION_STATUSES, { required: true });
+  checkEnum(c, 'mode', s.mode, SESSION_MODES, { required: true });
   checkTimestamp(c, 'scheduled_at', s.scheduled_at);
   checkTimestamp(c, 'started_at', s.started_at);
   checkTimestamp(c, 'ended_at', s.ended_at);
@@ -126,13 +138,28 @@ export function validateSession(session) {
 
 /**
  * The joining link and where it came from. Both are optional — a session run in person needs
- * neither — but they travel together.
+ * neither, and an online session planned before its link is minted has neither yet — but they
+ * travel together.
+ *
+ * A session marked `in_person` may carry neither. That is the whole point of recording the
+ * mode: in person means no calendar event and no meeting link at all, so a link on an
+ * in-person session is a contradiction in the record rather than a harmless spare field.
  * @param {Collector} c
  * @param {Record<string, any>} s
  */
 function checkMeet(c, s) {
   const hasUrl = !isAbsent(s.meet_url);
   const hasSource = !isAbsent(s.meet_source);
+  if (s.mode === 'in_person') {
+    if (hasUrl) {
+      c.add('meet_url', CODES.MISMATCH,
+        'A session run in person has no meeting to join: remove the link, or mark the session online.');
+    }
+    if (hasSource) {
+      c.add('meet_source', CODES.MISMATCH,
+        'A session run in person has no meeting to join: remove the link origin, or mark the session online.');
+    }
+  }
   if (hasUrl) {
     checkString(c, 'meet_url', s.meet_url, {
       max: 500,

@@ -107,11 +107,18 @@ export const aSealedValue = (ct = 'Y2lwaGVydGV4dA==') => ({
   ct,
 });
 
-/** @param {Record<string, any>} [over] */
+/**
+ * `mode` is set here because it is REQUIRED on the record — a session whose mode is unknown is
+ * exactly the ambiguity the field exists to remove. `online` is the fixture's default because
+ * it is the only mode that may also carry a joining link, so the meet cases can override one
+ * field and nothing else.
+ * @param {Record<string, any>} [over]
+ */
 export const aSession = (over = {}) => ({
   routine_id: 'test-push-day',
   client_ids: [CLIENT_A],
   status: 'planned',
+  mode: 'online',
   ...over,
 });
 

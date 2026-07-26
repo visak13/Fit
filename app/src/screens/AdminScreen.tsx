@@ -45,6 +45,7 @@ import { Link } from 'react-router-dom';
 
 import { Glyph } from '../design/Glyph';
 import { Tooltip } from '../design/Tooltip';
+import { LocalStoreNotice, useLocalStore } from '../platform/LocalStore';
 import { PERSISTENCE_IS_NOT_IMMUNITY } from '../platform/storage-persistence';
 import { usePlatformStatus } from '../platform/platform-status';
 import { useDivergences } from '../shell/Divergences';
@@ -99,6 +100,10 @@ export function AdminScreen({ destination }: { destination: Destination }) {
   const { condition } = useKeyMaterial();
   const stoppedReading = useStoppedChanges();
   const removalsReading = useRemovals();
+  // The removals entry below is the one thing on this screen read from the local store, so it is the
+  // one thing that has to say when there is not one. Everything else here is a platform observation.
+  const opening = useLocalStore();
+  const storeIsOpen = opening.state === 'open';
   const report = describePersistence(persistence);
   const storage = describeStorage(persistence);
   const decisions = describeQueue(pending);
@@ -231,13 +236,28 @@ export function AdminScreen({ destination }: { destination: Destination }) {
             {removals.title}
           </h3>
           <span className="spacer" />
-          <span className={removals.settled ? 'chip chip-success' : 'chip chip-warning'}>
-            {removals.count}
-          </span>
+          {/*
+            THE COUNT IS A CLAIM, so it is only made when it was actually counted. A green nought on a
+            device whose storage never opened would say every removal is confirmed gone on the
+            strength of never having looked — see `RemovalsScreen.tsx` for the same branch and the
+            same reason. A WORD stands in its place, because the word carries the state and the tone
+            is only ever a second channel.
+          */}
+          {storeIsOpen ? (
+            <span className={removals.settled ? 'chip chip-success' : 'chip chip-warning'}>
+              {removals.count}
+            </span>
+          ) : (
+            <span className="chip">Not known yet</span>
+          )}
         </div>
 
         <div className="card-body stack">
-          <p className="read">{removals.intro}</p>
+          {storeIsOpen ? (
+            <p className="read">{removals.intro}</p>
+          ) : (
+            <LocalStoreNotice opening={opening} />
+          )}
           <p>
             <Link className="btn" to={`/${REMOVALS_PATH}`}>
               <Glyph name="link-forward" size="inline" decorative />

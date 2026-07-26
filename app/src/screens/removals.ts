@@ -274,9 +274,13 @@ export function describeRemovalsAdminEntry(reading: RemovalsReading): RemovalsAd
   return {
     title: REMOVALS_TITLE,
     count: report.count,
+    // "1 removal IS", "2 removals ARE". Found by looking at the Admin screen during the s5 join
+    // walk-through, with one removal pending: it read "1 removal are done on this device". The
+    // count is interpolated and the verb was not, so the sentence was correct for every number but
+    // the one the coach meets first. `describeRemovals` above already agrees its own verb.
     intro:
-      `${removalCount(report.count)} are done on this device and not yet confirmed gone from your `
-      + 'backup.',
+      `${removalCount(report.count)} ${report.count === 1 ? 'is' : 'are'} done on this device and `
+      + 'not yet confirmed gone from your backup.',
     linkLabel: 'See which removals',
     settled: false,
   };

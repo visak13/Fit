@@ -61,6 +61,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { createStaticHandler, createStaticRouter, matchRoutes, StaticRouterProvider } from 'react-router';
 import type { RouteObject } from 'react-router';
 
+import { LocalStoreProvider } from '../platform/LocalStore.tsx';
+import { STILL_OPENING } from '../platform/local-store.ts';
 import { PlatformStatusProvider } from '../platform/platform-status.tsx';
 import { DivergenceProvider, NOTHING_TO_DECIDE } from './Divergences.tsx';
 import { KeyMaterialProvider, NO_KEY_MATERIAL_CONDITION } from './KeyMaterial.tsx';
@@ -165,6 +167,12 @@ function match(published: string) {
  * admin screen's platform report both refuse to render without them, deliberately, so that a seam
  * left unwired is an error rather than an empty space. Rendering without them would only prove that
  * this file can construct a React tree.
+ *
+ * THE STORE IS PROVIDED IN ITS `opening` STATE, ON PURPOSE. Every screen here is therefore rendered
+ * on a device whose local database has not answered yet, which is the state the coach genuinely
+ * meets on every cold start — and it makes this suite prove, for the WHOLE route table at once, that
+ * a store which has not opened produces a screen with words on it rather than a blank frame. The
+ * other two states are proven where they are decided, in `platform/local-store.test.ts`.
  */
 async function render(published: string): Promise<string> {
   const { address } = match(published);
@@ -178,7 +186,9 @@ async function render(published: string): Promise<string> {
 
   const router = createStaticRouter(ROUTES, context as never);
   return renderToStaticMarkup(
-    createElement(PlatformStatusProvider, {
+    createElement(LocalStoreProvider, {
+      opening: STILL_OPENING,
+      children: createElement(PlatformStatusProvider, {
       status: {
         buildStamp: 'no-dead-ends',
         persistence: null,
@@ -199,6 +209,7 @@ async function render(published: string): Promise<string> {
             }),
           }),
         }),
+      }),
       }),
     }),
   );

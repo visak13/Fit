@@ -35,3 +35,4 @@ import './multi-client.test.js';
 import './isolation.test.js';
 import './glance.test.js';
 import './bounds.test.js';
+import './mode.test.js';
