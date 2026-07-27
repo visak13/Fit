@@ -43,9 +43,11 @@
  * - `outcome_unknown`         — an attempt timed out and it cannot be told whether it landed.
  * - `local_failure`           — the failure was on this side. Not the service's fault, and not silent.
  * - `unverifiable_sync_claim` — a last-synced value turned up that no genuine flush produced.
+ * - `backup_partly_unreadable`— files in the backup were skipped, so it does not hold everything.
  */
 export const REASON = Object.freeze({
   NEVER_SYNCHRONISED: 'never_synchronised',
+  BACKUP_PARTLY_UNREADABLE: 'backup_partly_unreadable',
   CREDENTIAL_MISSING: 'credential_missing',
   CREDENTIAL_EXPIRED: 'credential_expired',
   NO_NETWORK: 'no_network',
@@ -65,11 +67,21 @@ export const REASON_VALUES = Object.freeze(Object.values(REASON));
  * trusted, and every figure below it is then suspect. `never_synchronised` is second because it is the
  * only state in which NOTHING is in the backup rather than merely something.
  *
+ * `backup_partly_unreadable` sits THIRD, immediately below `never_synchronised`, and it belongs there
+ * because IT IS THE SAME KIND OF FACT: in both, the backup does not hold what he thinks it holds.
+ * Everything below the two of them is about work that has not left this device yet — visible, counted,
+ * and still on the way. These two are about the copy he would restore from being short of what he
+ * believes is in it, which is the class of thing he cannot discover for himself. It ranks BELOW
+ * `never_synchronised` rather than above only because "nothing is in the backup" is strictly worse than
+ * "some of the other device's work is missing from it", and above everything else because a queue that
+ * is merely stopped has still not lied to him.
+ *
  * @type {readonly string[]}
  */
 export const REASON_PRECEDENCE = Object.freeze([
   REASON.UNVERIFIABLE_SYNC_CLAIM,
   REASON.NEVER_SYNCHRONISED,
+  REASON.BACKUP_PARTLY_UNREADABLE,
   REASON.ENTRY_REJECTED,
   REASON.OUTCOME_UNKNOWN,
   REASON.LOCAL_FAILURE,
@@ -77,6 +89,43 @@ export const REASON_PRECEDENCE = Object.freeze([
   REASON.CREDENTIAL_EXPIRED,
   REASON.NO_NETWORK,
 ]);
+
+/**
+ * THE ONE SENTENCE IN THIS MODULE THAT CARRIES A FIGURE, and the reason it has to.
+ *
+ * Every other reason describes a CONDITION — the credential is dead, the service is unreachable — and
+ * a condition needs no arithmetic to be understood. This one describes an AMOUNT of his work that did
+ * not arrive, and "some files could not be read" is the sentence a busy person skims past. Nine is
+ * not some. The count is the difference between a notice and a fact, so the count is in the words.
+ *
+ * The words are written HERE, once, rather than in `REASONS` and again in `deriveReasons`: the entry
+ * below is this same function called with nothing to hand, so the two forms cannot drift apart.
+ *
+ * ## Why it names the other device's version, and only when that is what happened
+ *
+ * "Could not be read" leaves him to imagine corruption, a broken phone, lost data. The truth in the
+ * case this was built for is far more ordinary and far more fixable: his two installations update at
+ * different times, the newer one wrote files in a shape this one does not read yet, and nothing is
+ * lost anywhere — it is simply not HERE. He is owed that sentence. He is owed it only when it is
+ * true, though, so it is said off `newer_version`, which `payload.js` declares by comparing the
+ * versions, and never off a count that might be a corrupt file or a document from an OLDER build.
+ *
+ * @param {{count?: number, newer_version?: number}} [skipped]
+ * @returns {string}
+ */
+export function describeUnreadable(skipped = {}) {
+  const count = skipped.count || 0;
+  const newer = skipped.newer_version || 0;
+
+  const how = count > 0
+    ? `${count} file${count === 1 ? '' : 's'} in your backup could not be read`
+    : 'Some files in your backup could not be read';
+  const why = newer > 0
+    ? ' because your other device is running a newer version of this app.'
+    : '.';
+
+  return `${how}${why} What is in ${count === 1 ? 'it' : 'them'} is not on this device, so this backup does not hold everything from your other device.`;
+}
 
 /**
  * What each reason says, and what the coach can do about it.
@@ -91,6 +140,21 @@ export const REASONS = Object.freeze({
     message: 'This device has never backed up. Nothing here is in your Google Drive yet.',
     action: 'connect_google',
     queue_wide: true,
+  }),
+  [REASON.BACKUP_PARTLY_UNREADABLE]: Object.freeze({
+    // The figure-less form of the same sentence, from the same writer, for a caller holding the
+    // condition without the count. `deriveReasons` fills the count in from the pass's own report.
+    message: describeUnreadable(),
+    // NULL, and this is the deliberate part. The honest remedy is that this device's app is behind
+    // the other one — but this application cannot update itself on his tap, there is no screen in it
+    // that resolves this, and an action naming a button that does not exist is exactly how an
+    // indicator earns the reputation of lying. The sentence tells him what happened and why; nothing
+    // pretends he can fix it from here.
+    action: null,
+    // NOT queue-wide. Everything on this device can still be sent, and it is being sent; what failed
+    // is what came the other way. Calling it queue-wide would make `nothing_can_be_sent` true and
+    // tell him his own work is stuck when it is not — a second false statement to fix the first.
+    queue_wide: false,
   }),
   [REASON.CREDENTIAL_MISSING]: Object.freeze({
     message: 'Google has not been connected on this device, so nothing can be backed up.',
@@ -163,7 +227,12 @@ export function reasonForFailure(failure) {
  * @param {{never_synchronised?: boolean, credential?: {present?: boolean, expired?: boolean}|null,
  *          waiting_for_credential?: number, rejected?: number, ambiguous?: number,
  *          failures?: readonly {code?: string, retryable?: boolean, needs_reauth?: boolean}[],
- *          unverifiable_sync_claim?: boolean}} figures
+ *          unverifiable_sync_claim?: boolean,
+ *          skipped_unreadable?: {count?: number, newer_version?: number}|null}} figures
+ *   `skipped_unreadable` is the pass's own count of files it could not read, and how many of those a
+ *   newer version of this app had written. It arrives from the synchronisation report; the surface
+ *   carries it here rather than deriving it, because the only code that can tell a newer version from
+ *   a corruption is the one that read the document.
  * @returns {Readonly<{code: string, message: string, action: string|null, queue_wide: boolean}>[]}
  */
 export function deriveReasons(figures) {
@@ -173,6 +242,9 @@ export function deriveReasons(figures) {
 
   if (f.unverifiable_sync_claim) codes.add(REASON.UNVERIFIABLE_SYNC_CLAIM);
   if (f.never_synchronised) codes.add(REASON.NEVER_SYNCHRONISED);
+
+  const skipped = f.skipped_unreadable || null;
+  if ((skipped?.count || 0) > 0) codes.add(REASON.BACKUP_PARTLY_UNREADABLE);
 
   if (f.credential) {
     if (f.credential.present === false) codes.add(REASON.CREDENTIAL_MISSING);
@@ -194,5 +266,11 @@ export function deriveReasons(figures) {
 
   return REASON_PRECEDENCE
     .filter((code) => codes.has(code))
-    .map((code) => Object.freeze({ code, ...REASONS[code] }));
+    .map((code) => Object.freeze({
+      code,
+      ...REASONS[code],
+      // The one reason whose sentence depends on a figure this pass measured. Composed by the same
+      // function that wrote the figure-less form above, so there is one place the words live.
+      ...(code === REASON.BACKUP_PARTLY_UNREADABLE ? { message: describeUnreadable(skipped || {}) } : {}),
+    }));
 }

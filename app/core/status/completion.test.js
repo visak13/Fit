@@ -21,8 +21,8 @@ import {
 import { aDevice, credentialExpires, queueOne, restart, serviceRefuses } from './testing.js';
 
 /** A real, complete, foreground flush that drained the queue. */
-async function aCompletedFlush(dev) {
-  await queueOne(dev);
+async function aCompletedFlush(dev, overrides = {}) {
+  await queueOne(dev, overrides);
   const report = await flushOutbox(dev.store, dev.remote, { now: dev.now() });
   assert.equal(report.delivered, 1, 'fixture check: the flush really did deliver');
   assert.equal(report.remaining_undelivered, 0, 'fixture check: the queue really did drain');
@@ -179,6 +179,50 @@ test('a genuine completion is persisted and survives a restart', async () => {
   assert.equal(read.unverifiable, false);
   assert.equal(lastSyncedAt(read.completion), report.finished_at);
   assert.equal(isCompletedSync(read.completion), true, 're-sealed on the way out, so it can be displayed');
+  await dev.store.close();
+});
+
+test('A PASS THAT SKIPPED A FILE IT COULD NOT READ SEALS NOTHING, and last-synced does not advance', async () => {
+  // The false green, at the layer that persists the value the coach reads. The engine withholds the
+  // completion from its own report — but this function deliberately does not trust that field, so it
+  // has to reach the same verdict independently or the report says one thing while the stored
+  // last-synced time says another. It reaches it by ASKING the same question the engine asked, in
+  // `core/sync/withheld.js`, rather than by restating the rule here in different words.
+  const dev = await aDevice();
+  const good = await aCompletedFlush(dev);
+  await recordCompletedSync(dev.store, good, { now: dev.now() });
+  const green = lastSyncedAt((await readLastCompletedSync(dev.store)).completion);
+  assert.ok(green, 'there is a genuine last-synced time to protect');
+
+  dev.advance(60 * 60_000);
+  const later = await aCompletedFlush(dev, { baseName: 'later.json' });
+
+  // Everything about this pass is clean EXCEPT that it skipped a file the other device wrote. That
+  // is the trap: no failure anywhere, a flush that genuinely drained, and none of the newer
+  // device's work in hand.
+  const skipped = {
+    trigger: 'open',
+    device: dev.store.device,
+    failures: [],
+    unreadable: [{
+      name: 'fit.coach-phone.push.newer.json', file_id: 'f1', why: 'a newer version wrote it',
+      written_by_newer_version: true,
+    }],
+    flush: later,
+  };
+
+  // NON-VACUITY: the identical report WITHOUT the skipped file does seal one, so what follows is the
+  // unreadable file doing it and not the fixture being unsealable for some incidental reason.
+  assert.ok(completionFrom({ ...skipped, unreadable: [] }), 'the same pass, minus the skipped file, completes');
+
+  const outcome = await recordCompletedSync(dev.store, skipped, { now: dev.now() });
+  assert.equal(outcome.recorded, false, 'nothing is written');
+  assert.equal(outcome.completion, null);
+  assert.equal(completionFrom(skipped), null, 'and no completion can be sealed from it by any caller');
+
+  assert.equal(lastSyncedAt((await readLastCompletedSync(dev.store)).completion), green,
+    'the previous genuine time stays exactly where it was — a pass that held none of the other '
+    + 'device\'s work must not move the one value permitted to say everything is backed up');
   await dev.store.close();
 });
 

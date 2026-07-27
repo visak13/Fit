@@ -90,3 +90,121 @@ test('an in-person session started through the runner carries no link and no lin
   await opened.session.detach();
   await store.close();
 });
+
+/**
+ * THE JOINING LINK WRITTEN ONTO A SESSION THAT IS ALREADY RUNNING.
+ *
+ * A link the coach pasted travels with the session's creation. A MINTED one cannot: the identifier
+ * that makes a retry idempotent is derived from the session's own record id, which does not exist
+ * until the session does. So it arrives second, through the handle that holds the lease.
+ *
+ * The runner knows nothing about who minted it. `source` is one of the record's own `MEET_SOURCES`
+ * and this layer has no opinion about which — the core is provider-neutral, and nothing under
+ * `core/` may learn that one of the two ways of getting a link involves a calendar.
+ */
+test('a joining link is written onto a running session, with its origin', async () => {
+  const { store, routine, clientIds } = await aFurnishedStore();
+  const opened = await startSession(store, {
+    routineId: routine.content.id, clientIds, mode: 'online', routine, now: T.start,
+  });
+
+  await opened.session.recordJoiningLink('https://meet.example.test/tst-abc-def', 'minted');
+
+  const stored = await store.get('session', opened.session.sessionId);
+  assert.equal(stored.content.meet_url, 'https://meet.example.test/tst-abc-def');
+  assert.equal(stored.content.meet_source, 'minted');
+
+  await opened.session.detach();
+  await store.close();
+});
+
+/**
+ * WRITING THE SAME LINK TWICE IS NOTHING, and that is the idempotent retry arriving intact.
+ *
+ * A retry sends the identifier it sent before and gets the conference it already made, so recording
+ * the link the session already has must be a no-op. Turning it into a refusal would make a
+ * successful retry look like a fault at the start of a session.
+ */
+test('recording the link a session already has is a no-op, not a refusal', async () => {
+  const { store, routine, clientIds } = await aFurnishedStore();
+  const opened = await startSession(store, {
+    routineId: routine.content.id, clientIds, mode: 'online', routine, now: T.start,
+  });
+
+  await opened.session.recordJoiningLink('https://meet.example.test/tst-abc-def', 'minted');
+  await opened.session.recordJoiningLink('https://meet.example.test/tst-abc-def', 'minted');
+
+  const stored = await store.get('session', opened.session.sessionId);
+  assert.equal(stored.content.meet_url, 'https://meet.example.test/tst-abc-def');
+
+  await opened.session.detach();
+  await store.close();
+});
+
+/**
+ * A DIFFERENT LINK IS REFUSED LOUDLY, because absorbing it is the silent failure.
+ *
+ * Something minted a SECOND meeting, or is about to overwrite a link the coach pasted himself.
+ * Either way the session would quietly start pointing somewhere else, and the first person to find
+ * out would be a client sitting in an empty call.
+ */
+test('a SECOND, different link is refused rather than replacing the one the session has', async () => {
+  const { store, routine, clientIds } = await aFurnishedStore();
+  const opened = await startSession(store, {
+    routineId: routine.content.id,
+    clientIds,
+    mode: 'online',
+    meetUrl: 'https://meet.example.test/tst-his-own',
+    meetSource: 'pasted',
+    routine,
+    now: T.start,
+  });
+
+  await assert.rejects(
+    () => opened.session.recordJoiningLink('https://meet.example.test/tst-somewhere-else', 'minted'),
+    (error) => {
+      assert.equal(error.name, 'SessionStateError');
+      assert.equal(error.detail.held, 'pasted');
+      return true;
+    },
+  );
+
+  const stored = await store.get('session', opened.session.sessionId);
+  assert.equal(stored.content.meet_url, 'https://meet.example.test/tst-his-own');
+  assert.equal(stored.content.meet_source, 'pasted');
+
+  await opened.session.detach();
+  await store.close();
+});
+
+/**
+ * AND IN PERSON STILL CREATES NOTHING, even by this door.
+ *
+ * The runner writes no second copy of that rule — `core/model/entities/session.js` owns it and
+ * `store.update` runs it — so what is proved here is that the omission REACHES the record. A guard
+ * duplicated in the runner would be a second rule free to drift from the first.
+ */
+test('a link written onto an in-person session is refused BY THE RECORD', async () => {
+  const { store, routine, clientIds } = await aFurnishedStore();
+  const opened = await startSession(store, {
+    routineId: routine.content.id, clientIds, mode: 'in_person', routine, now: T.start,
+  });
+
+  await assert.rejects(
+    () => opened.session.recordJoiningLink('https://meet.example.test/tst-abc-def', 'minted'),
+    (error) => {
+      assert.equal(error.name, 'StoreValidationError');
+      assert.ok(
+        error.issues.some((issue) => issue.path === 'content.meet_url'),
+        `refused, but not for the link on an in-person session: ${JSON.stringify(error.issues)}`,
+      );
+      return true;
+    },
+  );
+
+  const stored = await store.get('session', opened.session.sessionId);
+  assert.equal(stored.content.meet_url, undefined);
+
+  await opened.session.detach();
+  await store.close();
+});

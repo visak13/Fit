@@ -13,12 +13,21 @@
  * direction where he adds the person again. That is proven by READING THE REGISTER BACK from the
  * store, never by inspecting the code that was supposed to do it.
  *
- * ## AND THE ONE THAT IS A DEPENDENCY RATHER THAN A BEHAVIOUR
+ * ## AND THE ONE THAT WAS A DEPENDENCY AND HAS BECOME A BEHAVIOUR
  *
- * `hasEverSynchronised` reads the persisted last-completed-sync, and NOTHING IN THIS BUILD WRITES
- * ONE — `recordCompletedSync` has no production caller, which is the unwired sync-to-accountability
- * join S16 owns. That is true today, it is why the protected field says what it says, and it is
- * asserted below rather than left in prose, so the day the join lands this suite says so.
+ * `hasEverSynchronised` reads the persisted last-completed-sync, and THE JOIN THAT WRITES ONE NOW
+ * EXISTS: `src/shell/sync-runner.ts` hands a live pass's report to `recordCompletedSync`. So this
+ * function can finally answer TRUE, and the window it opened — synchronisation working while the
+ * register still tells the coach he is not connected — is closed by the persisted record rather
+ * than by anything asserting it is.
+ *
+ * That is proven BELOW BY CONSEQUENCE, not by reading the wire: a protected clinical note is
+ * refused before a pass, a real pass is run over a real store, and the same note is then sealed,
+ * written and read back. Reading the wire and concluding it must work is the reasoning that left
+ * the join unbuilt while every component was individually correct.
+ *
+ * The absence-scan that used to guard this prose is now a POSITIVE assertion on the writer,
+ * wherever it lives, for the reason recorded at the test itself.
  *
  *     npm run test:shell
  */
@@ -32,6 +41,14 @@ import { after, describe, it } from 'node:test';
 import { openLocalStore } from '../../core/store/store.js';
 import { createLaptop } from '../../core/store/testing/platform-double.js';
 import { LAST_SYNC_META_KEY } from '../../core/status/status.js';
+import { InMemoryDeviceKeyStore } from '../../core/crypto/device-key-store.js';
+import { establishKeyMaterial } from '../../core/crypto/guard.js';
+import { openField, sealField } from '../../core/crypto/sealing.js';
+import { NotConnectedYet } from '../../core/crypto/errors.js';
+import { InMemoryRemoteStorage } from '../../core/remote/remote.js';
+import { SYNC_TRIGGERS } from '../../core/sync/sync.js';
+import { runSyncPass } from '../shell/sync-runner.ts';
+import { describeClinicalField } from './clients';
 import {
   FIRST_PAGE, REGISTER_PAGE_LIMIT, appendPage, archiveOnRegister, hasEverSynchronised, readRegister,
   readRegisterPage, registerClient, removeClientForGood, restoreOnRegister,
@@ -46,7 +63,36 @@ import { EMPTY_DRAFT } from './clients';
 import type { RegisterPage } from './clients';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const coreRoot = path.join(here, '..', '..', 'core');
+const applicationRoot = path.join(here, '..', '..');
+const coreRoot = path.join(applicationRoot, 'core');
+/** The shell tree. The join landed HERE, which is the whole reason the scan below walks both. */
+const shellRoot = path.join(applicationRoot, 'src');
+
+/** What a source file looks like in each tree: plain ECMAScript in the core, typed in the shell. */
+const SOURCE_SUFFIXES = ['.js', '.ts', '.tsx'];
+
+/**
+ * The file with its comments removed, because A CALL IN A COMMENT IS NOT A CALL.
+ *
+ * This is not fastidiousness. `core/status/status.js` carries a usage EXAMPLE in its header — an
+ * import line and a call, both in prose — and `src/App.tsx` describes the join in a sentence. A bare
+ * text scan counts all three as writers and is wrong about every one of them. Whether a comment
+ * counts as evidence is precisely the question this file's guard exists to answer correctly.
+ */
+function codeOnly(text: string): string {
+  return text.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/.*$/gm, '$1');
+}
+
+/**
+ * Does this file IMPORT the symbol AND CALL it — in code rather than in a sentence?
+ *
+ * Both halves are required: an import with no call is a leftover, and a call with no import is
+ * somebody else's function that happens to share a name.
+ */
+function callsThrough(code: string, name: string): boolean {
+  return new RegExp(`import[^;]*\\b${name}\\b[^;]*from`).test(code)
+    && new RegExp(`\\b${name}\\s*\\(`).test(code);
+}
 
 /** Stores opened by this file, closed once at the end whatever happened. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -443,17 +489,45 @@ describe('whether this device has ever synchronised', () => {
   });
 
   /**
-   * THE DEPENDENCY, ASSERTED SO THE PROSE CANNOT ROT.
+   * THE WRITER, ASSERTED WHERE IT ACTUALLY LIVES — the repair of a guard that had stopped guarding.
    *
-   * Today nothing writes a completion: `recordCompletedSync` has no production caller, which is the
-   * unwired sync-to-accountability join S16 owns. So this function answers false on every device,
-   * for a reason that lives outside this step. When S16 wires it, THIS TEST FAILS — which is the day
-   * `client-register-source.ts` and the protected field's sentences must be re-read rather than
-   * assumed still true.
+   * ## What this used to be, and how it went vacuous
    *
-   * It is an absence-scan, so the same scanner is pointed at a known positive in the same run.
+   * It used to assert that NOTHING called `recordCompletedSync`, and its own comment said it MUST
+   * FAIL the day the join landed, so that the prose it guarded got re-read rather than assumed still
+   * true. **But its scanner walked `core` only.** `core/INTEGRATION.md` says the join belongs to the
+   * interface step, so the wire landed in `src` — and the scan stayed green. The guard silently
+   * stopped guarding, on the one day it existed for, and its comment became the false claim.
+   *
+   * ## Why a POSITIVE assertion instead
+   *
+   * An absence-scan is only ever as wide as the ground it walks, and it reports the reassuring
+   * answer when it walks the wrong ground: "I found nothing" and "I looked nowhere" are the same
+   * result. Asserting that the writer EXISTS, and naming where, cannot go vacuous the same way —
+   * a scan that walks nothing now fails instead of passing.
+   *
+   * It is asserted as EXACTLY ONE, because that is a property `sync-runner.ts` states about itself:
+   * there is one holder of a live report and one place a pass is run from, since everything a pass
+   * produces is needed in three places and every one of them needs the same object. A second writer
+   * appearing here is that property breaking, and it would break silently.
+   *
+   * ## The two probes that keep it honest
+   *
+   * A KNOWN POSITIVE, in the same run and through the same discriminator: `core/status/surface.js`
+   * genuinely reads the completion, so a scan that cannot see that call is dead and everything else
+   * it says is worth nothing. That is the discipline the old scan had, kept.
+   *
+   * And a KNOWN NEGATIVE it would be easy to fail: `src/App.tsx` MENTIONS `recordCompletedSync` in a
+   * sentence and calls it nowhere, and `core/status/status.js` carries a usage example that both
+   * imports and calls it — in prose. A bare text scan counts all of them as wires, which is the exact
+   * shape found elsewhere in this build tonight: a comment asserting a thing was done, mistaken for
+   * the thing. So the discriminator strips comments first and then requires IMPORT PLUS CALL, and the
+   * mention is asserted to be really there before it is asserted not to count.
    */
-  it('has no production writer yet, and this fails the day the join lands', async () => {
+  it('has exactly one production writer, and it is asserted where it actually lives', async () => {
+    // BOTH trees. The core is the state layer and the shell derives from it; a join between them can
+    // legitimately live in either, so a scan of one of them answers a narrower question than the one
+    // being asked — which is precisely how this test went vacuous.
     const sources: string[] = [];
     const walk = async (dir: string): Promise<void> => {
       for (const entry of await readdir(dir, { withFileTypes: true })) {
@@ -462,42 +536,213 @@ describe('whether this device has ever synchronised', () => {
           if (entry.name === 'testing') continue;
           // eslint-disable-next-line no-await-in-loop
           await walk(full);
-        } else if (entry.name.endsWith('.js') && !entry.name.includes('.test.')) {
+        } else if (SOURCE_SUFFIXES.some((suffix) => entry.name.endsWith(suffix))
+          && !entry.name.includes('.test.')) {
           sources.push(full);
         }
       }
     };
-    await walk(coreRoot);
+    // eslint-disable-next-line no-await-in-loop
+    for (const root of [coreRoot, shellRoot]) await walk(root);
 
-    assert.ok(sources.length > 20, 'the walk found almost no core sources, so it is looking in the wrong place');
+    assert.ok(
+      sources.some((file) => file.startsWith(coreRoot))
+        && sources.some((file) => file.startsWith(shellRoot)),
+      'the walk covered only one of the two trees, so it is asking a narrower question than the one '
+        + 'this test is for — the exact defect this rewrite repairs',
+    );
+    assert.ok(sources.length > 20, 'the walk found almost no sources, so it is looking in the wrong place');
 
     const reads: string[] = [];
     const writes: string[] = [];
+    const mentions: string[] = [];
     for (const file of sources) {
       // eslint-disable-next-line no-await-in-loop
       const text = await readFile(file, 'utf8');
-      const relative = path.relative(coreRoot, file).split(path.sep).join('/');
-      if (relative === 'status/completion.js' || relative === 'status/status.js') continue;
-      if (text.includes('readLastCompletedSync')) reads.push(relative);
-      if (text.includes('recordCompletedSync')) writes.push(relative);
+      const code = codeOnly(text);
+      const relative = path.relative(applicationRoot, file).split(path.sep).join('/');
+      if (callsThrough(code, 'readLastCompletedSync')) reads.push(relative);
+      if (callsThrough(code, 'recordCompletedSync')) writes.push(relative);
+      if (text.includes('recordCompletedSync')) mentions.push(relative);
     }
 
     // THE KNOWN POSITIVE. `core/status/surface.js` genuinely reads the completion, so a scanner
-    // that reports nothing here is broken and its silence about the writer means nothing.
+    // that reports nothing here is broken and everything below it is evidence of nothing.
     assert.ok(
-      reads.includes('status/surface.js'),
-      'this scan cannot find a call it is standing on top of, so it is dead and the result below is '
-        + 'evidence of nothing',
+      reads.includes('core/status/surface.js'),
+      'this scan cannot find a call it is standing on top of, so it is dead and the results below '
+        + 'are evidence of nothing',
+    );
+
+    // THE KNOWN NEGATIVE, and its own non-vacuity: the mention has to exist to be discounted.
+    assert.ok(
+      mentions.includes('src/App.tsx'),
+      'the negative control has gone stale — App.tsx no longer names recordCompletedSync at all, so '
+        + 'discounting it proves nothing about the discriminator',
+    );
+    assert.ok(
+      !writes.includes('src/App.tsx'),
+      'a file that only NAMES the writer in a sentence was counted as calling it. A comment claiming '
+        + 'a wire exists is not a wire, and treating one as evidence is how prose becomes a guard '
+        + 'that cannot go red',
     );
 
     assert.deepEqual(
       writes,
-      [],
-      'something now records a completed synchronisation. That is the join S16 owns, and it is good '
-        + 'news — but it means hasEverSynchronised can finally answer TRUE, so the protected field\'s '
-        + 'sentences in clients.ts have to be re-read rather than assumed still right, and this test '
-        + 'rewritten to assert the writer instead of its absence.',
+      ['src/shell/sync-runner.ts'],
+      'the join from a synchronisation to the persisted completion is not where this expects it. If '
+        + 'it has MOVED, correct this list. If it has GONE, hasEverSynchronised answers false on '
+        + 'every device again and the register goes back to telling the coach he is not connected '
+        + 'after he is. If there are now TWO, that is the one-holder-of-a-live-report property in '
+        + 'sync-runner.ts breaking, and two paths to the surface is the defect it was built to close.',
     );
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// The window this step closes, proven by consequence
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * THE REFUSAL STOPS BECAUSE A REAL SYNCHRONISATION COMPLETED — caused, not reasoned about.
+ *
+ * `core/crypto/guard.js` performs NO detection: it takes `hasEverSynchronised` as an argument and
+ * refuses unless it is exactly `true`. So asking the guard why it says no is asking a mirror, and the
+ * only honest proof is the consequence — a protected clinical note that cannot be saved before, and
+ * is saved after, with nothing changed in between but a real pass over a real store.
+ *
+ * ONE FUNCTION ANSWERS THE QUESTION, and these tests call THAT one. Nothing here works the answer out
+ * a second way: a second answering path is exactly what {@link hasEverSynchronised} exists to prevent,
+ * because the register and the accountability indicator would then be able to disagree.
+ *
+ * The remote is the core's own in-memory double, which is the same one `sync-runner.test.ts` runs the
+ * join against and the same one the key guard's own suite establishes into. It is one double for both
+ * because it is one Google account in production: the pass writes to the visible space and the key
+ * material lives in the hidden one.
+ */
+describe('the window: a real synchronisation stops the clinical-note refusal', () => {
+  const THE_NOTE = 'A protected note that the coach could not save before this device had backed up.';
+
+  /** A real store and a remote that answers, and nothing else substituted. */
+  async function aDeviceWithSomethingToBackUp() {
+    const store = await aRealStore();
+    const remote = new InMemoryRemoteStorage();
+    const person = await registerClient(store, draft('Test Person With A Protected Note'));
+    return { store, remote, clientId: person.record_id as string };
+  }
+
+  /**
+   * SAVE A PROTECTED CLINICAL NOTE, the way the interface would have to.
+   *
+   * The one deliberate property: `hasEverSynchronised` is asked ONCE, HERE, and its answer is what
+   * goes into the guard. The guard is handed the answer rather than working one out, which is its
+   * design, so a caller that computed its own would be the disagreement this whole seam prevents.
+   *
+   * It throws what the core throws. A refusal is `NotConnectedYet` from `core/crypto/errors.js`, and
+   * it is not caught here: the point of these tests is which side of the refusal we are on.
+   */
+  async function saveTheProtectedNote(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    store: any,
+    remote: InstanceType<typeof InMemoryRemoteStorage>,
+    clientId: string,
+    note: string,
+  ) {
+    const { dataKey } = await establishKeyMaterial({
+      remote,
+      deviceId: store.device,
+      deviceKeys: new InMemoryDeviceKeyStore(),
+      // THE ONE FACT, from the one function. See above.
+      hasEverSynchronised: await hasEverSynchronised(store),
+      now: () => new Date().toISOString(),
+      journal: async () => undefined,
+    });
+
+    const context = { type: 'client', recordId: clientId, field: 'clinical_note' };
+    const sealed = await sealField(dataKey, context, note);
+    await store.update('client', clientId, (content: Record<string, unknown>) => ({
+      ...content, clinical_note: sealed,
+    }));
+    return { dataKey, context };
+  }
+
+  it('REFUSES the note before, and SAVES it after — one real pass is the only thing that changed', async () => {
+    const { store, remote, clientId } = await aDeviceWithSomethingToBackUp();
+
+    // ── BEFORE. Nothing has ever completed, so the note cannot be saved.
+    assert.equal(await hasEverSynchronised(store), false, 'a device that has backed up nothing');
+
+    const refused = await saveTheProtectedNote(store, remote, clientId, THE_NOTE)
+      .then(() => null, (error: unknown) => error);
+    assert.ok(
+      refused instanceof NotConnectedYet,
+      `the note was not refused for the reason this test is about — it got ${String(refused)}`,
+    );
+    assert.equal(
+      (await store.get('client', clientId)).content.clinical_note,
+      undefined,
+      'the refusal let the note onto the record anyway, which is the one thing worse than refusing: '
+        + 'accepting clinical text and keeping it in the clear',
+    );
+
+    // ── THE ONLY THING THAT CHANGES. A real pass, over the real engine, against the double.
+    const { recorded } = await runSyncPass(store, remote as never, { trigger: SYNC_TRIGGERS.MANUAL });
+    assert.equal(recorded, true, 'the pass earned no completion, so nothing below would prove anything');
+
+    // ── AFTER. The persisted record now answers, through the same one function.
+    assert.equal(
+      await hasEverSynchronised(store),
+      true,
+      'a synchronisation completed and the device still reports it has never synchronised. That is '
+        + 'the window this step exists to close, still open.',
+    );
+
+    const { dataKey, context } = await saveTheProtectedNote(store, remote, clientId, THE_NOTE);
+
+    const saved = await store.get('client', clientId);
+    assert.ok(saved.content.clinical_note !== undefined && saved.content.clinical_note !== null,
+      'the save resolved without refusing and yet nothing is on the record');
+    assert.ok(
+      !JSON.stringify(saved).includes(THE_NOTE),
+      'the note went onto the record IN THE CLEAR. A refusal that stops by writing plaintext has '
+        + 'made things worse than the refusal was.',
+    );
+    assert.equal(
+      await openField(dataKey, context, saved.content.clinical_note),
+      THE_NOTE,
+      'the note was written but does not come back, so "saved" is a claim rather than a fact',
+    );
+  });
+
+  it('tells him he IS connected once a pass has completed, in the words the field actually shows', async () => {
+    const { store, remote } = await aDeviceWithSomethingToBackUp();
+
+    // The screen's own derivation, from `ClientsScreen.tsx`: the answer to the one function is the
+    // state, and the state is the words. This asserts the WORDS, because a state name is not what
+    // reaches him.
+    const wordsNow = async () => describeClinicalField(
+      (await hasEverSynchronised(store)) ? 'connected' : 'never-connected',
+    ).whatHappened;
+
+    const before = await wordsNow();
+    assert.match(before, /not connected/i, 'the field must say he is not connected while he is not');
+
+    await runSyncPass(store, remote as never, { trigger: SYNC_TRIGGERS.MANUAL });
+
+    const after = await wordsNow();
+    assert.notEqual(
+      after,
+      before,
+      'HIS ACCOUNT IS CONNECTED AND THE APP IS STILL TELLING HIM IT IS NOT. No error, no failure — '
+        + 'a sentence that quietly stopped being true, on the surface that decides whether he can '
+        + 'record a clinical note.',
+    );
+    assert.doesNotMatch(
+      after,
+      /not connected/i,
+      'the field goes on telling him to connect an account that is already connected',
+    );
+    assert.match(after, /connected to your Google account/i, 'and it says what is now true instead');
   });
 });
 

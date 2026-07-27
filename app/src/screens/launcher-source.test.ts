@@ -42,9 +42,11 @@ import { openSession } from '../../core/session/live-session.js';
 import { openLocalStore } from '../../core/store/store.js';
 import { createLaptop, createTwoWindowLaptop } from '../../core/store/testing/platform-double.js';
 import {
-  HISTORY_LIMIT, UNFINISHED_LIMIT, pickUpTheSession, readExerciseNames, readGlances, readHistory,
-  readLaunchpad, startTheSession,
+  HISTORY_LIMIT, UNFINISHED_LIMIT, attachTheLink, mintTheLink, pickUpTheSession, readExerciseNames,
+  readGlances, readHistory, readLaunchpad, startTheSession,
 } from './launcher-source';
+import { NO_CONFERENCE } from '../platform/google-meet';
+import type { MintOutcome, MintRequest } from '../platform/google-meet';
 import { heldSession, releaseHeldSession } from './session-handover';
 
 /** Stores opened by this file, closed once at the end whatever happened. */
@@ -340,6 +342,151 @@ describe('the lease handover', () => {
     );
 
     await releaseHeldSession(windowA, sessionId);
+  });
+});
+
+describe('minting the joining link onto a session that has already started', () => {
+  /**
+   * A minting double.
+   *
+   * `platform/google-meet.test.ts` drives the real one against a fake calendar; what is being proved
+   * HERE is the join — that an outcome becomes a record, or becomes a sentence and no record. So this
+   * returns the outcome it was handed and remembers what it was asked for.
+   */
+  function minting(outcome: MintOutcome) {
+    const asked: MintRequest[] = [];
+    return {
+      asked,
+      mint(request: MintRequest) {
+        asked.push(request);
+        return Promise.resolve(outcome);
+      },
+    };
+  }
+
+  const MINTED: MintOutcome = Object.freeze({
+    outcome: 'minted' as const,
+    url: 'https://meet.google.com/tst-fake-lnk',
+    onMainCalendar: true,
+    polls: 0,
+  });
+
+  it('writes the link onto the RECORD, with its origin, and asks for it under the session\'s own id', async () => {
+    const { store, routine, clientIds } = await aFurnishedStore();
+    const started = await startTheSession(store, {
+      routineId: routine.content.id, clientIds, mode: 'online', meetUrl: null,
+    });
+    const links = minting(MINTED);
+
+    const outcome = await mintTheLink(store, links, started.session_id!, new Date('2026-07-26T09:00:00Z'));
+
+    assert.equal(outcome.outcome, 'minted');
+    const stored = await store.get('session', started.session_id);
+    assert.equal(stored.content.meet_url, MINTED.url);
+    assert.equal(stored.content.meet_source, 'minted',
+      'the origin travels with the link, and it is the truth about where it came from');
+    assert.deepEqual(links.asked.map((request) => request.sessionId), [started.session_id],
+      'the identifier that makes a retry idempotent comes from the session, so it had to be asked '
+      + 'for AFTER the session existed');
+
+    await releaseHeldSession(store, started.session_id!);
+  });
+
+  it('MINTING TWICE FOR ONE SESSION LEAVES ONE LINK — the idempotent retry, all the way through', async () => {
+    const { store, routine, clientIds } = await aFurnishedStore();
+    const started = await startTheSession(store, {
+      routineId: routine.content.id, clientIds, mode: 'online', meetUrl: null,
+    });
+    const links = minting(MINTED);
+
+    await mintTheLink(store, links, started.session_id!, new Date());
+    // Exactly what a retry looks like: the same session, the same identifier, so Google hands back
+    // the meeting it already made rather than a second one.
+    const again = await mintTheLink(store, links, started.session_id!, new Date());
+
+    assert.equal(again.outcome, 'minted');
+    const stored = await store.get('session', started.session_id);
+    assert.equal(stored.content.meet_url, MINTED.url);
+    assert.equal(links.asked[0].sessionId, links.asked[1].sessionId);
+
+    await releaseHeldSession(store, started.session_id!);
+  });
+
+  it('a SECOND, DIFFERENT link is refused rather than overwriting the one the session has', async () => {
+    const { store, routine, clientIds } = await aFurnishedStore();
+    const started = await startTheSession(store, {
+      routineId: routine.content.id, clientIds, mode: 'online',
+      meetUrl: 'https://meet.google.com/tst-pasted-one',
+    });
+
+    const written = await attachTheLink(
+      store, started.session_id!, 'https://meet.google.com/tst-somewhere-else', 'minted',
+    );
+
+    assert.equal(written, false, 'a link he pasted must not be silently replaced');
+    const stored = await store.get('session', started.session_id);
+    assert.equal(stored.content.meet_url, 'https://meet.google.com/tst-pasted-one');
+    assert.equal(stored.content.meet_source, 'pasted');
+
+    await releaseHeldSession(store, started.session_id!);
+  });
+
+  it('a calendar that cannot make links leaves the SESSION untouched and hands back the exit', async () => {
+    const { store, routine, clientIds } = await aFurnishedStore();
+    const started = await startTheSession(store, {
+      routineId: routine.content.id, clientIds, mode: 'online', meetUrl: null,
+    });
+
+    const outcome = await mintTheLink(store, minting(Object.freeze({
+      outcome: 'no-conference' as const, sentence: NO_CONFERENCE, requestFailed: false,
+    })), started.session_id!, new Date());
+
+    assert.equal(outcome.outcome, 'no-conference');
+    const stored = await store.get('session', started.session_id);
+    assert.equal(stored.content.meet_url, undefined,
+      'no link, and no half-written one either');
+    assert.equal(stored.content.meet_source, undefined);
+    assert.equal(stored.content.status, 'in_progress',
+      'AND THE SESSION IS STILL RUNNING. Nothing Google did or failed to do can cost him the session');
+
+    await releaseHeldSession(store, started.session_id!);
+  });
+
+  it('the exit is real: what he pastes afterwards lands on the session that already started', async () => {
+    const { store, routine, clientIds } = await aFurnishedStore();
+    const started = await startTheSession(store, {
+      routineId: routine.content.id, clientIds, mode: 'online', meetUrl: null,
+    });
+    await mintTheLink(store, minting(Object.freeze({
+      outcome: 'no-conference' as const, sentence: NO_CONFERENCE, requestFailed: false,
+    })), started.session_id!, new Date());
+
+    const written = await attachTheLink(
+      store, started.session_id!, 'https://meet.google.com/tst-his-own-one', 'pasted',
+    );
+
+    assert.equal(written, true);
+    const stored = await store.get('session', started.session_id);
+    assert.equal(stored.content.meet_url, 'https://meet.google.com/tst-his-own-one');
+    assert.equal(stored.content.meet_source, 'pasted');
+
+    await releaseHeldSession(store, started.session_id!);
+  });
+
+  it('a link with nowhere to be written is reported rather than thrown, and never half-lands', async () => {
+    const { store, routine, clientIds } = await aFurnishedStore();
+    const started = await startTheSession(store, {
+      routineId: routine.content.id, clientIds, mode: 'online', meetUrl: null,
+    });
+    // This window is no longer running it, so there is no lease and no handle to write through.
+    await releaseHeldSession(store, started.session_id!);
+
+    const outcome = await mintTheLink(store, minting(MINTED), started.session_id!, new Date());
+
+    assert.equal(outcome.outcome, 'refused');
+    const stored = await store.get('session', started.session_id);
+    assert.equal(stored.content.meet_url, undefined,
+      'reported as no link on the session, which is exactly what is true');
   });
 });
 

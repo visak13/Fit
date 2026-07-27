@@ -295,3 +295,96 @@ describe('sync/journal — the harness really is being made to fail', () => {
       + 'person to change the double should be told by a test rather than by a mystery');
   });
 });
+
+/**
+ * A PASS WHOSE ONLY EFFECT WAS A DELETION MUST NOT RECORD A COUNT OF ZERO.
+ *
+ * The s13 review found `sync.completed` written with `affected_count: 0` for a pass that had just
+ * carried a departed client's removal across the device boundary. The log then said a pass moved
+ * nothing at the exact moment it moved the thing this log is most valuable for holding — and a count
+ * that cannot see a deletion is a count that goes quiet on the one event somebody will one day come
+ * looking for.
+ *
+ * The engine now counts purges pushed and notices applied as movement. This asserts it FROM BOTH
+ * SIDES of the boundary, because they are different additions and either could regress alone: the
+ * device that carried the removal outward counts `pushed.purges`, and the device that received it
+ * counts `notices_applied`. Every entry below was produced by a real pass; nothing appends.
+ *
+ * ASSERT WHAT THE ENTRY SAYS, NOT MERELY THAT IT EXISTS. The count is read off the entry and
+ * compared against the pass's own figures, so a count that drifts from what the pass did fails here
+ * rather than being believed.
+ */
+describe('sync/journal — a deletion IS movement, on both sides of the boundary', () => {
+  it('the device that carries a removal outward records a non-zero count for a records-free pass', async () => {
+    const world = aWorld();
+    after(() => world.close());
+    const laptop = await world.device('coach-laptop');
+
+    const client = await laptop.store.create('client', aClient({ name: 'Ana Example' }), { now: T0 });
+    await syncNow(laptop.store, world.remote, { trigger: SYNC_TRIGGERS.MANUAL, now: T0 });
+
+    world.advance(60_000);
+    await purgeClient(laptop.store, client.record_id, { now: world.now() });
+
+    world.advance(60_000);
+    const report = await syncNow(laptop.store, world.remote, {
+      trigger: SYNC_TRIGGERS.MANUAL, now: world.now(),
+    });
+
+    assert.notEqual(report.completion, null, 'the pass completed, so it wrote sync.completed');
+    assert.ok(report.pushed.purges > 0, 'the pass really did carry the removal outward');
+    // THE NON-VACUITY PROOF, and it is structural rather than a break: with BOTH record figures at
+    // zero, the only thing left that can make the count non-zero is the removal itself. If either of
+    // these ever stops being zero, the assertion below stops proving what it claims to and fails here
+    // instead of quietly passing on the wrong evidence.
+    assert.equal(report.pushed.records, 0, 'no record change was pushed, so none can pad the count');
+    assert.equal(report.pulled.applied, 0, 'and nothing arrived, so a count can only come from the removal');
+
+    const completions = (await entriesOn(laptop)).filter((e) => e.kind === JOURNAL_KINDS.SYNC_COMPLETED);
+    const last = completions[completions.length - 1];
+    assert.ok(
+      last.affected_count > 0,
+      'the pass that carried a departed client\'s removal outward recorded a count of ZERO. That is '
+      + 'the log going silent about the event it exists to hold.',
+    );
+    assert.equal(
+      last.affected_count,
+      report.pushed.records + report.pulled.applied + report.pushed.purges
+        + report.deletions.notices_applied.length,
+      'the recorded count disagrees with what the pass itself reports having moved',
+    );
+  });
+
+  it('the device that RECEIVES the removal records a non-zero count for it too', async () => {
+    const world = aWorld();
+    after(() => world.close());
+    const laptop = await world.device('coach-laptop');
+    const phone = await world.device('coach-phone');
+
+    const client = await laptop.store.create('client', aClient({ name: 'Ana Example' }), { now: T0 });
+    await syncNow(laptop.store, world.remote, { trigger: SYNC_TRIGGERS.MANUAL, now: T0 });
+    world.advance(60_000);
+    await syncNow(phone.store, world.remote, { trigger: SYNC_TRIGGERS.MANUAL, now: world.now() });
+    assert.ok(await phone.store.get('client', client.record_id), 'the phone really holds them');
+
+    world.advance(60_000);
+    await purgeClient(laptop.store, client.record_id, { now: world.now() });
+    await syncNow(laptop.store, world.remote, { trigger: SYNC_TRIGGERS.MANUAL, now: world.now() });
+
+    world.advance(60_000);
+    const onPhone = await syncNow(phone.store, world.remote, {
+      trigger: SYNC_TRIGGERS.MANUAL, now: world.now(),
+    });
+
+    assert.equal(onPhone.deletions.notices_applied.length, 1, 'the phone applied the removal');
+    assert.equal(await phone.store.get('client', client.record_id), undefined, 'and they are gone from it');
+
+    const completions = (await entriesOn(phone)).filter((e) => e.kind === JOURNAL_KINDS.SYNC_COMPLETED);
+    const last = completions[completions.length - 1];
+    assert.ok(
+      last.affected_count > 0,
+      'the receiving device recorded a count of ZERO for the pass in which a departed client was '
+      + 'removed from it. Nothing else moved, so nothing else could have said so.',
+    );
+  });
+});

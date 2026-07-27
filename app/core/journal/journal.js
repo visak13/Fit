@@ -34,8 +34,10 @@
  * The four things worth knowing before using it:
  *
  *  1. **The vocabulary is CLOSED.** {@link assertKind} throws on a kind it does not define, which is
- *     the mechanism that stops each later step growing its own. Authentication and export kinds are
- *     defined here and have no call sites yet, on purpose — the steps that own them do not exist.
+ *     the mechanism that stops each later step growing its own. The account half of the
+ *     authentication domain is now written — from the SHELL, because this core may not know a
+ *     provider exists — while the local-unlock half and the whole export domain are defined here
+ *     with no call sites on purpose, because the steps that own them do not exist.
  *  2. **An entry cannot carry a record's content**, and that is structural: a closed set of fields,
  *     flat values only, and identifier fields that admit no prose. Not a naming convention.
  *  3. **The chain is TAMPER-EVIDENCE, not tamper-proofing.** Anyone who can write the database can

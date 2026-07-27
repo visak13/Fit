@@ -738,6 +738,29 @@ samp {
   color: var(--text-muted);
 }
 
+/*
+ * THE WAY TO ACT, when there is one — and there is not always one. It is `flex: none` for the same
+ * reason the silhouette is: it must never be the item that decides the row's height, and it must never
+ * squeeze the sentence, which is what `.sync-words` with a basis of 0 is there to absorb.
+ *
+ * The button itself is `.btn`, unchanged, so every token role it binds through — surface, text, border,
+ * focus ring, the disabled treatment — is the shared one rather than a second set of values living
+ * here. Nothing about the indicator's own colours is restated on it.
+ */
+.sync-act {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  min-inline-size: 0;
+}
+
+/* What just happened when he tapped. Quiet, because it sits under a control he is already looking at. */
+.sync-refusal {
+  color: var(--text-muted);
+}
+
 /* ── THE WIDE SURFACE: the chip at the foot of the rail, collapsed with it and expanding with it. ── */
 @media (min-width: 840px) {
   /*
@@ -754,8 +777,16 @@ samp {
     padding-inline: var(--space-1);
   }
 
-  /* The words are what collapse. The shape, the number and the marks never do. */
-  .sync-words {
+  /*
+   * The words are what collapse. The shape, the number and the marks never do.
+   *
+   * THE CONTROL COLLAPSES WITH THEM, and it has to: a 76px rail has 60px inside its padding, so a
+   * button whose label does not fit is a button with no label — and this whole surface's argument is
+   * that a control which cannot say what it does is worse than none. What survives collapse is the
+   * accountability signal itself; the way to act comes back with the words when the rail expands.
+   */
+  .sync-words,
+  .sync-act {
     display: none;
   }
 
@@ -786,6 +817,15 @@ samp {
      * specific failure this whole surface exists to avoid: "backed up 4 minutes" and "backed up 4
      * minutes ago" are the same words, and only one of them is a complete statement.
      */
+    display: flex;
+    flex-basis: 100%;
+  }
+
+  /* And the control returns with them, on its own line under the sentence rather than beside it: the
+   * rail is the one place with a hard width, and a button competing with the wording for 248px would
+   * cut the sentence off mid-word. */
+  .app:has(.rail:hover) .sync-act,
+  .app:has(.rail:focus-within) .sync-act {
     display: flex;
     flex-basis: 100%;
   }
@@ -1469,6 +1509,26 @@ button[disabled],
 
 .row:last-child {
   border-bottom: none;
+}
+
+/* THE STEPS A SCREEN ASKS SOMEBODY TO TAKE, in order.
+ *
+ * The opposite decision to `.rows` above, and deliberately: a row is a thing you ACT ON and its
+ * marker is noise, whereas these are things you DO ONE AFTER ANOTHER and the number is half the
+ * instruction. So the markers are kept and the list is not `display: flex`, which would suppress
+ * them while keeping the indent they were reserved for — the exact trap `.rows` documents.
+ *
+ * The two defaults that are still bound rather than inherited are the ones measured there: the
+ * browser's own `padding-inline-start: 40px` and `margin-block: 16px`, neither of which any screen
+ * asked for. The indent is re-declared as a space role so the numbers have somewhere to sit. */
+.steps {
+  margin: 0;
+  padding-inline-start: var(--space-5);
+  list-style: decimal;
+}
+
+.steps > li + li {
+  margin-top: var(--space-3);
 }
 
 .row:hover {

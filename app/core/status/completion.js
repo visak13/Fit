@@ -36,6 +36,7 @@
 
 import { timestamp } from '../model/model.js';
 import { syncCompletionMarker } from '../outbox/outbox.js';
+import { completionWithheldBy } from '../sync/sync.js';
 
 /** Where the last genuine completion is kept. One key, one writer. */
 export const LAST_SYNC_META_KEY = 'status.last_completed_sync';
@@ -70,16 +71,20 @@ const SEALED = Symbol('status.completion.sealed');
  * @param {any} report
  * @returns {Readonly<CompletedSync>|null} Null whenever a completion was not genuinely earned —
  *   a best-effort flush, an interrupted one, one that stopped for any reason but a drained queue,
- *   one leaving anything undelivered, a pass with a failed step, or an object that never was a report.
+ *   one leaving anything undelivered, a pass with a failed step, a pass that SKIPPED A FILE IT COULD
+ *   NOT READ, or an object that never was a report.
  */
 export function completionFrom(report) {
   if (!report || typeof report !== 'object') return null;
 
-  // A pass that could not reach the service withholds its completion even if the queue drained
-  // first: the queue may have emptied before the pull failed, and "backed up" would then quietly
-  // mean "sent mine, never read yours". This mirrors the engine's own rule rather than restating it
-  // differently, because two rules that must agree are two rules that will not.
-  if (Array.isArray(report.failures) && report.failures.length > 0) return null;
+  // The disqualifying conditions are ASKED FOR rather than restated, and the difference is not
+  // cosmetic. This used to be a copy of the engine's `failures.length === 0` test, under a comment
+  // saying it mirrored the engine "because two rules that must agree are two rules that will not" —
+  // and then exactly that happened: an unreadable area file had to withhold the completion too, and
+  // a clause added on one side and not the other would have left the report saying no completion
+  // while this function sealed one and advanced last-synced anyway. One question, one answer,
+  // two callers. See `core/sync/withheld.js`.
+  if (completionWithheldBy(report)) return null;
 
   const flush = report.flush === undefined ? report : report.flush;
   const marker = syncCompletionMarker(flush);

@@ -405,17 +405,42 @@ describe('the two action codes the core had already named', () => {
     }
   });
 
-  it('left the three Google-bound codes alone, with a NAMED owner and no stub', () => {
+  /**
+   * THIS TEST'S SUBJECT CHANGED UNDER IT, AND THAT IS WHY IT IS REWRITTEN RATHER THAN DELETED.
+   *
+   * It used to assert that the three Google-bound codes each named an OWNING STEP — which was the
+   * right thing to hold while they were unbuilt, and the reason this file cared was that naming no
+   * step is how two of ITS OWN codes came to be waiting on work they never needed.
+   *
+   * They are built now: the synchronisation join landed, and connecting, reconnecting and backing up
+   * are ACTS performed on the indicator rather than places anybody goes. So the property worth holding
+   * from THIS screen's point of view is not "somebody else still owns them" — that has become false,
+   * and a test asserting it would be demanding a table that lies. What this screen needs is what it
+   * always needed: that ITS two codes are the only ones pointed HERE, and that no code anywhere is
+   * left in the "later" state this table exists to abolish.
+   */
+  it('left the three Google-bound codes alone — they are acts now, and none points at this screen', () => {
     const local = new Set(CODES_CLOSED_LOCALLY);
     const others = Object.entries(ACTION_DESTINATIONS).filter(([code]) => !local.has(code));
 
     assert.equal(others.length, 3, 'the other three codes are still exactly three');
     for (const [code, destination] of others) {
-      assert.equal(destination.path, null, `${code} must NOT have an address in this build`);
+      assert.equal(
+        destination.path,
+        null,
+        `${code} has acquired an address. This screen answers two codes and only two; a third arriving `
+          + 'here would be the surface growing a job nobody asked it to do.',
+      );
       assert.ok(
-        typeof destination.ownedBy === 'string' && destination.ownedBy.length > 0,
-        `${code} has no owner named. "Later" is how two of these came to be waiting on work they `
-          + 'never needed; a named step is the whole point of this table.',
+        destination.performed !== null,
+        `${code} is neither an act nor a place. That is the "later" this table exists to abolish, and `
+          + 'it is worse now than it was: these three are BUILT, so an entry still saying otherwise '
+          + 'would send the next reader looking for work that is finished.',
+      );
+      assert.equal(
+        destination.ownedBy,
+        null,
+        `${code} is built and still names an owner, which is how a step comes to be planned twice`,
       );
     }
   });

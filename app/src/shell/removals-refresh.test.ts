@@ -52,7 +52,7 @@ import { openLocalStore } from '../../core/store/store.js';
 import { purgeClient } from '../../core/store/purge.js';
 import { createLaptop, settle } from '../../core/store/testing/platform-double.js';
 import { NO_REMOVAL_RECORDED_YET, oneMoreRemoval } from '../platform/local-store.ts';
-import { describeRemovals } from '../screens/removals.ts';
+import { NO_PASS_HAS_REPORTED, describeRemovals } from '../screens/removals.ts';
 import type { RemovalsPage } from '../screens/removals.ts';
 import { readPendingRemovals } from './removals-source.ts';
 
@@ -99,7 +99,7 @@ describe('the surface that reports removals awaiting confirmation, after a remov
     // WHAT THE SURFACE HELD BEFORE HE REMOVED ANYBODY. True at the time it was taken.
     const before = await readTheSurface(store);
     assert.ok(before !== null, 'the surface never read the store at all');
-    const said = describeRemovals({ pending: before });
+    const said = describeRemovals({ pending: before, remote: NO_PASS_HAS_REPORTED });
     assert.equal(said.count, 0);
     assert.equal(said.settled, true, 'something was waiting on a device nobody had removed anybody from');
 
@@ -111,14 +111,14 @@ describe('the surface that reports removals awaiting confirmation, after a remov
     // reassuring direction: it tells him every client he has removed is confirmed gone from his
     // backup, which is the exact belief `core/sync/deletions.js` opens by naming.
     assert.equal(
-      describeRemovals({ pending: before }).settled,
+      describeRemovals({ pending: before, remote: NO_PASS_HAS_REPORTED }).settled,
       true,
       'the reading taken before the removal is what the seam went on carrying, and this is the '
         + 'sentence the coach was shown. If this ever stops holding, the defect has changed shape '
         + 'and the fix below is guarding the wrong thing.',
     );
     assert.ok(
-      describeRemovals({ pending: before }).intro.includes('confirmed gone'),
+      describeRemovals({ pending: before, remote: NO_PASS_HAS_REPORTED }).intro.includes('confirmed gone'),
       'the stale reading no longer claims the removals are confirmed gone, so the false good news '
         + 'this file reproduces is not the one being fixed',
     );
@@ -126,7 +126,7 @@ describe('the surface that reports removals awaiting confirmation, after a remov
     // AND THE FIX: reading the surface again, which is what the signal on the source causes.
     const afterwards = await readTheSurface(store);
     assert.ok(afterwards !== null, 'the second read published nothing');
-    const now = describeRemovals({ pending: afterwards });
+    const now = describeRemovals({ pending: afterwards, remote: NO_PASS_HAS_REPORTED });
 
     assert.equal(now.count, 1, 'the removal he just made is not on the surface that reports removals');
     assert.equal(now.settled, false);
@@ -148,8 +148,8 @@ describe('the surface that reports removals awaiting confirmation, after a remov
 
     const page = await readTheSurface(store);
     assert.ok(page !== null);
-    assert.equal(describeRemovals({ pending: page }).count, 0);
-    assert.equal(describeRemovals({ pending: page }).settled, true);
+    assert.equal(describeRemovals({ pending: page, remote: NO_PASS_HAS_REPORTED }).count, 0);
+    assert.equal(describeRemovals({ pending: page, remote: NO_PASS_HAS_REPORTED }).settled, true);
   });
 });
 
@@ -190,11 +190,34 @@ describe('where the signal is wired, read off the source that ships', () => {
       'the seam no longer reads the removal count from the source, so it fills once per store again '
         + 'and the stale count is back',
     );
-    assert.match(
-      seam,
-      /\}, \[store, recorded\]\);/,
+    // THE LIST GREW, AND THIS ASSERTION WAS PINNED TO ITS EXACT OLD LITERAL.
+    //
+    // It used to match `}, [store, recorded]);` — the whole list, character for character — and that
+    // made it fail the moment the remote half added `remote` to the same list, which is the trigger
+    // this very file said belonged there. A guard pinned to an exact literal fails on the change it
+    // was written to WELCOME, so it is rewritten to assert what it actually cares about: the count is
+    // still a dependency, and everything on the list is a dependency of THE READ rather than a second
+    // mechanism beside it. It now also holds the new half to the same rule.
+    const list = /\}, \[([^\]]*)\]\);/.exec(seam);
+    assert.ok(list !== null, 'the seam\'s read is no longer driven by a dependency list at all');
+    const dependencies = list[1].split(',').map((name) => name.trim());
+
+    assert.ok(
+      dependencies.includes('recorded'),
       'the seam\'s read no longer depends on the recorded count. The dependency list IS the fix: '
         + 'without the count in it the effect runs once per store, which is the defect.',
+    );
+    assert.ok(
+      dependencies.includes('remote'),
+      'the seam\'s read no longer depends on the last pass\'s report. `verifyAndMarkPropagated` moves '
+        + 'a manifest out of pending during a synchronisation pass and at no other moment, so a new '
+        + 'report IS the announcement that one ran. Without it in this list, a removal confirmed '
+        + 'during a pass stays on the screen afterwards, telling him something untrue.',
+    );
+    assert.ok(
+      dependencies.includes('store'),
+      'the read no longer depends on the store it reads from, so a page from a previous store can '
+        + 'be published against the current one',
     );
   });
 
@@ -264,32 +287,59 @@ describe('where the signal is wired, read off the source that ships', () => {
     }
   });
 
-  it('did NOT wake the four seams that are still honestly frozen', async () => {
+  /**
+   * THE REMOVAL COUNT STAYED NARROW — and this test lost its proxy, which is the point.
+   *
+   * It used to assert that four named literals were still present in `main.tsx`, on the reasoning
+   * that those seams were frozen BECAUSE no synchronisation had ever run. That reasoning was true
+   * when it was written and it is now FALSE BY DESIGN: synchronisation runs, and the seams it froze
+   * are legitimately fed. The anchor was always a PROXY for the real rule, and a proxy that has
+   * stopped standing for anything fails on the work it was waiting for rather than on a defect.
+   *
+   * So the proxy is dropped and the load-bearing rule is kept, which is the one that was never about
+   * how many seams are literals: **`main.tsx` must not read the removal count.** That signal belongs
+   * between the register and the pending-removal seam and nowhere else — anything wider is the
+   * general notification mechanism this fix exists NOT to be, and the composition root is precisely
+   * where a narrow signal would get widened into one.
+   */
+  it('kept the removal count NARROW: the composition root does not read it', async () => {
     const main = await source('src/main.tsx');
 
-    // Each is a literal because nothing has synchronised, which is TRUE. A signal that started them
-    // reading would have them claim things nobody has measured.
-    for (const literal of [
-      'reading={NO_BACKUP_YET}',
-      'reading={NOTHING_TO_DECIDE}',
-      'reading={NO_KEY_MATERIAL_CONDITION}',
-      'reading={NOTHING_STOPPED}',
-    ]) {
-      assert.ok(
-        main.includes(literal),
-        `${literal} is gone from main.tsx. The four remaining literals hold BECAUSE no `
-          + 'synchronisation has ever run; the removal signal says one thing about one record and '
-          + 'must not have been widened into something that feeds them.',
-      );
-    }
-
-    // The comment beside the fifth seam NAMES the count, which is house style and is why this
-    // looks for the CALL rather than the word. Nothing in `main.tsx` may read it: it belongs
-    // between the register and the pending-removal seam, and anything wider is the general
-    // notification mechanism this fix exists not to be.
+    // The comment beside the seam NAMES the count, which is house style and is why this looks for
+    // the CALL rather than the word.
     assert.ok(
       !/useLocalRemovals\(/.test(main),
-      'the removal count is being read in main.tsx, which is where the four frozen seams are filled',
+      'the removal count is being read in main.tsx. It says ONE thing about ONE record — that a '
+        + 'removal committed on this device — and reading it at the composition root is how it '
+        + 'becomes a general signal that wakes seams it knows nothing about.',
+    );
+
+    // And the narrowness is a property of the whole interface, not of one file. Only the seam that
+    // has a removal to re-read may consume it.
+    //
+    // THIS IS NON-VACUOUS BY CONSTRUCTION, which the absence-shaped assertion above is not on its
+    // own: it asserts the list equals exactly ONE file, so a scanner that had stopped matching
+    // anything would produce an empty list and FAIL here rather than passing quietly.
+    const consumers: string[] = [];
+    for (const file of [
+      'src/main.tsx',
+      'src/shell/RemovalsFromStore.tsx',
+      'src/shell/Removals.tsx',
+      'src/shell/SyncStatus.tsx',
+      'src/shell/Divergences.tsx',
+      'src/shell/StoppedChanges.tsx',
+      'src/shell/KeyMaterial.tsx',
+    ]) {
+      // eslint-disable-next-line no-await-in-loop
+      if (/useLocalRemovals\(/.test(await source(file))) consumers.push(file);
+    }
+
+    assert.deepEqual(
+      consumers,
+      ['src/shell/RemovalsFromStore.tsx'],
+      'a seam other than the pending-removal one is reading the removal count. It is a number about '
+        + 'a removal, and a seam that reads it to refresh something else is claiming a removal told '
+        + 'it something it did not.',
     );
   });
 

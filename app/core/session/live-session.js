@@ -451,6 +451,60 @@ export class LiveSession {
   }
 
   /**
+   * The joining link, written onto a session that is already running.
+   *
+   * ## Why this exists at all, when a link can be given at the start
+   *
+   * A link the coach pasted travels with `startSession` and never comes near this method. A MINTED
+   * one cannot: minting is done on demand at the moment the session starts, and the identifier that
+   * makes a retry idempotent is derived from the session's own id — which does not exist until the
+   * session does. So the order is session first, link second, and second means an update on a record
+   * whose lease this handle is holding.
+   *
+   * ## It knows nothing about who minted it
+   *
+   * `source` is one of the record's own `MEET_SOURCES`, and this file has no opinion about which. The
+   * core is provider-neutral: a joining link is a joining link, and nothing under `core/` may learn
+   * that one of the two ways of getting one involves Google. The whole of that lives in the shell.
+   *
+   * ## Writing the same link twice is nothing; writing a DIFFERENT one is refused
+   *
+   * A retry that comes back with the identifier it sent gets the same conference, so re-recording the
+   * link it already has must be a no-op rather than an error — that is the idempotent path working,
+   * and turning it into a refusal would make a successful retry look like a fault. A link that
+   * disagrees with the one already recorded is the opposite: something minted a SECOND meeting, or is
+   * about to overwrite a link the coach pasted himself, and either way the session would silently
+   * start pointing somewhere else. That is refused loudly rather than absorbed.
+   *
+   * The rest — that an in-person session may carry no link, that a link and its origin travel
+   * together, that a link is an https address and not a whole provider response — belongs to
+   * `core/model/entities/session.js` and is enforced there, on the way in. No copy of those rules is
+   * made here.
+   *
+   * @param {string} url
+   * @param {string} source one of `MEET_SOURCES`
+   * @param {{now?: number|string|Date}} [options]
+   */
+  async recordJoiningLink(url, source, options = {}) {
+    this.#assertOpen();
+    const record = await this.store.update('session', this.sessionId, (content) => {
+      if (content.meet_url === url) return content;
+      if (content.meet_url) {
+        throw new SessionStateError(
+          'This session already has a joining link. Recording a different one would send everybody '
+          + 'to a meeting the session is not pointing at.',
+          { session_id: this.sessionId, held: content.meet_source ?? null },
+        );
+      }
+      return { ...content, meet_url: url, meet_source: source };
+    }, { lease: this.lease, now: options.now });
+
+    this.record = record;
+    await this.refresh();
+    return record;
+  }
+
+  /**
    * He is leaving, and the session is not finished. The record stands as a partial record of what
    * happened, and it can be picked up later exactly as it stands.
    * @param {{now?: number|string|Date}} [options]

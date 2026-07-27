@@ -29,11 +29,15 @@ import { describe, it } from 'node:test';
 import { SESSION_MODES } from '../../core/model/vocabularies.js';
 import * as launcher from './launcher.ts';
 import {
-  GLANCE_NOBODY_CHOSEN, HISTORY_TITLE, MODE_CHOICES, NOTHING_CHOSEN, SECOND_INSTANCE_HINT,
-  START_BUTTON, UNFINISHED_INTRO, canStart, chooseMode, chooseRoutine, describeGlance,
-  describeHistory, describeOutcome, describeStart, describeUnfinished, firstSessionWords,
-  linkToStore, listWords, modeWords, pasteLink, statusWords, toggleClient,
+  GLANCE_NOBODY_CHOSEN, HISTORY_TITLE, LINK_CHOICES, LINK_MADE, MODE_CHOICES, NOTHING_CHOSEN,
+  SECOND_INSTANCE_HINT, START_BUTTON, UNFINISHED_INTRO, canStart, chooseLinkPlan, chooseMode,
+  chooseRoutine, describeGlance, describeHistory, describeMint, describeOutcome, describeStart,
+  describeUnfinished, firstSessionWords, linkToStore, listWords, modeWords, pasteLink, shouldMint,
+  statusWords, toggleClient,
 } from './launcher.ts';
+import {
+  GROUP_CALL_WARNING, MINT_REFUSALS, NO_CONFERENCE, PASTE_INSTEAD, STILL_PENDING,
+} from '../platform/google-meet.ts';
 import type { Glance, Selection, SessionRecord } from './launcher.ts';
 
 /** A selection with everything answered. Built through the verbs, never by hand. */
@@ -192,6 +196,120 @@ describe('whether he can start', () => {
 
     const two = toggleClient(everythingChosen(), 'client-ben');
     assert.equal(describeStart(two, ['Ana', 'Ben'], 'Push Day').secondInstanceHint, SECOND_INSTANCE_HINT);
+  });
+
+  /**
+   * THE SIXTY-MINUTE CUT, AND THE MOMENT IT IS SAID.
+   *
+   * At BOOKING TIME, meaning here — while he is choosing — and not when the call drops. A session
+   * runs about an hour and a free personal account cuts a group call at an hour, so with two clients
+   * in the session this is the ordinary case rather than an edge one.
+   */
+  it('warns about the group-call limit from TWO clients up, because he is the third person', () => {
+    const online = chooseMode(everythingChosen(), 'online');
+    assert.equal(describeStart(online, ['Ana'], 'Push Day').groupCallWarning, null,
+      'one client and him is a one-to-one call, which is not affected at all');
+
+    const two = toggleClient(online, 'client-ben');
+    assert.equal(describeStart(two, ['Ana', 'Ben'], 'Push Day').groupCallWarning, GROUP_CALL_WARNING);
+  });
+
+  it('says nothing about it for a session in the room, which has no call to be cut', () => {
+    const two = toggleClient(everythingChosen(), 'client-ben');
+    assert.equal(two.mode, 'in_person');
+    assert.equal(describeStart(two, ['Ana', 'Ben'], 'Push Day').groupCallWarning, null);
+  });
+});
+
+describe('how the session gets its joining link', () => {
+  it('offers making one and pasting one as TWO ANSWERS, not a feature and a fallback', () => {
+    assert.deepEqual(LINK_CHOICES.map((choice) => choice.value), ['mint', 'paste', 'none']);
+    for (const choice of LINK_CHOICES) {
+      assert.ok(choice.label.length > 0);
+      assert.ok(choice.consequence.length > 0,
+        `${choice.value} must say what it DOES, permanently and on the screen`);
+    }
+  });
+
+  it('says out loud that making one puts a real event on his calendar and may ask him to connect', () => {
+    const mint = LINK_CHOICES.find((choice) => choice.value === 'mint');
+    assert.ok(mint !== undefined);
+    assert.match(mint.consequence, /event on your calendar/i,
+      'every online session lands as a real calendar event, and he must not discover that by '
+      + 'watching his calendar fill up');
+    assert.match(mint.consequence, /ask you to connect/i);
+    assert.match(mint.consequence, /paste a link instead/i, 'and the exit is named before it is needed');
+  });
+
+  it('promises that the other two answers send nothing anywhere', () => {
+    for (const value of ['paste', 'none']) {
+      const choice = LINK_CHOICES.find((held) => held.value === value);
+      assert.ok(choice !== undefined);
+      assert.match(choice.consequence, /nothing is (created|sent)/i,
+        `${value} is a promise about what the app does NOT do out of his sight`);
+    }
+  });
+
+  it('asks Google only when he asked for it, and never behind a link he already has', () => {
+    const online = chooseMode(everythingChosen(), 'online');
+    assert.equal(shouldMint(online), true, 'the recorded decision is mint on demand at session start');
+
+    assert.equal(shouldMint(everythingChosen()), false, 'in person creates NOTHING remote');
+    assert.equal(shouldMint(chooseLinkPlan(online, 'none')), false);
+    assert.equal(shouldMint(chooseLinkPlan(online, 'paste')), false);
+    assert.equal(
+      shouldMint(pasteLink(chooseLinkPlan(online, 'paste'), 'https://meet.google.com/abc-defg-hij')),
+      false,
+      'minting behind a link he pasted would make a second meeting for a session that already '
+      + 'knows where it is going',
+    );
+  });
+
+  it('clears what he pasted when he leaves the paste answer, so an unseen link cannot be written', () => {
+    const pasted = pasteLink(
+      chooseLinkPlan(chooseMode(everythingChosen(), 'online'), 'paste'),
+      'https://meet.google.com/abc-defg-hij',
+    );
+    assert.equal(linkToStore(pasted), 'https://meet.google.com/abc-defg-hij');
+    assert.equal(linkToStore(chooseLinkPlan(pasted, 'mint')), null);
+    assert.equal(linkToStore(chooseLinkPlan(pasted, 'none')), null);
+  });
+});
+
+describe('what came of asking for a link', () => {
+  it('says the plain fact when there is one, and offers no way out because none is needed', () => {
+    const report = describeMint({
+      outcome: 'minted', url: 'https://meet.google.com/abc-defg-hij', onMainCalendar: true, polls: 0,
+    });
+    assert.equal(report.linked, true);
+    assert.equal(report.headline, LINK_MADE);
+    assert.equal(report.offerPaste, false);
+    assert.equal(report.url, 'https://meet.google.com/abc-defg-hij');
+  });
+
+  /**
+   * THE SENTENCE IS `google-meet.ts`'s OWN, CARRIED THROUGH UNCHANGED — the same rule
+   * `describeOutcome` follows for the core's refusals, and for the same reason: a second version of
+   * one situation's words drifts from the first the moment either is edited.
+   */
+  it('carries the platform\'s own sentence for every situation that produced no link, and offers the box', () => {
+    const situations = [
+      { outcome: 'no-conference' as const, sentence: NO_CONFERENCE, requestFailed: false },
+      { outcome: 'still-pending' as const, sentence: STILL_PENDING, polls: 8 },
+      { outcome: 'refused' as const, code: 'not-reachable' as const, sentence: MINT_REFUSALS['not-reachable'] },
+    ];
+
+    for (const situation of situations) {
+      const report = describeMint(situation);
+      assert.equal(report.linked, false);
+      assert.equal(report.url, null);
+      assert.equal(report.headline, situation.sentence, `${situation.outcome} is not reworded here`);
+      assert.ok(report.headline.includes(PASTE_INSTEAD),
+        'and every one of them ends by telling him what he can do instead');
+      assert.equal(report.offerPaste, true,
+        'so the box to paste it into HAS to be offered, or those words are a dead end wearing the '
+        + 'clothes of a way out');
+    }
   });
 });
 

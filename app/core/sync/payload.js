@@ -165,9 +165,18 @@ export function decodeDocument(text, where = {}) {
     throw new SyncDocumentError('A synchronisation document must be an object.', where);
   }
   if (parsed.document_version !== DOCUMENT_VERSION) {
+    // `written_by_newer_version` is DECLARED here rather than inferred from this message later, and
+    // the discipline is `core/status/reasons.js`'s: classification is read off declared fields, never
+    // off message text, because matching on text breaks the first time a sentence is reworded and
+    // breaks SILENTLY. The accountability surface has to tell the coach that his OTHER DEVICE IS
+    // RUNNING A NEWER VERSION of the app — a specific, actionable-sounding sentence — and it may only
+    // say that when it is true. A version BELOW ours is a mismatch too and means the opposite thing,
+    // and a file that is not a document at all means neither, so the comparison is made once, here,
+    // by the code that actually knows the answer.
+    const newer = typeof parsed.document_version === 'number' && parsed.document_version > DOCUMENT_VERSION;
     throw new SyncDocumentError(
       `This document is version ${parsed.document_version} and this application reads version ${DOCUMENT_VERSION}. A newer version of the app may have written it; it is left alone.`,
-      { ...where, document_version: parsed.document_version },
+      { ...where, document_version: parsed.document_version, written_by_newer_version: newer },
     );
   }
   if (!Array.isArray(parsed.records) || !Array.isArray(parsed.purges)) {

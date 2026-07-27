@@ -32,6 +32,7 @@ import {
 } from './client-removal';
 import type { BackupOfferState } from './client-removal';
 import { NOT_CONFIRMED_IS_NOT_STILL_THERE, NO_NAME_IS_DELIBERATE } from './removals';
+import { NO_PASS_HAS_REPORTED } from './removals';
 import type { DeletionManifest, RemovalsReading } from './removals';
 import type { ClientSummary } from './clients';
 
@@ -64,6 +65,9 @@ const manifest = (id: string): DeletionManifest => ({
   propagated_at: null,
   removed: [{ type: 'client', record_id: 'client-1' }],
   revised: [],
+  // The queue sweep's own result, as `core/store/purge.js` persists it on every manifest it writes.
+  // A hand-built manifest that left it out would be a shape the core never produces.
+  outbox: { inspected: 0, rewritten: 0, removed: 0, unresolved: [] },
 });
 
 const waiting = (count: number): RemovalsReading => ({
@@ -72,6 +76,9 @@ const waiting = (count: number): RemovalsReading => ({
     cursor: null,
     done: true,
   },
+  // The register's notice is about the LOCAL half. No pass has reported here, and saying so is not
+  // the same as saying a pass found nothing — see `screens/removals.ts`.
+  remote: NO_PASS_HAS_REPORTED,
 });
 
 describe('the two controls on a person\'s row', () => {

@@ -58,6 +58,9 @@
  * a screen ends up heading itself something the navigation surface disagrees with.
  */
 
+import { groupCallWarning } from '../platform/google-meet';
+import type { MintOutcome } from '../platform/google-meet';
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // What the core hands over
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -135,6 +138,16 @@ export interface Page<T> {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
+ * HOW THIS SESSION GETS ITS JOINING LINK, and all three of these are real answers.
+ *
+ * Minting one and pasting one are TWO FIRST-CLASS PATHS, not a path and its fallback. A pasted link
+ * costs nothing, needs no Google call to succeed at the moment a session begins, and covers the case
+ * where the call is already running — that is a decision on the record, not a consolation prize. And
+ * `none` is a real answer too: an online session may perfectly well have no link in the app at all.
+ */
+export type LinkPlan = 'mint' | 'paste' | 'none';
+
+/**
  * What has been chosen so far.
  *
  * `mode` is null until he answers, and that null is the feature — see the header. `pastedLink` is
@@ -145,14 +158,26 @@ export interface Selection {
   readonly routineId: string | null;
   readonly mode: SessionMode | null;
   readonly pastedLink: string;
+  /** How he wants the link. Only ever consulted on an online session. */
+  readonly linkPlan: LinkPlan;
 }
 
-/** Nothing chosen. One value, so the screen and its reset cannot disagree about what empty is. */
+/**
+ * Nothing chosen. One value, so the screen and its reset cannot disagree about what empty is.
+ *
+ * `linkPlan` DOES carry a default where `mode` deliberately does not, and the difference is worth
+ * stating because the two look alike. `mode` records a FACT ABOUT THE WORLD — where the session was
+ * actually held — and a pre-selected answer would write down a fact nobody supplied. `linkPlan` is
+ * an INSTRUCTION about what the app should do next, its consequence is on screen beside it, and it
+ * is reversible by tapping the other answer. Minting on demand at the start of a session is the
+ * recorded decision, so that is what an untouched screen does.
+ */
 export const NOTHING_CHOSEN: Selection = Object.freeze({
   clientIds: Object.freeze([]) as readonly string[],
   routineId: null,
   mode: null,
   pastedLink: '',
+  linkPlan: 'mint' as LinkPlan,
 });
 
 /** Add or remove one person. One to many: more than one person can be in a single call. */
@@ -187,6 +212,17 @@ export function pasteLink(selection: Selection, link: string): Selection {
   return { ...selection, pastedLink: link };
 }
 
+/**
+ * Say how this session gets its link. Leaving the paste answer clears what was pasted.
+ *
+ * Cleared for the same reason {@link chooseMode} clears it on the in-person answer: a link sitting in
+ * a box he can no longer see would still be the link written onto the session, and he would have no
+ * way to tell why the session points where it does.
+ */
+export function chooseLinkPlan(selection: Selection, plan: LinkPlan): Selection {
+  return { ...selection, linkPlan: plan, pastedLink: plan === 'paste' ? selection.pastedLink : '' };
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Where the session happens
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -214,8 +250,8 @@ export const MODE_CHOICES: readonly ModeChoice[] = Object.freeze([
     value: 'online' as const,
     label: 'Online',
     consequence:
-      'Recorded as a call. You can paste a joining link below if you already have one; the app '
-      + 'does not create one yet, and it never waits for a link before starting.',
+      'Recorded as a call. Choose below whether the app makes a joining link for it or you paste '
+      + 'one you already have. Either way the session starts straight away and never waits on a link.',
   }),
   Object.freeze({
     value: 'in_person' as const,
@@ -236,6 +272,67 @@ export const PASTED_LINK_LABEL = 'Joining link, if you already have one';
 export const PASTED_LINK_HINT =
   'Optional. Paste a link from a call you have already started, and it is kept with the session. '
   + 'Leave it empty and the session still starts.';
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// How the session gets its joining link
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/** What the link question is called, above its three answers. Only on the online mode. */
+export const LINK_QUESTION = 'The joining link';
+
+/** One answer to the link question, with what choosing it actually does. */
+export interface LinkChoice {
+  readonly value: LinkPlan;
+  readonly label: string;
+  /** What this answer causes, in plain words. Permanent on screen, never a tooltip. */
+  readonly consequence: string;
+}
+
+/**
+ * THE THREE ANSWERS, AND WHAT EACH ONE DOES.
+ *
+ * The mint answer's consequence says out loud that a real calendar event is created and that Google
+ * may ask him to connect at that moment. Both are true, both were accepted deliberately, and neither
+ * is something he should discover by watching his calendar fill up. The screen also carries the
+ * calendar notice from `platform/google-meet.ts` beside this, which names WHICH calendar.
+ */
+export const LINK_CHOICES: readonly LinkChoice[] = Object.freeze([
+  Object.freeze({
+    value: 'mint' as const,
+    label: 'Make one now',
+    consequence:
+      'The app asks Google for a Meet link as the session starts, which puts a real event on your '
+      + 'calendar. Google may ask you to connect at that moment. If it cannot make one, it says so '
+      + 'and you can paste a link instead.',
+  }),
+  Object.freeze({
+    value: 'paste' as const,
+    label: 'Paste one I already have',
+    consequence:
+      'Nothing is created anywhere and no calendar event is made. Use this for a call you have '
+      + 'already started, or any link of your own.',
+  }),
+  Object.freeze({
+    value: 'none' as const,
+    label: 'No link',
+    consequence:
+      'The session is recorded as a call with no joining link kept in the app. Nothing is sent to '
+      + 'Google. You can still paste one afterwards.',
+  }),
+]);
+
+/**
+ * Whether starting this session should ask Google for a link.
+ *
+ * Three conditions, and each of them can stand alone as a reason not to. He is in the room; he asked
+ * for a different answer; or he has ALREADY PASTED ONE, in which case minting would create a second
+ * meeting for a session that already knows where it is going.
+ */
+export function shouldMint(selection: Selection): boolean {
+  if (selection.mode !== 'online') return false;
+  if (selection.linkPlan !== 'mint') return false;
+  return linkToStore(selection) === null;
+}
 
 /**
  * The link to write with the session, or null.
@@ -270,6 +367,16 @@ export interface StartReport {
   readonly summary: string | null;
   /** Shown when more than one person is attending. See {@link SECOND_INSTANCE_HINT}. */
   readonly secondInstanceHint: string | null;
+  /**
+   * THE SIXTY-MINUTE CUT ON A GROUP CALL, SAID HERE — at the moment he books the session.
+   *
+   * Not when the call drops. A session runs about an hour and Google cuts a group call at an hour on
+   * a free personal account, so for a session with two clients in it this is the ORDINARY case
+   * rather than an edge one. The words are `platform/google-meet.ts`'s, carried through unchanged,
+   * because they are the ones that attribute the limit to Google and say it applies identically to a
+   * link he makes himself.
+   */
+  readonly groupCallWarning: string | null;
 }
 
 /** What the start control says. A session, not a record: he is starting work with a person. */
@@ -328,6 +435,7 @@ export function describeStart(
     label: START_BUTTON,
     summary: summarise(names, routineName, selection.mode),
     secondInstanceHint: selection.clientIds.length > 1 ? SECOND_INSTANCE_HINT : null,
+    groupCallWarning: groupCallWarning(selection.clientIds.length, selection.mode),
   };
 }
 
@@ -707,6 +815,53 @@ export function describeOutcome(outcome: OpenOutcome): OutcomeReport {
     detail: null,
     sessionId: outcome.session_id ?? null,
   };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// What came of asking for a link
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/** What the screen says about the link, after the session has already started. */
+export interface MintReport {
+  /** True when there is a joining link on the session now. */
+  readonly linked: boolean;
+  /** The sentence for him. On the good path it is the plain fact; otherwise it carries the exit. */
+  readonly headline: string;
+  /**
+   * True when he should be offered the paste box for the session that HAS ALREADY STARTED.
+   *
+   * This is what stops the exit being nominal. Every sentence in `google-meet.ts` ends by telling
+   * him he can paste a link instead — and a sentence saying that, on a screen with nowhere to paste
+   * it, would be a dead end wearing the words of a way out.
+   */
+  readonly offerPaste: boolean;
+  /** The link, when there is one. Read from the entry point; never built. */
+  readonly url: string | null;
+}
+
+/** Said when a link was made. The plain fact and nothing celebratory. */
+export const LINK_MADE = 'A joining link was made for this session and saved with it.';
+
+/** Said when he pasted one onto a session that had already started. The same plain fact. */
+export const LINK_PASTED = 'Your link is saved with this session.';
+
+/** What the box for pasting one afterwards is called, and what pressing the button does. */
+export const PASTE_AFTERWARDS_LABEL = 'Paste a joining link for this session';
+export const PASTE_AFTERWARDS_BUTTON = 'Save this link';
+
+/**
+ * What to say about the mint.
+ *
+ * THE SENTENCES ARE `google-meet.ts`'s OWN, CARRIED THROUGH UNCHANGED — the same rule
+ * {@link describeOutcome} follows for the core's refusals. Each of them already names the limitation
+ * and then the way out, in that order; a second version written here would be two sentences about
+ * one situation, drifting apart from the moment either was edited.
+ */
+export function describeMint(outcome: MintOutcome): MintReport {
+  if (outcome.outcome === 'minted') {
+    return { linked: true, headline: LINK_MADE, offerPaste: false, url: outcome.url };
+  }
+  return { linked: false, headline: outcome.sentence, offerPaste: true, url: null };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

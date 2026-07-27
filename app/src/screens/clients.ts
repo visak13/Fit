@@ -22,12 +22,18 @@
  * ## THE ONE SENTENCE THIS SURFACE MUST GET RIGHT
  *
  * **The protected clinical field cannot save yet, and saying so plainly is the whole feature.**
- * `core/crypto/guard.js` REFUSES to establish key material on a device that has never synchronised,
- * and the refusal is correct: creating a key without first listing what already exists is how two
- * devices end up with two families of ciphertext that cannot read each other — a split reproduced by
- * accident in fifteen minutes of ordinary two-device use. So this file words the refusal and the
- * screen shows it. What it must never do is accept the text and drop it, store any of the three
- * fields in the clear, or generate a key locally to avoid the message.
+ * What it must never do is accept the text and drop it, store any of the three fields in the clear,
+ * or generate a key locally to avoid the message.
+ *
+ * THE REASON HAS CHANGED, AND SAYING WHICH ONE IS THE POINT. `core/crypto/guard.js` REFUSES to
+ * establish key material on a device that has never synchronised, and that refusal is correct:
+ * creating a key without first listing what already exists is how two devices end up with two
+ * families of ciphertext that cannot read each other — a split reproduced by accident in fifteen
+ * minutes of ordinary two-device use. But passes now run and complete, so THAT refusal no longer
+ * applies to a device that has backed up: `client-register-source.test.ts` runs a real pass and then
+ * saves a note the same path refused before it. What is missing now is the sealing itself — nothing
+ * in the interface calls `establishKeyMaterial` or seals a field — and the `connected` wording below
+ * is the one that says so. This file words BOTH states, and the state is read rather than assumed.
  *
  * The words for that refusal are NOT written here. `NotConnectedYet` in `core/crypto/errors.js`
  * already carries a `userMessage` written for the coach, and it is used verbatim — see
@@ -511,10 +517,13 @@ export const PROTECTED_FIELD_TITLE = 'Protected medical note';
  * What the protected field says, for the state this device is actually in.
  *
  * THE STATE IS READ, NOT ASSUMED, and that is the whole reason this takes an argument. The sentence
- * "this device has not connected yet" is true today and will stop being true the moment the Google
- * step lands. A field that went on saying it would be telling the coach he cannot do something he
- * can — an absence of an error, and a sentence that quietly stopped being true, which is the failure
- * shape this build keeps meeting. `client-register-source.ts` reads the one fact that answers it.
+ * "this device has not connected yet" USED TO BE TRUE OF EVERY DEVICE, and it is not any more: the
+ * join from a completed pass to the persisted record landed, so `connected` is a state real devices
+ * reach and both branches below are live. A field that went on saying the first one would be telling
+ * the coach he cannot do something he can — an absence of an error, and a sentence that quietly
+ * stopped being true, which is the failure shape this build keeps meeting.
+ * `client-register-source.ts` reads the one fact that answers it, and reads it from the persisted
+ * completion rather than taking anybody's word for it.
  */
 export function describeClinicalField(state: ClinicalFieldState): ClinicalFieldReport {
   const common = {

@@ -63,6 +63,18 @@ export interface LiveHandle {
    */
   readonly closed?: boolean;
   detach: () => Promise<unknown>;
+  /**
+   * Write the joining link onto the session this handle is holding.
+   *
+   * Declared here because the LEASE is what makes the write possible and this handle is what holds
+   * it. A link that is MINTED cannot travel with the session's creation — the identifier that makes
+   * a retry idempotent is derived from the session's own id, which does not exist until the session
+   * does — so it arrives second, onto a record already open in this window.
+   *
+   * Optional so that a test double standing in for a live session is not obliged to grow a method it
+   * has no use for. `core/session/live-session.js` owns what it actually does.
+   */
+  recordJoiningLink?: (url: string, source: string) => Promise<unknown>;
 }
 
 /** What opening a session returns, with the handle still on it. */

@@ -20,11 +20,16 @@
  * recorded: **authentication, record changes, exports, synchronisation, and key and recovery
  * activity.** All five are defined here.
  *
- * **Authentication and export kinds have no call sites yet, and that is deliberate.** The steps
- * that own them do not exist. Defining them now — before those steps are written — is the entire
- * reason this step comes first: the step that eventually writes an unlock event will find the kind
- * already named and typed, and will not get to choose. Nothing here stubs a fake call site to make
- * a kind look used.
+ * **Defining a kind before anything writes it is the entire reason this file came first**, and the
+ * mechanism has now been seen to work: the Google integration step arrived, needed to record that
+ * an account had been authorised, and found `auth.account_connected` already named and typed rather
+ * than getting to choose. It writes it from `src/platform/google-account.ts`, in the SHELL, because
+ * this core is provider-neutral and may not know Google exists — see `unwritten-kinds.test.js`,
+ * whose scan reads both layers for exactly that reason.
+ *
+ * **The rest of the authentication domain, and the whole export domain, still have no call sites,
+ * and that is deliberate.** The local unlock — the screen-lock resume gate — and the export screen
+ * belong to steps that do not exist. Nothing here stubs a fake call site to make a kind look used.
  *
  * **A THIRD kind is unwritten, for a different reason, and the difference matters.**
  * {@link JOURNAL_KINDS.SYNC_CONFLICT_RESOLVED} means *one revision was chosen over the other*, and

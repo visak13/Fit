@@ -17,7 +17,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
@@ -350,8 +350,66 @@ describe('the seam', () => {
     assert.equal(syncWording(NO_BACKUP_YET).headline, 'Nothing backed up yet');
   });
 
-  it('is wired once, at the application’s start, and not inside a screen', async () => {
-    const main = await readFile(path.join(here, '..', 'main.tsx'), 'utf8');
-    assert.ok(main.includes('<SyncStatusProvider reading={NO_BACKUP_YET}>'));
+  /**
+   * THIS USED TO READ `main.tsx` FOR A LITERAL, AND THE LITERAL MOVED.
+   *
+   * It asserted `main.tsx` contained `<SyncStatusProvider reading={NO_BACKUP_YET}>` — which held the
+   * property while the seam was a frozen value wired at the start. Two things then happened: the seam
+   * acquired a real SOURCE, so the literal is no longer written at the application's start at all, and
+   * the application was split out of `main.tsx` into `App.tsx`, so the file this read is not the file
+   * that composes it any more.
+   *
+   * Either change alone would have made this a check pointed at the wrong place. So it asserts the
+   * PROPERTY instead of a string in a file: the seam is filled in EXACTLY ONE place in the whole
+   * interface, and that place is not a screen. A rename, a move, or another split cannot green it —
+   * only a second wiring can fail it, which is the thing worth catching.
+   */
+  it('is wired once, in one source, and not inside a screen', async () => {
+    const root = path.join(here, '..');
+
+    /** Every module of the interface, at any depth, tests excluded. */
+    async function everyModule(directory: string): Promise<string[]> {
+      const entries = await readdir(directory, { withFileTypes: true });
+      const found: string[] = [];
+      for (const entry of entries) {
+        const full = path.join(directory, entry.name);
+        if (entry.isDirectory()) {
+          // eslint-disable-next-line no-await-in-loop
+          found.push(...await everyModule(full));
+        } else if (/\.tsx?$/.test(entry.name) && !entry.name.includes('.test.')) {
+          found.push(full);
+        }
+      }
+      return found;
+    }
+
+    const modules = await everyModule(root);
+    assert.ok(modules.length > 20, `only ${modules.length} modules were found, so this scan is broken`);
+
+    const wiring: string[] = [];
+    for (const file of modules) {
+      // eslint-disable-next-line no-await-in-loop
+      const source = await readFile(file, 'utf8');
+      // The component's own module defines the provider; every other mention is a USE of it.
+      if (path.basename(file) === 'SyncStatus.tsx') continue;
+      if (/<SyncStatusProvider/.test(source)) wiring.push(path.relative(root, file));
+    }
+
+    assert.equal(
+      wiring.length,
+      1,
+      `the synchronisation seam is filled in ${wiring.length} places: ${wiring.join(', ')}. Two sources `
+      + 'for one indicator is two states it could be in, and only one of them would be on screen.',
+    );
+    assert.doesNotMatch(
+      wiring[0],
+      /^screens[\\/]/,
+      'the seam is filled from inside a screen. The indicator is permanent and lives in the frame, so a '
+      + 'screen wiring it would take it away on every other screen.',
+    );
+
+    // NON-VACUITY: the scan really can find the string it is counting.
+    const source = await readFile(path.join(root, wiring[0]), 'utf8');
+    assert.match(source, /<SyncStatusProvider/);
   });
 });

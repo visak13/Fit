@@ -50,6 +50,7 @@ export * from './divergence.js';
 export * from './resolution.js';
 export * from './revisions.js';
 export * from './areas.js';
+export * from './withheld.js';
 export * from './snapshot.js';
 export * from './deletions.js';
 export * from './engine.js';

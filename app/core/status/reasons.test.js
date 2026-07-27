@@ -12,7 +12,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  REASON, REASONS, REASON_PRECEDENCE, REASON_VALUES, deriveReasons, reasonForFailure,
+  REASON, REASONS, REASON_PRECEDENCE, REASON_VALUES, deriveReasons, describeUnreadable,
+  reasonForFailure,
 } from './reasons.js';
 
 /** Codes only, in the order the surface would show them. */
@@ -119,6 +120,71 @@ test('EVERY reason is reported, worst first — a refusal is not hidden behind a
     REASON.NO_NETWORK,
   ]);
   assert.ok(all.includes(REASON.ENTRY_REJECTED), 'the one that never resolves by itself must survive the collapse');
+});
+
+test('FILES SKIPPED because they could not be read is its own reason, and it carries the count', () => {
+  const [reason] = deriveReasons({ skipped_unreadable: { count: 4, newer_version: 4 } });
+  assert.equal(reason.code, REASON.BACKUP_PARTLY_UNREADABLE);
+
+  // The count is in the WORDS, not merely in a field beside them. "Some files could not be read" is
+  // the sentence a busy person skims past; four is not some.
+  assert.match(reason.message, /\b4 files\b/);
+  assert.match(reason.message, /newer version of this app/i, 'and it says why, in his terms');
+  assert.equal(reason.action, null,
+    'there is no tap in this application that resolves it, and offering one that does not help is '
+    + 'how an indicator earns the reputation of lying');
+  assert.equal(reason.queue_wide, false,
+    'his own work is still being sent — this is about what did not come the other way');
+});
+
+test('it says a NEWER VERSION only when a newer version is what happened', () => {
+  // Every other way a document can be unreadable — corrupt, not a document, written by an OLDER
+  // build — means something else, and a confident sentence about the wrong thing is still a lie.
+  const corrupt = deriveReasons({ skipped_unreadable: { count: 2, newer_version: 0 } })[0];
+  assert.match(corrupt.message, /\b2 files\b/, 'it still names how many');
+  assert.doesNotMatch(corrupt.message, /newer version/i);
+
+  const mixed = deriveReasons({ skipped_unreadable: { count: 3, newer_version: 1 } })[0];
+  assert.match(mixed.message, /\b3 files\b/);
+  assert.match(mixed.message, /newer version/i, 'one of them was, so he is told so');
+});
+
+test('one file reads as one file, and zero files is not a reason at all', () => {
+  const [one] = deriveReasons({ skipped_unreadable: { count: 1, newer_version: 1 } });
+  assert.match(one.message, /\b1 file\b/);
+  assert.doesNotMatch(one.message, /1 files/, 'a count in a sentence has to read as a sentence');
+
+  assert.deepEqual(deriveReasons({ skipped_unreadable: { count: 0, newer_version: 0 } }), []);
+  assert.deepEqual(deriveReasons({ skipped_unreadable: null }), []);
+  assert.deepEqual(deriveReasons({}), [], 'and a caller that never had the figure says nothing');
+});
+
+test('the counted sentence and the figure-less one come from ONE writer, so they cannot drift', () => {
+  // The static entry IS this function called with nothing to hand. If someone reworded one of them
+  // the coach would be reading two different accounts of the same condition depending on which
+  // caller reached him first.
+  assert.equal(REASONS[REASON.BACKUP_PARTLY_UNREADABLE].message, describeUnreadable());
+  assert.notEqual(describeUnreadable({ count: 4 }), describeUnreadable(),
+    'and the counted form is genuinely different, so this is not passing by both being empty');
+});
+
+test('SKIPPED FILES rank with NEVER SYNCHRONISED, because both mean the backup is not what he thinks', () => {
+  const skipped = REASON_PRECEDENCE.indexOf(REASON.BACKUP_PARTLY_UNREADABLE);
+  const never = REASON_PRECEDENCE.indexOf(REASON.NEVER_SYNCHRONISED);
+  assert.equal(skipped, never + 1, 'immediately below it — adjacent, and in that order');
+
+  // Below never_synchronised because nothing at all in the backup is strictly worse than some of the
+  // other device's work missing from it. Above everything else because a queue that is merely
+  // stopped has still not told him something untrue.
+  for (const code of [REASON.ENTRY_REJECTED, REASON.OUTCOME_UNKNOWN, REASON.LOCAL_FAILURE,
+    REASON.CREDENTIAL_MISSING, REASON.CREDENTIAL_EXPIRED, REASON.NO_NETWORK]) {
+    assert.ok(skipped < REASON_PRECEDENCE.indexOf(code), `it outranks ${code}`);
+  }
+
+  const [first] = deriveReasons({
+    never_synchronised: true, skipped_unreadable: { count: 9, newer_version: 9 },
+  });
+  assert.equal(first.code, REASON.NEVER_SYNCHRONISED, 'and the ordering holds when both apply');
 });
 
 test('a manufactured last-synced time outranks everything, because it makes the rest suspect', () => {

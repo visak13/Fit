@@ -242,14 +242,15 @@ export async function removeClientForGood(
  *
  * `establishKeyMaterial` in `core/crypto/guard.js` takes `ctx.hasEverSynchronised` and refuses on
  * false, because a device that cannot list the hidden space cannot know whether a key already exists,
- * and creating a second one splits the ciphertext silently and unrecoverably. Today that argument has
- * no production caller: the only thing that computes it is a test.
+ * and creating a second one splits the ciphertext silently and unrecoverably. The guard performs NO
+ * detection of its own — a caller hands it the answer — so asking the guard why it says no is asking
+ * a mirror. Nothing in the interface calls it yet; when something does, IT PASSES THIS IN rather than
+ * working the answer out again.
  *
- * So this function is named after it, and the Google step should PASS THIS IN rather than work the
- * answer out again. That is the whole reason it is here instead of a boolean local to the screen. If
- * the register decided connectedness one way and the guard were told another, the field would go on
- * telling the coach to connect an account that is already connected — no error anywhere, and the only
- * symptom a sentence that quietly stopped being true.
+ * That is the whole reason this is here instead of a boolean local to the screen. If the register
+ * decided connectedness one way and the guard were told another, the field would go on telling the
+ * coach to connect an account that is already connected — no error anywhere, and the only symptom a
+ * sentence that quietly stopped being true.
  *
  * ## What it reads, and why that is the same fact rather than a proxy for it
  *
@@ -259,13 +260,24 @@ export async function removeClientForGood(
  * `core/status/surface.js` derives its own `never_synchronised` from exactly this call, so the
  * register and the accountability indicator cannot disagree.
  *
+ * **AND SOMETHING NOW WRITES ONE.** `shell/sync-runner.ts` hands a live pass's report straight to
+ * `recordCompletedSync`, so this answers TRUE on a device that has genuinely backed up — which it
+ * could not do while the join was missing. That is why the sentences around it were re-read rather
+ * than assumed still right, and why `client-register-source.test.ts` proves the consequence by
+ * running a real pass and then saving a note that was refused before it.
+ *
  * IT IS STRICTER THAN THE GUARD'S QUESTION, and that is stated rather than glossed: the guard asks
  * whether this device has ever REACHED the hidden space, and this asks whether a synchronisation has
- * ever COMPLETED. Reaching without completing is possible in principle. It is not reachable today,
- * because nothing in the interface can reach the space at all, and erring this way is the safe
- * direction — it can only ever refuse a clinical note that might have been allowed, never allow one
- * that should have been refused, and the refusal is what protects the key. The step that wires the
- * remote should narrow this to what it actually observes, HERE, in this one function.
+ * ever COMPLETED. Those come apart, and NOW THEY COME APART IN PRACTICE rather than only in
+ * principle: passes really run, and a pass that meets a service failure or a file it cannot read
+ * reaches the remote and earns no completion. It stays the safe direction — it can only ever refuse
+ * a clinical note that might have been allowed, never allow one that should have been refused, and
+ * the refusal is what protects the key.
+ *
+ * The two questions are also still asked of DIFFERENT SPACES: a pass works the visible one
+ * (`DEFAULT_SPACE` in `core/sync/engine.js`), and the hidden one is reached only by
+ * `establishKeyMaterial`, which nothing in the interface calls. The step that wires THAT should
+ * narrow this to what it actually observes, HERE, in this one function.
  *
  * A store that cannot answer is reported as never synchronised, for the same reason: the false
  * direction that costs something is the reassuring one.

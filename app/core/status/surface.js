@@ -41,6 +41,7 @@ import { completionAgeMs, lastSyncedAt, readLastCompletedSync } from './completi
 import { LEVELS, deriveLevel } from './levels.js';
 import { deriveReasons } from './reasons.js';
 import { PLATFORM_STATEMENT } from './statement.js';
+import { skippedFiles } from '../sync/sync.js';
 
 /**
  * The one and only answer to "may this stop the coach working?".
@@ -125,6 +126,32 @@ async function oldestUndelivered(store, outbox, at) {
 }
 
 /**
+ * How many files the last pass passed over, and how many of those a newer version of this
+ * application had written.
+ *
+ * The LIST is asked for, through the same helper the withholding uses, rather than the verdict in
+ * `completion_withheld` — and deliberately: the verdict names ONE condition, so a pass that both
+ * failed a step AND skipped files reports the failed step, and a surface reading the verdict would
+ * fall silent about the skipped files in exactly the state where more, not less, has gone wrong. The
+ * list is the fact; the verdict is a summary of it.
+ *
+ * Going through `skippedFiles` rather than reading `report.unreadable` here is the other half of the
+ * same discipline: there are TWO doors a file can be passed over through — one this build could not
+ * decode, one whose name it could not place — and a surface that counted only the door it happened to
+ * know about would under-report his missing work while sounding precise about it.
+ *
+ * @param {any} report The last synchronisation report, when there has been one.
+ * @returns {{count: number, newer_version: number}}
+ */
+function skippedUnreadable(report) {
+  const files = skippedFiles(report);
+  return {
+    count: files.length,
+    newer_version: files.filter((file) => file?.written_by_newer_version === true).length,
+  };
+}
+
+/**
  * The whole surface, in one pass.
  *
  * @param {import('../store/local-store.js').LocalStore} store
@@ -132,8 +159,9 @@ async function oldestUndelivered(store, outbox, at) {
  *          last_attempt?: any,
  *          credential?: {present?: boolean, expired?: boolean}|null}} [options]
  *   `last_attempt` is the most recent synchronisation report, when there has been one this session. It
- *   is read for its FAILURES only — the reason a synchronisation did not happen — never for a
- *   completion, which comes from the persisted sealed value and from nowhere else.
+ *   is read for the reasons a synchronisation did not fully happen — its FAILURES, and the files it
+ *   could not READ — never for a completion, which comes from the persisted sealed value and from
+ *   nowhere else.
  * @returns {Promise<Readonly<AccountabilityStatus>>}
  */
 export async function accountabilityStatus(store, options = {}) {
@@ -153,6 +181,12 @@ export async function accountabilityStatus(store, options = {}) {
     rejected: outbox.rejected,
     ambiguous: outbox.ambiguous,
     failures: options.last_attempt?.failures || [],
+    // The files the pass SKIPPED because it could not read them. Not a failure, and for a while not
+    // anything else either: the pass reported a clean completion while holding none of the other
+    // device's work. It withholds the completion now (`core/sync/withheld.js`), which is what stops
+    // the green — and this is what turns it into a sentence, because a fact that stops a claim
+    // without ever reaching the words is the same defect one layer along.
+    skipped_unreadable: skippedUnreadable(options.last_attempt),
   });
 
   const oldest = await oldestUndelivered(store, outbox, at);

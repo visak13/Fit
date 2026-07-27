@@ -31,7 +31,7 @@ import { openLocalStore } from '../../core/store/store.js';
 import { pendingDeletions, purgeClient } from '../../core/store/purge.js';
 import { createLaptop, settle } from '../../core/store/testing/platform-double.js';
 import type { RemovalsPage } from '../screens/removals';
-import { describeRemovals } from '../screens/removals';
+import { NO_PASS_HAS_REPORTED, describeRemovals } from '../screens/removals';
 import { NOTHING_AWAITING_REMOVAL } from './Removals';
 import { REMOVALS_PAGE_LIMIT, readPendingRemovals } from './removals-source';
 
@@ -117,7 +117,7 @@ describe('the pending-removal seam, fed from the local store', () => {
     assert.ok(Array.isArray(manifest.revised), 'the shared records to change did not survive the journey');
 
     // And it is enough for the surface to word it, which is the point of carrying it whole.
-    const report = describeRemovals({ pending: page });
+    const report = describeRemovals({ pending: page, remote: NO_PASS_HAS_REPORTED });
     assert.equal(report.count, 1);
     assert.ok(report.items[0].scope.length > 0);
     assert.ok(!report.items[0].reference.includes('Rekha'), 'the departed client\'s NAME reached the surface');

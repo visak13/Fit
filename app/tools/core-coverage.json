@@ -3,17 +3,17 @@
   "measuredAt": "2026-07-27",
   "measured": {
     "crypto": 79,
-    "integration": 14,
+    "integration": 17,
     "intensity": 76,
     "journal": 91,
     "model": 116,
     "outbox": 74,
     "remote": 58,
     "seed": 35,
-    "session": 45,
-    "status": 64,
+    "session": 49,
+    "status": 72,
     "store": 96,
-    "sync": 112
+    "sync": 139
   },
-  "total": 860
+  "total": 902
 }

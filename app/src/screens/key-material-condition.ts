@@ -32,20 +32,64 @@
  * standing sentences is a constant a test holds, so the human exit cannot be quietly softened into a
  * reassuring-sounding line about the app looking into it.
  *
- * ## Built as a FAMILY, and what that does and does not mean
+ * ## Built as a FAMILY, and the family is now COMPLETE
  *
  * `core/crypto/errors.js` carries SIX conditions of one shape: a stable `code`, a ready-made
  * `userMessage` written for the coach, and whatever facts a screen needs. Two of them are the
- * duplicates built here. The other four — a device that has never connected, a slot addition raced by
- * another device, an unreadable envelope, and no usable slot — fire only on paths that talk to the
- * real remote, so they belong to the Google step. **They are NOT built, NOT imported and NOT stubbed
- * here, and there is no dead branch waiting for them.**
+ * duplicates. The other four — `not_connected_yet`, `slot_addition_raced`, `envelope_unreadable` and
+ * `no_usable_slot` — fire only on paths that talk to the real remote, and they were left UNBUILT here
+ * with a DESTINATION rather than a dead branch: a condition selects its member by `code` (and, where
+ * the code covers more than one subject, by `role`), so the step that reached them extends
+ * {@link MEMBERS} with an entry rather than inventing a second, differently-worded surface.
  *
- * What this file leaves them is a DESTINATION: a condition is selected by its `code` (and, where the
- * code covers more than one subject, its `role`), so the Google step extends {@link MEMBERS} with an
- * entry rather than inventing a second, differently-worded surface for the same subject. A code with
- * no member is REFUSED loudly by {@link describeCondition} — see the note there — because the failure
- * that must never happen is a condition reaching the coach worded by nobody.
+ * **That step is done, and this file is what it produced.** All four are now members. Nothing about
+ * the seam, the screen or the selection changed to admit them, which is what the shape was for; what
+ * DID have to change is described under "what a candidate-less condition needed" below. The sixth,
+ * `invalid_request`, is deliberately NOT a member: `core/crypto/errors.js` says of it "Never a remote
+ * condition" — it is the application asking for something it should not have, which is a fault to fix
+ * rather than a state to explain to a coach, and giving it a screen would tell him to act on a bug.
+ *
+ * Every member is driven from a REAL THROW in `key-material-condition.test.ts` — the condition is
+ * provoked through `establishKeyMaterial` against the in-memory double and the object the core really
+ * threw is what the assertions read. A mapping table asserting that a code produces a message would
+ * prove the table, not the reachability, and reachability is the half that has failed before here.
+ *
+ * A code with no member is still REFUSED loudly by {@link describeCondition} — see the note there —
+ * because the failure that must never happen is a condition reaching the coach worded by nobody.
+ *
+ * ## What a candidate-less condition needed, and why it is not a second screen
+ *
+ * The first two members are both "more than one of something was found", so the report was shaped
+ * around that: a count, a sentence giving the count its scale, a list of candidates, and a warning not
+ * to delete either of them. FOUR of the six conditions have no candidates at all. Left alone, the
+ * shape would have told a coach whose device simply had not connected yet that "0 were found where
+ * there should only ever be one" — a defect report about the wrong thing, at the moment he is already
+ * alarmed.
+ *
+ * So the count, the candidate list, the do-not-delete warning and the stop-here warning are each
+ * NULLABLE and each decided by the member, and the screen renders what is present. The two duplicate
+ * members word every one of them exactly as they did before — `key-material-condition.test.ts` holds
+ * their whole output against a literal snapshot of the wording taken before this change, so an
+ * extension that quietly reworded the two conditions this surface was BUILT for would go red.
+ *
+ * ## EVERY CONDITION OFFERS AN EXIT, and where there is none it says so
+ *
+ * A dead end with an exit that exists is the rule this screen already followed for the duplicates:
+ * {@link WHO_TO_ASK} names the person who set the app up, because read-only means the application
+ * will not resolve it. The four new conditions are NOT all like that, and pretending they were would
+ * be its own kind of lie:
+ *
+ * - `not_connected_yet` and `slot_addition_raced` have a real step the coach can take alone —
+ *   connect once, or wait and do it again — and `core/crypto/errors.js` names it in its own message.
+ *   Sending him to another person for those would waste somebody's afternoon on a five-second fix.
+ * - `envelope_unreadable` has NO step of his own, and {@link Member.noExitOfHisOwn} says that plainly
+ *   rather than offering one that does not help. Offering an action that cannot work is how a surface
+ *   earns the reputation of lying, and this one is read at the worst moment he will ever have.
+ * - `no_usable_slot` has one real step — sign in again — AND a plain statement of what to do if it
+ *   does not work, because the state it fires in is not always recoverable by signing in.
+ *
+ * The invariant is asserted rather than intended: every member offers a step of his own or names a
+ * human to go to, and a member with neither must say so in {@link Member.noExitOfHisOwn}.
  *
  * The shape cost close to nothing: one lookup and one refusal. Had it cost real complexity the
  * instruction was to keep the duplicates simple and say so, and that judgement is recorded here
@@ -103,21 +147,38 @@ export interface KeyMaterialCondition {
   readonly userMessage: string;
   /** Which object, where the code covers more than one. Absent on codes that cover a single subject. */
   readonly role?: string;
-  /** Every candidate the core found. Empty for a condition that has no candidates to show. */
-  readonly found: readonly RemoteFileMeta[];
+  /**
+   * Every candidate the core found.
+   *
+   * OPTIONAL, and read off the real errors rather than assumed: only `MultipleKeyObjectsFound` carries
+   * a `found` array. The other four arrive with the property genuinely ABSENT, not empty — so this is
+   * declared optional and normalised once, in {@link describeCondition}. Declaring it required and
+   * relying on callers to pass `[]` would be this file describing a shape the core does not have.
+   */
+  readonly found?: readonly RemoteFileMeta[];
 }
 
 /**
- * The `code` of every condition this screen has a member for TODAY.
+ * The `code` of every condition this screen has a member for.
  *
  * Read off `core/crypto/errors.js`, where it is the stable machine-readable identifier each failure
  * class carries. `key-material-condition.test.ts` drives the real failure and asserts this string is
  * what actually arrives, so a code renamed in the core fails here rather than falling through to the
  * refusal at run time on the coach's device.
+ *
+ * FIVE of the core's six. `invalid_request` is absent deliberately — see the file note.
  */
 export const KEY_MATERIAL_CODES = Object.freeze({
   /** More than one key object of the same role exists and the application will not choose. */
   MULTIPLE_KEY_OBJECTS: 'multiple_key_objects',
+  /** A device that has never reached the hidden space, refusing to create a second key. */
+  NOT_CONNECTED_YET: 'not_connected_yet',
+  /** Another device changed the envelope between our read and our write. */
+  SLOT_ADDITION_RACED: 'slot_addition_raced',
+  /** The envelope document could not be understood at all. */
+  ENVELOPE_UNREADABLE: 'envelope_unreadable',
+  /** No slot on the envelope could open the data key on this device. */
+  NO_USABLE_SLOT: 'no_usable_slot',
 });
 
 /**
@@ -214,20 +275,77 @@ interface Member {
    * Carried as data rather than drawn as a colour so that a test can hold it: the severity of the
    * recovery-key case is a claim about the world, and a claim a colour makes is a claim nothing
    * checks.
+   *
+   * It stays TRUE OF EXACTLY ONE MEMBER. The four conditions added when the real remote was wired all
+   * announce themselves the moment they happen — a device that will not save a note, a sign-in that no
+   * longer opens anything — so none of them is the silent one, and marking a second would spend the
+   * words that have to work on the one that gives no warning at all.
    */
   readonly moreDangerous: boolean;
   /** Said only by the more dangerous member. Null on the other, rather than an empty string. */
   readonly dangerNote: string | null;
-  /** What one candidate is called, singular, for the heading above each one. */
-  readonly candidateNoun: string;
+  /**
+   * What one candidate is called, singular, for the heading above each one.
+   *
+   * NULL for a condition that has no candidates, and that null is what turns off the count, the
+   * count sentence and the whole "what was found" section. Four of the six conditions carry nothing to
+   * show, and a screen that headed them with a figure of zero would be reporting a different defect.
+   */
+  readonly candidateNoun: string | null;
+  /**
+   * That the application has changed nothing, IN TERMS TRUE OF THIS CONDITION.
+   *
+   * Every member says it, because it is true of every one of them — the core refuses before it acts,
+   * on all six. It is per-member rather than one constant because {@link NOTHING_WAS_CHANGED} says
+   * "has not chosen between them", which names candidates that four of the conditions do not have.
+   */
+  readonly nothingWasChanged: string;
+  /**
+   * Not to delete anything, and what it would cost. NULL where there is nothing he would be tempted
+   * to delete — a warning about deleting is wasted on a device that has simply not connected yet, and
+   * a screen that warns about everything is a screen that is read for nothing.
+   */
+  readonly doNotDelete: string | null;
+  /**
+   * To stop rather than carry on, and until when. NULL where nothing needs to stop: a slot addition
+   * raced by another device clears itself on the next attempt, and telling him to down tools over it
+   * would be an overstatement he would rightly learn to ignore.
+   */
+  readonly doNotContinue: string | null;
+  /**
+   * THE EXIT: what he can do himself, in the order he would do it. Empty where nothing he can do alone
+   * would help — and then {@link noExitOfHisOwn} must say so plainly.
+   */
+  readonly whatHeCanDo: readonly string[];
+  /**
+   * Said when there is no step of his own, so the absence is stated rather than left as silence.
+   * Null when {@link whatHeCanDo} is not empty.
+   */
+  readonly noExitOfHisOwn: string | null;
+  /**
+   * Who to turn to when the application will not resolve this. NULL only where he genuinely resolves
+   * it himself and sending him to another person would waste somebody's afternoon.
+   */
+  readonly whoToAsk: string | null;
+  /** What the Admin screen says on the way in, worded for this condition rather than for a count. */
+  readonly adminIntro: string;
+  /**
+   * The WORD on the Admin chip, for a condition with no figure to put there.
+   *
+   * NULL on the counted conditions, whose chip carries how many were found — that figure is the whole
+   * point of their entry. A candidate-less condition has no number, and a blank chip reads as a
+   * surface that failed to load rather than as a state, so it gets a word instead.
+   */
+  readonly adminChipWord: string | null;
 }
 
 /**
- * Every condition this screen words today, keyed the way {@link memberKey} composes it.
+ * Every condition this screen words, keyed the way {@link memberKey} composes it.
  *
- * TWO ENTRIES, and that is the honest state of the build: these are the two the core can reach
- * without the Google step. The four in `core/crypto/errors.js` that talk to the real remote get an
- * entry here when that step wires them, and nothing else about this screen has to change.
+ * SIX ENTRIES for the five codes `core/crypto/errors.js` can reach on a real-remote path — the
+ * duplicate code has two, one per role, because one message for both roles names the wrong object for
+ * one of them. Every one of the six is driven from a real throw in `key-material-condition.test.ts`;
+ * a member nobody provokes is copy nobody has read.
  */
 const MEMBERS: Readonly<Record<string, Member>> = Object.freeze({
   [`${KEY_MATERIAL_CODES.MULTIPLE_KEY_OBJECTS}:${DUPLICATE_ROLES.ENVELOPE}`]: Object.freeze({
@@ -244,6 +362,19 @@ const MEMBERS: Readonly<Record<string, Member>> = Object.freeze({
     moreDangerous: false,
     dangerNote: null,
     candidateNoun: 'Set of encryption details',
+    nothingWasChanged: NOTHING_WAS_CHANGED,
+    doNotDelete: DO_NOT_DELETE,
+    doNotContinue: DO_NOT_CONTINUE,
+    // Nothing he can do alone, by the user ruling of 2026-07-26 — and the exit is the named person
+    // rather than a statement of helplessness, so `noExitOfHisOwn` stays null and WHO_TO_ASK carries
+    // it. That is the wording this screen was built around and it is not restated here.
+    whatHeCanDo: [],
+    noExitOfHisOwn: null,
+    whoToAsk: WHO_TO_ASK,
+    adminIntro:
+      'This app has found more than one where there should only ever be one. Nothing has been '
+      + 'changed. Read this before adding any more client medical notes.',
+    adminChipWord: null,
   }),
 
   [`${KEY_MATERIAL_CODES.MULTIPLE_KEY_OBJECTS}:${DUPLICATE_ROLES.RECOVERY}`]: Object.freeze({
@@ -267,6 +398,193 @@ const MEMBERS: Readonly<Record<string, Member>> = Object.freeze({
       + 'other device left to check against, and the day you most need it to work. That is why it '
       + 'is worth sorting out now, while everything is still fine.',
     candidateNoun: 'Recovery key',
+    nothingWasChanged: NOTHING_WAS_CHANGED,
+    doNotDelete: DO_NOT_DELETE,
+    doNotContinue: DO_NOT_CONTINUE,
+    whatHeCanDo: [],
+    noExitOfHisOwn: null,
+    whoToAsk: WHO_TO_ASK,
+    adminIntro:
+      'This app has found more than one where there should only ever be one. Nothing has been '
+      + 'changed. Read this before adding any more client medical notes.',
+    adminChipWord: null,
+  }),
+
+  // ───────────────────────────────────────────────────────────────────────────────
+  // The four that only fire once the app is really talking to the coach's Google account
+  // ───────────────────────────────────────────────────────────────────────────────
+
+  /**
+   * THE REFUSAL, and the refusal is the feature.
+   *
+   * A device that has never reached the hidden space cannot know whether a key already exists, so it
+   * will not make one. The helpful alternative — generate a key so he is never blocked — is precisely
+   * how the silent split happens, and `core/crypto/guard.js` refuses BEFORE it even lists. So this
+   * member's job is to make a refusal read as a deliberate, bounded decision rather than as the app
+   * being broken: what is refused is one clinical note until the device connects once, and that is
+   * said in the same breath as the refusal itself.
+   */
+  [KEY_MATERIAL_CODES.NOT_CONNECTED_YET]: Object.freeze({
+    title: 'This device has not connected yet',
+    whatHappened:
+      'This device has never connected to your Google account, so it cannot see how your other '
+      + 'devices lock your client medical notes. Rather than making up a second set of encryption '
+      + 'details of its own, it has stopped and is telling you. That is deliberate: a second set '
+      + 'would leave you with notes on one device that the other could not open.',
+    whatItMeans:
+      'You cannot add or change client medical notes on this device until it has connected once. '
+      + 'Everything else in the app — sessions, routines, diets — works normally, and nothing you '
+      + 'have already entered on any device is affected.',
+    moreDangerous: false,
+    dangerNote: null,
+    candidateNoun: null,
+    nothingWasChanged:
+      'Nothing has been changed. This device has not made a second set of encryption details, and '
+      + 'it will not.',
+    doNotDelete: null,
+    doNotContinue:
+      'Until it has connected, do not rely on this device for client medical notes. The rest of the '
+      + 'app is unaffected and safe to keep using.',
+    whatHeCanDo: [
+      'Take this device somewhere with a working internet connection.',
+      'Open this app and sign in to your Google account once.',
+      'After that, client medical notes work on this device as they do on your other one.',
+    ],
+    noExitOfHisOwn: null,
+    // He resolves this himself in under a minute; sending him to another person for it would spend
+    // somebody's afternoon on a sign-in. The named person is the fallback, not the first step.
+    whoToAsk:
+      'If it still will not connect after signing in, ask the person who set this app up for you.',
+    adminIntro:
+      'This device has not connected to your Google account yet, so it cannot add client medical '
+      + 'notes. Everything else works normally.',
+    adminChipWord: 'Not connected',
+  }),
+
+  /**
+   * A CLASH, and the only one of the six that clears itself.
+   *
+   * Two devices changed the envelope at the same moment. The store offers no conditional write, so
+   * this is detection after the fact — but a detected clash is never resolved silently, and nothing
+   * was written. The right words here are the OPPOSITE of the duplicates': this one is ordinary, it
+   * costs him nothing, and doing the same thing again in a moment really does fix it. Telling him to
+   * stop and find help over it would teach him that this screen overstates, which is exactly what
+   * would make him ignore it on the day it does not.
+   */
+  [KEY_MATERIAL_CODES.SLOT_ADDITION_RACED]: Object.freeze({
+    title: 'Two of your devices changed things at the same moment',
+    whatHappened:
+      'Another of your devices changed your encryption details at the very moment this one was '
+      + 'doing the same. Rather than write over the other device and lose what it did, this device '
+      + 'stopped without saving anything.',
+    whatItMeans:
+      'Nothing was saved on this device just now, and nothing was lost on the other one. This is an '
+      + 'ordinary clash between two devices in use at once, not a sign that anything is wrong.',
+    moreDangerous: false,
+    dangerNote: null,
+    candidateNoun: null,
+    nothingWasChanged:
+      'Nothing has been changed. This device saved nothing, and it did not write over the other '
+      + 'device.',
+    doNotDelete: null,
+    // Nothing needs to stop. Saying so would be the overstatement that teaches him to ignore the
+    // screen on the day it is reporting the split key.
+    doNotContinue: null,
+    whatHeCanDo: [
+      'Wait a few seconds, then do the same thing again.',
+      'If it keeps happening, close this app on your other device and then do it once more here.',
+    ],
+    noExitOfHisOwn: null,
+    whoToAsk:
+      'If it happens every single time, ask the person who set this app up for you.',
+    adminIntro:
+      'Two of your devices changed your encryption details at the same moment, so this device saved '
+      + 'nothing. Doing it again usually settles it.',
+    adminChipWord: 'Clashed',
+  }),
+
+  /**
+   * THE ONE WITH NO STEP OF HIS OWN, and the member where saying so is the whole job.
+   *
+   * The envelope cannot be understood at all. Everything he might reach for — deleting it, setting the
+   * app up again, signing in somewhere else — either does nothing or destroys the only thing that
+   * could still open his notes. So `whatHeCanDo` is EMPTY and {@link Member.noExitOfHisOwn} states the
+   * absence outright. An invented step here would be an action that cannot work, offered at the worst
+   * moment he will ever have with this application.
+   */
+  [KEY_MATERIAL_CODES.ENVELOPE_UNREADABLE]: Object.freeze({
+    title: 'Your encryption details cannot be read',
+    whatHappened:
+      'The encryption details stored in your Google account could not be understood by this app. '
+      + 'That can happen if the file was damaged, or if it was written by a newer version of this '
+      + 'app than the one on this device.',
+    whatItMeans:
+      'Your client medical notes have not been changed and have not been lost, but they cannot be '
+      + 'opened until this is sorted out. Everything else in the app — sessions, routines, diets — '
+      + 'is unaffected.',
+    moreDangerous: false,
+    dangerNote: null,
+    candidateNoun: null,
+    nothingWasChanged:
+      'Nothing has been changed. This app has not altered the file it could not read, and will not.',
+    doNotDelete:
+      'Do not delete anything from your Google account, and do not ask anyone else to. If that file '
+      + 'goes, the client notes it protects can never be opened again, and nothing can undo that.',
+    doNotContinue: DO_NOT_CONTINUE,
+    whatHeCanDo: [],
+    noExitOfHisOwn:
+      'There is nothing you can safely do about this one on your own. Deleting the file, or setting '
+      + 'this app up from scratch, would not mend it and would make the notes permanently '
+      + 'unreadable. This one needs somebody who can look at the file itself.',
+    whoToAsk: WHO_TO_ASK,
+    adminIntro:
+      'The encryption details in your Google account could not be read. Your client medical notes '
+      + 'are not lost, but they cannot be opened until this is sorted out.',
+    adminChipWord: 'Unreadable',
+  }),
+
+  /**
+   * THE VANISHED DEVICE SLOT, and the member that must not over-promise.
+   *
+   * `core/crypto/errors.js` names signing in as the way back, and that is the right first step — the
+   * usual cause is a browser clearing out its storage, and the recovery material in the account
+   * really does let this device back in. But the failure also fires where there is no recovery
+   * material left to use, and signing in cannot help then. So the step is offered AND what to do if it
+   * does not work is offered beside it, in that order. A single step stated as certain would be a
+   * promise this screen cannot keep, and the cost of him "fixing" it himself afterwards is every note.
+   */
+  [KEY_MATERIAL_CODES.NO_USABLE_SLOT]: Object.freeze({
+    title: 'This device can no longer open your notes',
+    whatHappened:
+      'The encryption details this device had saved for itself are gone. That happens if the app was '
+      + 'removed from the home screen, or if the browser cleared out its storage on its own after the '
+      + 'app had not been opened for a while. Nobody did anything wrong.',
+    whatItMeans:
+      'This device cannot open your client medical notes by itself any more. The notes are safe and '
+      + 'are still in your Google account — it is this device\'s own way in that has gone.',
+    moreDangerous: false,
+    dangerNote: null,
+    candidateNoun: null,
+    nothingWasChanged:
+      'Nothing has been changed. Your client medical notes are exactly as you left them, and this '
+      + 'app has not altered or removed anything.',
+    doNotDelete:
+      'Do not remove this app and set it up again from scratch, and do not delete anything from your '
+      + 'Google account. That would take away the last thing that could get this device back in, and '
+      + 'the notes it protects could never be opened again.',
+    doNotContinue: DO_NOT_CONTINUE,
+    whatHeCanDo: [
+      'Sign in to your Google account in this app again. That is how this device is given a new way '
+      + 'in to your notes.',
+      'If your notes still will not open after signing in, stop there and ask for help rather than '
+      + 'setting the app up again.',
+    ],
+    noExitOfHisOwn: null,
+    whoToAsk: WHO_TO_ASK,
+    adminIntro:
+      'This device has lost the encryption details it had saved for itself, so it cannot open your '
+      + 'client medical notes on its own. The notes themselves are safe.',
+    adminChipWord: 'No way in',
   }),
 });
 
@@ -303,18 +621,34 @@ export interface ConditionReport {
   /** Which member wrote this. Kept so a test asserts the member rather than the words it produced. */
   readonly memberKey: string;
   readonly title: string;
-  /** The one figure the screen is for: how many were found where one was expected. */
-  readonly count: number;
-  /** The sentence that gives that figure its scale. */
-  readonly countMeans: string;
+  /**
+   * The one figure the screen is for: how many were found where one was expected.
+   *
+   * NULL for a condition that found nothing — there is no figure to give, and a zero here would head
+   * the screen with a defect report about the wrong thing.
+   */
+  readonly count: number | null;
+  /** The sentence that gives that figure its scale. Null exactly when {@link count} is. */
+  readonly countMeans: string | null;
   readonly whatHappened: string;
   readonly whatItMeans: string;
   readonly moreDangerous: boolean;
   readonly dangerNote: string | null;
   readonly nothingWasChanged: string;
-  readonly doNotDelete: string;
-  readonly doNotContinue: string;
-  readonly whoToAsk: string;
+  /** Null where there is nothing he could be tempted to delete. */
+  readonly doNotDelete: string | null;
+  /** Null where nothing needs to stop — see the raced-slot member for why that matters. */
+  readonly doNotContinue: string | null;
+  /** Null only where he genuinely resolves this himself. */
+  readonly whoToAsk: string | null;
+  /**
+   * THE EXIT: the steps he can take alone, in order. Empty when nothing he can do would help, and
+   * then {@link noExitOfHisOwn} says so.
+   */
+  readonly whatHeCanDo: readonly string[];
+  /** Said instead of steps, when there are none of his own. Null when {@link whatHeCanDo} has any. */
+  readonly noExitOfHisOwn: string | null;
+  /** Empty for a condition that carries no candidates. */
   readonly candidates: readonly CandidateReport[];
   /**
    * The core's own ready-made message, carried through UNCHANGED for whoever is helping him.
@@ -358,8 +692,18 @@ export function describeSettled(): SettledReport {
 /** What the Admin screen says about this condition, and the words on the way in. */
 export interface AdminEntry {
   readonly title: string;
-  /** The chip: how many were found where one was expected. */
-  readonly count: number;
+  /**
+   * How many were found where one was expected. NULL for a condition that has no figure — see
+   * {@link chip}, which is what the surface actually draws.
+   */
+  readonly count: number | null;
+  /**
+   * What the chip carries, always a non-empty string.
+   *
+   * The count where there is one, a word where there is not. The chip is a state indicator and an
+   * empty one reads as a card that failed to load rather than as a card with nothing to report.
+   */
+  readonly chip: string;
   readonly intro: string;
   /** The words on the link. Never "fix" or "resolve": the link leads to a screen that does neither. */
   readonly linkLabel: string;
@@ -379,6 +723,7 @@ export function describeAdminEntry(condition: KeyMaterialCondition | null): Admi
     return {
       title: KEY_MATERIAL_TITLE,
       count: 1,
+      chip: '1',
       intro:
         'One set of encryption details, which is how it should be. If this app ever finds more than '
         + 'one, it will show you both here rather than choosing between them.',
@@ -387,15 +732,22 @@ export function describeAdminEntry(condition: KeyMaterialCondition | null): Admi
     };
   }
 
+  // The same lookup and the same refusal as the screen's, on purpose: a condition the family cannot
+  // word must not slip past as a plausible-looking Admin card while the screen behind it throws.
+  const member = requireMember(condition);
+  const counted = member.candidateNoun !== null;
+  const count = counted ? candidatesOf(condition).length : null;
+
   return {
     title: KEY_MATERIAL_TITLE,
-    count: condition.found.length,
-    intro:
-      'This app has found more than one where there should only ever be one. Nothing has been '
-      + 'changed. Read this before adding any more client medical notes.',
+    count,
+    chip: count === null ? (member.adminChipWord ?? '') : String(count),
+    intro: member.adminIntro,
     // Deliberately not "Fix this" or "Sort it out": the screen behind this link does neither, and a
     // link whose words promise more than the screen delivers is the reassurance this ruling forbids.
-    linkLabel: 'See what was found',
+    // "See what was found" is only true where something WAS found, so a condition with no candidates
+    // says what it can honestly say instead.
+    linkLabel: counted ? 'See what was found' : 'Read what this means',
     settled: false,
   };
 }
@@ -428,8 +780,48 @@ function describeCandidate(meta: RemoteFileMeta, index: number, total: number, n
  */
 export function describeCondition(condition: KeyMaterialCondition): ConditionReport {
   const key = memberKey(condition);
-  const member = MEMBERS[key];
+  const member = requireMember(condition);
 
+  // NULL rather than zero when this condition carries no candidates. The count and its sentence are
+  // the duplicates' headline — "2 were found where there should only ever be one" — and the same
+  // sentence with a zero in it would tell a coach whose device has merely not connected yet that
+  // nothing was found where one was expected, which is a different and much worse story.
+  const noun = member.candidateNoun;
+  const found = noun === null ? [] : candidatesOf(condition);
+  const count = noun === null ? null : found.length;
+
+  return {
+    memberKey: key,
+    title: member.title,
+    count,
+    countMeans: count === null ? null : `${count} were found where there should only ever be one.`,
+    whatHappened: member.whatHappened,
+    whatItMeans: member.whatItMeans,
+    moreDangerous: member.moreDangerous,
+    dangerNote: member.dangerNote,
+    nothingWasChanged: member.nothingWasChanged,
+    doNotDelete: member.doNotDelete,
+    doNotContinue: member.doNotContinue,
+    whoToAsk: member.whoToAsk,
+    whatHeCanDo: member.whatHeCanDo,
+    noExitOfHisOwn: member.noExitOfHisOwn,
+    candidates: noun === null
+      ? []
+      : found.map((meta, index) => describeCandidate(meta, index, found.length, noun)),
+    asTheAppPutIt: condition.userMessage,
+  };
+}
+
+/**
+ * The member for this condition, or the loud refusal.
+ *
+ * One function, used by the screen AND by the Admin entry, so the two cannot disagree about whether a
+ * condition is wordable. An Admin card that rendered for a condition the screen would throw on is a
+ * link into a crash, which is worse than the refusal it was trying to avoid.
+ */
+function requireMember(condition: KeyMaterialCondition): Member {
+  const key = memberKey(condition);
+  const member = MEMBERS[key];
   if (member === undefined) {
     throw new Error(
       `no member of the key-material condition family words "${key}". The condition reached the `
@@ -438,24 +830,15 @@ export function describeCondition(condition: KeyMaterialCondition): ConditionRep
       + 'condition nobody worded. Add an entry to MEMBERS in key-material-condition.ts.',
     );
   }
+  return member;
+}
 
-  const found = condition.found;
-  const count = found.length;
-
-  return {
-    memberKey: key,
-    title: member.title,
-    count,
-    countMeans: `${count} were found where there should only ever be one.`,
-    whatHappened: member.whatHappened,
-    whatItMeans: member.whatItMeans,
-    moreDangerous: member.moreDangerous,
-    dangerNote: member.dangerNote,
-    nothingWasChanged: NOTHING_WAS_CHANGED,
-    doNotDelete: DO_NOT_DELETE,
-    doNotContinue: DO_NOT_CONTINUE,
-    whoToAsk: WHO_TO_ASK,
-    candidates: found.map((meta, index) => describeCandidate(meta, index, count, member.candidateNoun)),
-    asTheAppPutIt: condition.userMessage,
-  };
+/**
+ * The candidates the core carried out of the failure, for a condition that has any.
+ *
+ * `found` is absent — not empty — on the four conditions that carry none, because only
+ * `MultipleKeyObjectsFound` sets it. Normalised in ONE place so no caller has to remember.
+ */
+function candidatesOf(condition: KeyMaterialCondition): readonly RemoteFileMeta[] {
+  return condition.found ?? [];
 }

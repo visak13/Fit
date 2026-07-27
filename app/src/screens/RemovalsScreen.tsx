@@ -12,6 +12,19 @@
  * different words for one that has been tried and one that has not, what to do about it, and what may
  * not be said about it — is decided in `removals.ts`, where it can be asserted.
  *
+ * ## AND THE REMOTE HALF IS HERE NOW, WHICH IS WHAT MAKES THE DISTINCTION BELOW WORTH DRAWING
+ *
+ * A pass reads this device's area BACK and reports which of the departed client's records it still
+ * found. For a removal the report NAMES, this screen says plainly that their records are still in his
+ * backup — the strong claim, made in the one place it is actually known. For every other removal the
+ * words are unchanged, because an absent entry means the check did not run at least as often as it
+ * means it came back clear. There is deliberately NO sentence anywhere for the empty case.
+ *
+ * A removal may also carry something the purge could not clean at all: a queued file naming this
+ * client and another one, left alone on purpose because opening it is impossible and deleting it
+ * would take the other client's data. That is drawn inside the removal it belongs to, and it says
+ * WILL NOT CLEAR ON ITS OWN, because everything else on this screen does.
+ *
  * ## The two sentences this screen exists to keep straight
  *
  * NOT CONFIRMED IS NOT STILL THERE. `NOT_CONFIRMED_IS_NOT_STILL_THERE` is one constant and is drawn in
@@ -50,7 +63,7 @@ import { Glyph } from '../design/Glyph';
 import { LocalStoreNotice, useLocalStore } from '../platform/LocalStore';
 import { useRemovals } from '../shell/Removals';
 import { NO_NAME_IS_DELIBERATE, REMOVALS_TITLE, describeRemovals } from './removals';
-import type { RemovalItem } from './removals';
+import type { LeftBehindItem, RemovalItem } from './removals';
 import type { ReportPair } from './admin-report';
 
 /** The label-and-value primitive from the contract, as the Admin screen draws it. */
@@ -67,6 +80,36 @@ function Pairs({ pairs }: { pairs: readonly ReportPair[] }) {
   );
 }
 
+/**
+ * A queued delivery the purge could not clean.
+ *
+ * It is drawn INSIDE the removal it belongs to and never as a card of its own, because it is not a
+ * separate event: it is part of what this one removal did and did not achieve. And its
+ * "will not clear" sentence is NOT folded — everything else on this screen resolves itself on the
+ * next connected moment, and a thing that never will must not sit among them looking the same.
+ */
+function LeftBehindNote({ item }: { item: LeftBehindItem }) {
+  return (
+    <div className="note read stack">
+      <p>
+        <Glyph name="sync-failed" size="inline" decorative />
+        <span>{item.whatItMeans}</span>
+      </p>
+      <p>{item.persists}</p>
+      <p>{item.whatToDo}</p>
+      <details className="disclose">
+        <summary>
+          What this app could not clean
+          <span className="count">{item.forensic.length}</span>
+        </summary>
+        <div className="card-body">
+          <Pairs pairs={item.forensic} />
+        </div>
+      </details>
+    </div>
+  );
+}
+
 function RemovalCard({ item }: { item: RemovalItem }) {
   const headingId = `removal-${item.deletionId}`;
 
@@ -77,12 +120,20 @@ function RemovalCard({ item }: { item: RemovalItem }) {
           {item.heading}
         </h3>
         <span className="spacer" />
-        {/* The WORD carries the state. The tone is a second channel and never the only one. */}
-        <span className={item.tried ? 'chip chip-warning' : 'chip'}>{item.chipWord}</span>
+        {/* The WORD carries the state. The tone is a second channel and never the only one — which
+            is why the confirmed-present case is a different WORD and not merely a louder colour. */}
+        <span className={item.tried || item.confirmedPresent ? 'chip chip-warning' : 'chip'}>
+          {item.chipWord}
+        </span>
       </div>
 
       <div className="card-body stack">
         <p className="read">{item.whatHappened}</p>
+
+        {/* Drawn ONLY when the read-back genuinely found something. There is no counterpart sentence
+            for the empty case, and that is the whole discipline of this half: an absent still-present
+            entry means nothing was checked at least as often as it means nothing was found. */}
+        {item.foundWords !== null && <p className="read">{item.foundWords}</p>}
 
         {/* The failure text is whatever was recorded when a delivery reported one, and it is passed
             through untouched: he may have to read it out, and a reworded version is not what was said. */}
@@ -110,6 +161,11 @@ function RemovalCard({ item }: { item: RemovalItem }) {
         </dl>
 
         <p className="muted read">{item.scope}</p>
+
+        {item.leftBehind.map((left) => (
+          <LeftBehindNote key={left.entryId} item={left} />
+        ))}
+
         <p className="muted read">{NO_NAME_IS_DELIBERATE}</p>
       </div>
 
@@ -151,6 +207,16 @@ export function RemovalsScreen() {
           <>
             <p className="value-display">{report.count}</p>
             <p className="screen-intro read">{report.intro}</p>
+
+            {/* The one figure the remote half adds, and it is drawn only when it is non-zero. A row
+                reading "0 found still in your backup" would be the reassuring answer built out of a
+                verify step that, on most passes, never ran at all. */}
+            {report.confirmedPresentWords !== null && (
+              <p className="note read">
+                <Glyph name="sync-failed" size="inline" decorative />
+                <span>{report.confirmedPresentWords}</span>
+              </p>
+            )}
 
             {/* Drawn in BOTH states, as a plain note rather than a warning: it is equally true on the
                 good day, and a permanent warning band is one he stops seeing. */}

@@ -22,12 +22,21 @@
  * device stops the coach's phone from backing up anything at all; ignoring it silently would mean
  * synchronising a subset of his data while reporting success. Neither is acceptable, so it is
  * reported.
+ *
+ * **Reported was not enough on its own, and that was a real defect.** Carrying the fact in the report
+ * only helps if something downstream acts on it, and for a while nothing did: an unreadable file was
+ * not a `failure`, so the pass still reported a clean completion and the older of two installations
+ * showed green while holding none of the newer one's work. The verdict now lives in
+ * `core/sync/withheld.js` and both the engine and the accountability surface ask it. Each entry
+ * therefore carries `written_by_newer_version` — declared by `payload.js`, which is the only code
+ * that knows whether the version was above ours, below it, or not a document at all — so the words
+ * the coach reads can name the cause without matching on the text of a message.
  */
 
 import { bytesToText } from '../remote/remote.js';
 import { SyncDocumentError } from './errors.js';
 import { VERDICT, classify, describeDivergence } from './divergence.js';
-import { groupByArea } from './partition.js';
+import { groupByArea, isUnplaceableAreaFile } from './partition.js';
 import { decodeDocument } from './payload.js';
 
 /**
@@ -37,7 +46,12 @@ import { decodeDocument } from './payload.js';
  * @property {import('./divergence.js').Divergence[]} divergences Clashes BETWEEN areas.
  * @property {string[]} devices                Every device with an area in this space.
  * @property {{file_id: string, name: string, device: string, records: number}[]} files
- * @property {{name: string, file_id: string, why: string}[]} unreadable
+ * @property {{name: string, file_id: string, why: string, written_by_newer_version: boolean}[]} unreadable
+ * @property {{name: string, file_id: string, why: string, written_by_newer_version: boolean}[]} unplaceable
+ *                                             Files named in THIS engine's namespace that this build
+ *                                             cannot place. Same shape as `unreadable` because it is
+ *                                             the same fact to the coach: work of his that did not
+ *                                             arrive. See `isUnplaceableAreaFile`.
  * @property {import('../remote/port.js').RemoteFileMeta[]} unrecognised Files this engine did not write.
  */
 
@@ -61,6 +75,21 @@ export async function readUnion(remote, args) {
     devices: [...areas.keys()].sort(),
     files: [],
     unreadable: [],
+    // Taken from `unrecognised` rather than replacing it: the coach's own files in his own folder are
+    // still reported as found-and-not-ours, and only the ones written INTO A DEVICE AREA THIS SPACE
+    // ALREADY SHOWS are counted as work that did not arrive. The device list is the evidence — see
+    // `isUnplaceableAreaFile` for why the namespace alone is not enough to alarm him with.
+    unplaceable: unrecognised
+      .filter((meta) => isUnplaceableAreaFile(meta.name, [...areas.keys()]))
+      .map((meta) => ({
+        name: meta.name,
+        file_id: meta.file_id,
+        why: 'This file is in one of your devices\' areas but this build does not know its kind. A newer version of the app may have written it; it is left alone.',
+        // The strongest statement the evidence supports: the device that wrote this also writes area
+        // files this build parses, so it is an installation of this application running a build that
+        // knows a name this one does not.
+        written_by_newer_version: true,
+      })),
     unrecognised,
   };
 
@@ -84,7 +113,15 @@ export async function readUnion(remote, args) {
       document = decodeDocument(bytesToText(file.content), { name: meta.name, fileId: meta.file_id });
     } catch (error) {
       if (error instanceof SyncDocumentError) {
-        union.unreadable.push({ name: meta.name, file_id: meta.file_id, why: error.message });
+        union.unreadable.push({
+          name: meta.name,
+          file_id: meta.file_id,
+          why: error.message,
+          // Read off the declared detail, never off `why`. Absent means false rather than unknown:
+          // every other way a document can be unreadable — not JSON, not an object, a broken
+          // envelope, a version BELOW ours — is genuinely not a newer version having written it.
+          written_by_newer_version: error.details?.written_by_newer_version === true,
+        });
         continue;
       }
       throw error;

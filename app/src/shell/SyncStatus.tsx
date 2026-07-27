@@ -34,36 +34,35 @@
  * - The seam is `SyncStatusProvider`, and its `reading` is a {@link SyncStatusReading}: a SUBSET of
  *   the object `accountabilityStatus()` in `core/status/surface.js` already returns, field for field
  *   and name for name. Nothing is converted and nothing is renamed.
- * - **Today** `main.tsx` supplies {@link NO_BACKUP_YET}. That is not a mock: this build has no local
- *   store wired, so nothing has ever been backed up because nothing yet can be, and "never
- *   synchronised, nothing queued" is exactly what the real call returns over a store in that
- *   condition. Its fields are assembled from the core's own frozen constants so it cannot drift away
- *   from what the real call will produce.
- * - **The later step replaces the SOURCE, not this component and not this file.** It must:
- *     1. open the local store and call
- *        `accountabilityStatus(store, { in_progress, last_attempt, credential })`;
- *     2. push each result into `SyncStatusProvider`'s `reading`;
- *     3. re-read it after every synchronisation attempt and on each of the five opportunities
- *        declared in `SYNC_TRIGGERS` (`core/sync/engine.js`) — open, foreground, leave, periodic
- *        while open, and the manual tap — and on a modest interval besides, because the ladder
- *        climbs with the clock even when nothing happens;
- *     4. supply an action for `reason.action` — see *the tap* below, and see
- *        `shell/action-destinations.ts` for WHICH of the five codes it is actually responsible for.
+ * - **The SOURCE is now `shell/SyncFromStore.tsx`**, and it was the seam's whole design that replacing
+ *   it changed nothing else. It reads `accountabilityStatus(store, { in_progress, last_attempt,
+ *   credential })` over the real local store and pushes each result in here unchanged; it re-reads
+ *   after every attempt, on each of the five opportunities `SYNC_TRIGGERS` declares
+ *   (`core/sync/engine.js`), and on a modest interval besides, because the ladder climbs with the
+ *   clock even when nothing happens. `sync-runner.ts` holds the two periodicities and the reason they
+ *   are not one timer.
+ * - {@link NO_BACKUP_YET} did not become a mock when that landed; it is still what the seam carries in
+ *   the bounded window before the first read arrives, and it is still assembled from the core's own
+ *   frozen constants so it cannot drift from what the real call produces.
  *
- * **That fourth point used to list all five codes as one undifferentiated job, and naming no step is
- * how two of them came to be waiting on work they never needed.** `review_refused` and
+ * **The obligation used to list all five action codes as one undifferentiated job, and naming no step
+ * is how two of them came to be waiting on work they never needed.** `review_refused` and
  * `review_unconfirmed` are reads over the LOCAL outbox queue — `needsAttention` in
- * `core/outbox/status.js`, whose refusal reason is already kept verbatim — and they now have a screen
- * and an address. `connect_google`, `reconnect_google` and `sync_now` genuinely need the Google
- * integration and the report wire, and `action-destinations.ts` names the step that owns each one, with
- * a check that fails if a code ever has neither an address nor an owner.
+ * `core/outbox/status.js`, whose refusal reason is already kept verbatim — and they have a screen and
+ * an address. `connect_google`, `reconnect_google` and `sync_now` are not places at all: they are ACTS,
+ * and `action-destinations.ts` now records them as such, with the words each control says, and with a
+ * check that fails if a code ever has none of the three dispositions.
  *
- * **The tap is deliberately absent today, and that is the honest choice.** There is nothing to
- * connect to and nothing to send, so this renders as a status region rather than as a control: a
- * button that cannot do what its words say is worse than no button, and `reasons.js` already says
- * that offering an action which does not help is how an indicator earns the reputation of lying.
- * When the later step supplies the action, this becomes the control Console specifies, in this file,
- * and nothing about its placement or its silhouettes changes.
+ * **THE TAP EXISTS NOW, AND ONLY WHERE IT CAN HONOUR ITSELF.** It used to be absent, and that was the
+ * honest choice while there was nothing to connect to and nothing to send: a button that cannot do what
+ * its words say is worse than no button, and `reasons.js` argues that offering an action which does not
+ * help is how an indicator earns the reputation of lying. So the control appears for exactly those
+ * reasons whose action code is an ACT this build performs, it carries that act's own words, and for
+ * every other state this is still a status region and nothing else. Its placement and its silhouettes
+ * are unchanged, as that paragraph promised they would be.
+ *
+ * **IT IS STILL NOT A MODAL AND STILL NEVER BLOCKS.** A control that runs a backup is the opposite of a
+ * gate: he may ignore it for ever and the application opens regardless.
  *
  * ## What is drawn, and why it is three things rather than one
  *
@@ -85,6 +84,8 @@ import type { ReactNode } from 'react';
 
 import { Glyph } from '../design/Glyph.tsx';
 import type { GlyphName } from '../design/glyphs.generated.ts';
+import { PERFORMED_ACT, performedFor } from './action-destinations.ts';
+import { useSyncActionsIfWired } from './sync-actions.tsx';
 import {
   RUNG_GLYPH,
   RUNG_SILHOUETTE,
@@ -166,6 +167,57 @@ function Mark({ kind, glyph }: { kind: 'offline' | 'stopped'; glyph: GlyphName }
  * only one counts, which nothing could check. Working offline never raises the role, because an
  * offline-first application working from its own copy is not something the coach must act on.
  */
+/**
+ * THE ONE CONTROL ON THIS SURFACE, AND IT IS ABSENT UNLESS IT CAN HONOUR ITSELF.
+ *
+ * The reason the core gave carries an action CODE; `action-destinations.ts` says whether that code is
+ * an act this build performs, and what the button says. Anything else — a code that leads to a screen,
+ * a reason with no action at all, a reason this build does not know — renders nothing, because a
+ * control that cannot do what its words say is worse than no control.
+ *
+ * IT SAYS WHAT IT WILL DO, never "Retry": the words come from the table, one sentence per act, so the
+ * coach reads "Connect Google" or "Back up now" rather than a verb with no object. While a pass is
+ * running it is DISABLED and says so — the alternative is a second tap the runner would skip in
+ * silence, which teaches him the button does nothing.
+ *
+ * IT COLLAPSES WITH THE WORDS, in the rail, and for the same measured reason they do: a 76px rail has
+ * 60px inside its padding, and a button whose label does not fit is a button with no label. What
+ * survives collapse is the filled shape and the number, which is the accountability signal; the way to
+ * act returns with the words when the rail expands.
+ *
+ * AND IT RENDERS NOTHING RATHER THAN THROWING when no acts have been supplied. That is deliberate and
+ * it is NOT the rule the five seams follow — `sync-actions.tsx` holds the argument in full. In one
+ * line: a missing reading would invent reassuring good news, so it must be loud, whereas a missing
+ * control is honestly drawn as no control, and a hook that threw would take THE PERMANENT INDICATOR
+ * off the screen — which tells the coach nothing at all, and is worse than any value it could show.
+ */
+function SyncAct() {
+  const status = useSyncStatus();
+  const actions = useSyncActionsIfWired();
+  const performed = performedFor(status.reason?.action ?? null);
+
+  if (actions === null || performed === null) return null;
+
+  const run = performed.act === PERFORMED_ACT.CONNECT ? actions.connect : () => actions.synchronise();
+
+  return (
+    <span className="sync-act">
+      <button
+        type="button"
+        className="btn btn-sm"
+        disabled={actions.running}
+        onClick={(event) => run(event.nativeEvent)}
+      >
+        {actions.running ? 'Backing up' : performed.words}
+      </button>
+      {/* What just happened when he tapped, in this application's own words. It is not part of the
+          reading — the core cannot know it — and it is never a provider's error text, which is a leak
+          path because a failure is what gets logged, journalled and exported. */}
+      {actions.refusal !== null && <small className="sync-refusal read">{actions.refusal}</small>}
+    </span>
+  );
+}
+
 export function SyncIndicator() {
   const status = useSyncStatus();
   const rung = rungOf(status);
@@ -202,6 +254,11 @@ export function SyncIndicator() {
       </span>
 
       <span className="visually-hidden">{words.announced}</span>
+
+      {/* OUTSIDE the aria-hidden spans and after the announced sentence, so assistive technology
+          reaches a real, named button rather than a hidden one — and so the live region's own
+          announcement is the state, not the control. */}
+      <SyncAct />
     </div>
   );
 }

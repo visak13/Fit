@@ -27,7 +27,8 @@
 
 import { pendingDeletions } from '../../core/store/purge.js';
 import type { LocalStore } from '../../core/store/store.js';
-import type { RemovalsPage } from '../screens/removals';
+import { NO_PASS_HAS_REPORTED } from '../screens/removals';
+import type { RemoteConfirmation, RemovalsPage, StillPresentEntry } from '../screens/removals';
 
 /**
  * How many manifests are read in one page.
@@ -72,3 +73,61 @@ export function readPendingRemovals(
     live = false;
   };
 }
+
+/**
+ * THE REMOTE HALF'S DERIVATION — a synchronisation report becomes the seam's `remote`, and nothing
+ * else about a report is allowed through this function.
+ *
+ * ## Why it is a function here rather than a spread at the call site
+ *
+ * `SyncReport` is a large object. It carries the flush, the outbox figures, every failure with the
+ * service's own `message` on it, and the completion brand. **A spread of `report.deletions` into a
+ * seam would carry whatever a later field turns out to be**, and the field most likely to be added
+ * next to a failure report is the provider's own text — measured on this very step: a provider error
+ * message is a privacy leak path precisely because a failure is what gets written down, and a status
+ * surface is where text stops being transient. So this reads THREE DECLARED FIELDS by name —
+ * `deletion_id`, `found`, and nothing else — and constructs the value itself.
+ *
+ * ## `reported` is TRUE for any report at all, and that is deliberate
+ *
+ * It says a pass reported, NOT that a pass verified. `core/sync/engine.js` runs the verify-deletions
+ * step only when deletions were carried AND a compaction ran; every other pass reports
+ * `still_present: []` having checked nothing. `screens/removals.ts` therefore never turns an empty
+ * list into reassurance, and this function must not make that easier by pretending the flag means
+ * more than it does.
+ *
+ * ## THE CALLER THIS IS WAITING FOR
+ *
+ * The synchronisation runner — the sync-to-accountability join — must pass each pass's LIVE report
+ * through here and into `RemovalsFromStore`'s `remote` prop. Until it does, `main.tsx` supplies
+ * `NO_PASS_HAS_REPORTED`, which is TRUE of a build with no synchronisation rather than a stand-in.
+ *
+ * @param report the object `syncNow` returned. Read by declared field only; never stored.
+ */
+export function remoteConfirmationFrom(report: unknown): RemoteConfirmation {
+  const deletions = (report as { deletions?: { still_present?: unknown } } | null)?.deletions;
+  const raw = deletions?.still_present;
+  if (!Array.isArray(raw)) {
+    // A report without the field is not a report saying everything is clear. `reported` still turns
+    // true — a pass DID run — and the list stays empty, which says nothing either way, as it must.
+    return Object.freeze({ reported: report !== null && report !== undefined, still_present: [] });
+  }
+
+  const stillPresent: StillPresentEntry[] = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry.deletion_id !== 'string') continue;
+    stillPresent.push(Object.freeze({
+      deletion_id: entry.deletion_id,
+      found: Object.freeze(
+        (Array.isArray(entry.found) ? entry.found : []).filter(
+          (id: unknown): id is string => typeof id === 'string',
+        ),
+      ),
+    }));
+  }
+
+  return Object.freeze({ reported: true, still_present: Object.freeze(stillPresent) });
+}
+
+/** Re-exported so a caller filling the seam does not have to know two modules to say "nothing yet". */
+export { NO_PASS_HAS_REPORTED };

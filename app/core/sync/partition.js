@@ -166,6 +166,58 @@ export function groupByArea(listing) {
 }
 
 /**
+ * A file that is OURS BY NAME and that this build cannot place — which is the same defect as an
+ * undecodable document, arriving through a door the version check does not watch.
+ *
+ * `parseAreaFileName` refuses any kind outside {@link AREA_FILE_KINDS}, so a build of this
+ * application that adds a THIRD kind of area file writes names this one groups as `unrecognised`
+ * rather than as an area. Until this existed, unrecognised files were not in the synchronisation
+ * report at all: the older device skipped every one of them, met no failure and no unreadable
+ * document, and reported a clean completion while holding none of that work. It is the false green
+ * again, reached by an ORDINARY ADDITIVE CHANGE rather than by a document version bump — the kind of
+ * change this codebase deliberately prefers, which makes this door the more likely of the two.
+ *
+ * ## What keeps this from becoming the OPPOSITE defect, which would be worse
+ *
+ * This whole area exists because an indicator that misleads the coach is dangerous. A PERMANENT FALSE
+ * ALARM on the one indicator he is meant to trust is the same danger wearing a better disguise: it
+ * would be technically accurate every time it fired, and it would teach him to ignore the surface
+ * that has to warn him when something is genuinely wrong. So the question is not "can this file be
+ * explained" but "is this file HIS WORK, missing".
+ *
+ * Enumerated from `parseAreaFileName`, a name fails to parse when the segment count is wrong, the
+ * namespace or extension is wrong, the KIND is not one of {@link AREA_FILE_KINDS}, the device segment
+ * is reserved or not a device tag, or the key is empty. Of those, only a name that is otherwise
+ * well-formed FOR A DEVICE WE CAN SEE WRITING HERE is evidence of a build we do not know. The visible
+ * space is a folder the coach browses and his own files may sit in it — `fit.` is a short prefix and
+ * he is free to use it — so the namespace alone is suggestive, not conclusive.
+ *
+ * The conclusive test is therefore the DEVICE: this file's device segment names an area that holds at
+ * least one file this build parsed. A device writing real area files into this space is an
+ * installation of this application, and a name it wrote that this build cannot place came from a
+ * build that knows a name this one does not. The coach's own file would have to be named for one of
+ * his own device areas to reach that bar.
+ *
+ * **The honest residual, stated rather than left to be discovered:** a future build that changed the
+ * naming scheme SO completely that a device had no parseable file at all would be under-reported
+ * here. That device would also be missing from `devices` entirely, which is a larger and more visible
+ * problem than this one; and under-reporting an exotic case is the right side to err on when the
+ * alternative is a permanent false alarm on an ordinary one. The shared snapshot is excluded because
+ * it is not an area file and was never meant to parse as one.
+ *
+ * @param {string} name
+ * @param {readonly string[]} knownDevices Device tags that own at least one parseable area file here.
+ * @returns {boolean}
+ */
+export function isUnplaceableAreaFile(name, knownDevices = []) {
+  if (typeof name !== 'string') return false;
+  if (!name.startsWith(`${NAMESPACE}.`)) return false;
+  if (name.startsWith(SNAPSHOT_PREFIX)) return false;
+  if (parseAreaFileName(name) !== null) return false;
+  return knownDevices.includes(name.split('.')[1]);
+}
+
+/**
  * Whether this file belongs to the given device's area.
  * @param {string} name @param {string} device
  * @returns {boolean}

@@ -53,6 +53,8 @@ import {
   libraryPage, listClients, sessionsForClient, unfinishedSessions,
 } from '../../core/store/store.js';
 import type { LocalStore } from '../../core/store/store.js';
+import { MINT_REFUSALS } from '../platform/google-meet';
+import type { MintOutcome, MintRequest } from '../platform/google-meet';
 import type {
   ClientRecord, Glance, OpenOutcome, Page, RoutineRecord, SessionMode, SessionRecord,
 } from './launcher';
@@ -67,6 +69,17 @@ import { handOver, heldSession } from './session-handover';
  * through the core's own cursor and nothing is ever loaded whole in order to count it.
  */
 export const LAUNCHER_PAGE_LIMIT = 25;
+
+/**
+ * The minting, as much of it as this file uses.
+ *
+ * Structural rather than the class, so the suite drives this path with a double and no transport at
+ * all. `platform/google-meet.ts` owns everything about how a link is actually obtained; this file
+ * only knows that asking for one returns an outcome.
+ */
+export interface MeetMinting {
+  mint(request: MintRequest): Promise<MintOutcome>;
+}
 
 /**
  * How many unfinished sessions are offered at once.
@@ -361,6 +374,87 @@ export async function startTheSession(
   });
 
   return handOver(store, outcome);
+}
+
+/**
+ * ASK FOR A MEETING LINK AND WRITE IT ONTO THE SESSION THAT HAS JUST STARTED.
+ *
+ * ## Why this runs AFTER the session exists, and not before
+ *
+ * The create-request identifier that makes a retry idempotent is derived from the session's own
+ * record id, so there is nothing stable to send until the session has been written. One session, one
+ * meeting link, however many times this is retried. Minting first and creating second would mean a
+ * new identifier every attempt, and a coach who tapped twice on a bad connection would own two
+ * meetings — with the session pointing at whichever one answered last.
+ *
+ * ## The session is already real before this is called, and that is the point
+ *
+ * By the time this runs the session has started, the lease is held and everything recorded into it
+ * is kept. So NOTHING HERE CAN COST HIM THE SESSION. A calendar that cannot make links, a dead
+ * token, a lost network: each of them is a sentence about the LINK and never about the session, and
+ * `screens/launcher.ts` words all of them from the outcome this returns.
+ *
+ * ## It never throws, and it never leaves a link half-recorded
+ *
+ * `mint` returns a value on every path rather than raising. The write that follows it is the one
+ * thing here that CAN raise — the record refuses a link on an in-person session, and refuses a
+ * second link that disagrees with the first — and a failure to write is reported as the link not
+ * being on the session, which is exactly what is true. The exit is the same one every other path
+ * offers: he can paste one.
+ *
+ * @param links the minting, from `platform/google-meet.ts`
+ * @param sessionId the session that has already started
+ * @param startsAt when the session began, for the event's window
+ */
+export async function mintTheLink(
+  store: LocalStore,
+  links: MeetMinting,
+  sessionId: string,
+  startsAt: Date,
+): Promise<MintOutcome> {
+  const outcome = await links.mint({ sessionId, startsAt });
+  if (outcome.outcome !== 'minted') return outcome;
+
+  const recorded = await attachTheLink(store, sessionId, outcome.url, 'minted');
+  if (recorded) return outcome;
+
+  // The link exists at Google but could not be written down here. Reported as "no link on the
+  // session", because that is the true statement — and the retry is safe: the same session sends
+  // the same identifier and Google answers with the meeting it already made rather than a second.
+  return Object.freeze({
+    outcome: 'refused' as const,
+    code: 'unreadable' as const,
+    sentence: MINT_REFUSALS.unreadable,
+  });
+}
+
+/**
+ * Write a joining link onto a session this window is running.
+ *
+ * THE LEASE IS WHAT MAKES THIS POSSIBLE, and this window holds it: the store refuses a write to a
+ * session it does not hold, which is what stops two windows disagreeing about one session. So the
+ * write goes through the HELD HANDLE rather than through the store directly.
+ *
+ * @returns whether the link is now on the session
+ */
+export async function attachTheLink(
+  store: LocalStore,
+  sessionId: string,
+  url: string,
+  source: string,
+): Promise<boolean> {
+  const live = heldSession(store, sessionId);
+  if (live === undefined || live === null || live.recordJoiningLink === undefined) {
+    console.error('[calendar] the joining link has nowhere to be written: this window is not running that session');
+    return false;
+  }
+  try {
+    await live.recordJoiningLink(url, source);
+    return true;
+  } catch (error: unknown) {
+    console.error('[calendar] the joining link could not be written onto the session', error);
+    return false;
+  }
 }
 
 /**

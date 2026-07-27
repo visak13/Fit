@@ -1,0 +1,49 @@
+<!doctype html>
+<!--
+  THE PROOF PAGE FOR THE SYNCHRONISATION JOIN. IT IS NOT SHIPPED AND MUST NOT BE.
+
+  It exists so the claim "the number on screen moved" can be earned by watching it move, in a real
+  browser, over a real IndexedDB, through the real store, the real engine, the real runner, the real
+  seam and the real indicator. `src/proof/sync-join.tsx` beside this file states exactly what is
+  substituted — the remote copy, and the credential riding on it — and why that is one fact rather
+  than two.
+
+  IT IS NOT AN ENTRY IN THE BUNDLER'S INPUTS, so `npm run build` never emits it. That is not left to a
+  configuration anybody has to trust: `harness-does-not-ship.test.ts` asserts its absence from the
+  built output, with a positive control pointed at something known to be present, so a build that
+  quietly started emitting it goes red rather than silent.
+
+  Reached with `npm run dev`, at /src/proof/sync-join.html.
+
+  The root attributes and the pre-paint theme script are REPEATED from `index.html` deliberately. This
+  page must look like the application, because what is being observed is an indicator whose whole
+  design is about silhouette, weight and colour; a page missing the palette selection would render a
+  differently-styled control and the observation would be of something else. Nothing here is imported
+  BY the application, so nothing about the shipped page depends on this copy.
+-->
+<html lang="en" data-palette="slate-blue" data-density="compact">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Fit — watching the synchronisation join</title>
+
+    <script>
+      (function () {
+        try {
+          var choice = window.localStorage.getItem('fit.theme');
+          if (choice !== 'light' && choice !== 'dark') {
+            choice = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+          document.documentElement.setAttribute('data-theme', choice);
+        } catch (error) {
+          document.documentElement.setAttribute('data-theme', 'light');
+          console.error('[theme] could not be resolved before the first frame', error);
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/proof/sync-join.tsx"></script>
+  </body>
+</html>

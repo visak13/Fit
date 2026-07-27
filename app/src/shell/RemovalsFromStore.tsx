@@ -29,11 +29,27 @@
  * count is in the dependency list below and is read for NOTHING else; it never reaches the reading,
  * so the seam still carries facts and nothing callable.
  *
- * WHAT IS STILL NOT DONE, and is reported rather than faked: this does not re-read after a
- * SYNCHRONISATION pass, because there is no synchronisation to re-read after. That trigger is S16's
- * and it belongs on this same line — another entry in the same dependency list, not a second
- * mechanism. And there is deliberately no interval and no polling: a timer would be a second copy of
- * the store's own knowledge, ticking for ever to catch an event that already announces itself.
+ * ## THE REMOTE HALF ARRIVES AS A PROP, AND THE RE-READ RIDES IT
+ *
+ * `remote` is the seam's remote half — `SyncReport.deletions.still_present`, via
+ * `remoteConfirmationFrom` in `removals-source.ts`. It is a PROP rather than something read here for
+ * the reason this file already learned the hard way: a second reader of the same fact is how the
+ * register and this component came to disagree. The synchronisation runner holds the live report;
+ * this component holds the store.
+ *
+ * AND IT IS IN THE DEPENDENCY LIST BELOW, which is the trigger this file said was missing.
+ * `verifyAndMarkPropagated` moves a manifest out of pending during a pass and at no other moment, so
+ * a new `remote` IS the announcement that a pass happened — the same line, not a second mechanism.
+ * A removal confirmed during a pass that stayed on this screen afterwards would keep telling him
+ * something untrue in the safe direction.
+ *
+ * WHAT IS STILL NOT DONE HERE, and is reported rather than faked: nothing in this build calls
+ * `syncNow`, so nothing yet passes a real report in. `main.tsx` supplies `NO_PASS_HAS_REPORTED`,
+ * which is TRUE of a build with no synchronisation rather than a stand-in for one. THE
+ * SYNC-TO-ACCOUNTABILITY JOIN MUST PASS ITS LIVE REPORT THROUGH `remoteConfirmationFrom` INTO THIS
+ * PROP. That handoff is recorded on the plan and verified by consequence at review, not left to this
+ * comment. And there is still deliberately no interval and no polling: a timer would be a second copy
+ * of the store's own knowledge, ticking for ever to catch an event that already announces itself.
  *
  * ## THE ONE WINDOW WHERE THE SEAM IS STILL THE EMPTY READING, STATED RATHER THAN HIDDEN
  *
@@ -54,8 +70,8 @@ import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useLocalRemovals, useLocalStore } from '../platform/LocalStore';
-import type { RemovalsPage } from '../screens/removals';
-import { NOTHING_AWAITING_REMOVAL, RemovalsProvider } from './Removals';
+import type { RemoteConfirmation, RemovalsPage } from '../screens/removals';
+import { NOTHING_AWAITING_REMOVAL, NO_PASS_HAS_REPORTED, RemovalsProvider } from './Removals';
 import type { RemovalsReading } from './Removals';
 import { readPendingRemovals } from './removals-source';
 import type { LocalStore } from '../../core/store/store.js';
@@ -72,7 +88,14 @@ interface PageFromStore {
   readonly page: RemovalsPage;
 }
 
-export function RemovalsFromStore({ children }: { children: ReactNode }) {
+export function RemovalsFromStore({
+  children,
+  remote = NO_PASS_HAS_REPORTED,
+}: {
+  children: ReactNode;
+  /** The remote half. Defaulted to the honest literal so an unwired caller cannot invent good news. */
+  remote?: RemoteConfirmation;
+}) {
   const opening = useLocalStore();
   const store = opening.state === 'open' ? opening.store : null;
   // Read for nothing but this: it changes when a removal has COMMITTED here, and a changed
@@ -80,15 +103,24 @@ export function RemovalsFromStore({ children }: { children: ReactNode }) {
   const { recorded } = useLocalRemovals();
   const [read, setRead] = useState<PageFromStore | null>(null);
 
+  // `remote` is in this list because a NEW REPORT IS THE ANNOUNCEMENT THAT A PASS RAN, and a pass is
+  // the only thing that moves a manifest out of pending. This is the synchronisation trigger this
+  // file said was missing, on the line it said it belonged on.
   useEffect(() => {
     if (store === null) return undefined;
     return readPendingRemovals(store, (page) => setRead({ from: store, page }));
-  }, [store, recorded]);
+  }, [store, recorded, remote]);
 
   const reading = useMemo<RemovalsReading>(
     () =>
-      read !== null && read.from === store ? { pending: read.page } : NOTHING_AWAITING_REMOVAL,
-    [read, store],
+      read !== null && read.from === store
+        ? { pending: read.page, remote }
+        // The empty literal already carries `NO_PASS_HAS_REPORTED`, and it is kept rather than
+        // merged with a live `remote`: a still-present entry has no removal to attach to when the
+        // page has not been read, and a count of confirmed-present removals derived from no
+        // manifests would be a figure about nothing.
+        : NOTHING_AWAITING_REMOVAL,
+    [read, store, remote],
   );
 
   return <RemovalsProvider reading={reading}>{children}</RemovalsProvider>;

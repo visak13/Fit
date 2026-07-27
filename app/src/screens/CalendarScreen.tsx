@@ -49,18 +49,23 @@ import {
   WITH_CLIENT_KEY, aboutClientDescription, describeArrivedWith, registerAboutClient,
   selectionArrivingWith,
 } from './circular-navigation';
+import { UserGesture } from '../platform/google-identity';
+import { googleOnThisDevice } from '../platform/google-on-this-device';
 import {
   GLANCE_NOBODY_CHOSEN, HISTORY_EMPTY, HISTORY_INTRO, HISTORY_NOBODY_CHOSEN, HISTORY_TITLE,
-  LAUNCHER_INTRO, MODE_CHOICES, NO_CLIENTS, NO_ROUTINES, PASTED_LINK_HINT,
-  PASTED_LINK_LABEL, SECTION_TITLES, UNFINISHED_INTRO, UNFINISHED_TITLE, chooseMode, chooseRoutine,
-  describeGlance, describeHistory, describeOutcome, describeStart, describeUnfinished, linkToStore,
-  pasteLink, toggleClient,
+  LAUNCHER_INTRO, LINK_CHOICES, LINK_QUESTION, MODE_CHOICES, NO_CLIENTS, NO_ROUTINES,
+  LINK_PASTED, PASTE_AFTERWARDS_BUTTON, PASTE_AFTERWARDS_LABEL,
+  PASTED_LINK_HINT, PASTED_LINK_LABEL, SECTION_TITLES, UNFINISHED_INTRO, UNFINISHED_TITLE,
+  chooseLinkPlan, chooseMode, chooseRoutine, describeGlance, describeHistory, describeMint,
+  describeOutcome, describeStart, describeUnfinished, linkToStore, pasteLink, shouldMint,
+  toggleClient,
 } from './launcher';
 import type {
-  GlanceReport, OutcomeReport, RoutineRecord, Selection, SessionPerson, SessionRecord,
+  GlanceReport, MintReport, OutcomeReport, RoutineRecord, Selection, SessionPerson, SessionRecord,
 } from './launcher';
 import {
-  pickUpTheSession, readGlancesInto, readHistoryInto, readLaunchpadInto, startTheSession,
+  attachTheLink, mintTheLink, pickUpTheSession, readGlancesInto, readHistoryInto, readLaunchpadInto,
+  startTheSession,
 } from './launcher-source';
 import type { GlanceReading, Launchpad } from './launcher-source';
 import {
@@ -229,6 +234,13 @@ export function CalendarScreen({ destination }: { destination: Destination }) {
 
   const [starting, setStarting] = useState(false);
   const [outcome, setOutcome] = useState<OutcomeReport | null>(null);
+  // WHAT CAME OF ASKING FOR A JOINING LINK, and it is state rather than a passing message because
+  // its failure carries a way out he has to be able to act on: the paste box below is drawn from it.
+  const [mint, setMint] = useState<MintReport | null>(null);
+  // The session a link is still owed to. Set when a mint did not produce one, so what he pastes
+  // afterwards lands on the session that has ALREADY STARTED rather than on a new one.
+  const [awaitingLink, setAwaitingLink] = useState<string | null>(null);
+  const [afterwards, setAfterwards] = useState('');
 
   const chosenIds = selection.clientIds;
   // The identity of the chosen set, so the two effects below re-run when the SET changes and not on
@@ -305,14 +317,49 @@ export function CalendarScreen({ destination }: { destination: Destination }) {
     [namesById],
   );
 
-  const pressStart = useCallback(async () => {
+  /**
+   * START, AND MINT THE JOINING LINK IF THAT IS WHAT HE ASKED FOR.
+   *
+   * ## The session first, the link second, and never the other way round
+   *
+   * The identifier that makes a retry idempotent is derived from the session's own id, so there is
+   * nothing stable to send Google until the session has been written. One session, one meeting link,
+   * however many times this is retried. And the ordering is what makes the whole path safe: by the
+   * time anything is asked of Google the session is REAL and is being recorded into, so no answer
+   * Google gives — and no answer it fails to give — can cost him the session he just started.
+   *
+   * ## The token is acquired INSIDE THE TAP, because there is nowhere else it can be
+   *
+   * There is no refresh token on this origin and none is obtainable, so a token lives about an hour
+   * and is renewed only in a gesture. Minting a link IS such a gesture, so the acquisition happens
+   * here, from the event the browser marked trusted. There is no second token path and no background
+   * renewal to fall back on.
+   *
+   * ## HE IS ONLY TAKEN TO THE RUNNER ONCE THE LINK QUESTION IS SETTLED
+   *
+   * When a link was made, or when he never asked for one, the runner is where he goes. When the mint
+   * came back without one, he STAYS HERE — because every one of those sentences ends by telling him
+   * he can paste a link instead, and navigating away from the only box he could paste it into would
+   * be a dead end wearing the words of a way out. The session is started either way and is one tap
+   * away below.
+   */
+  const pressStart = useCallback(async (event: { isTrusted?: boolean; type?: string }) => {
     if (store === null || starting || !start.canStart) return;
     // `canStart` has already established all three, and the compiler cannot see that through it.
     if (selection.routineId === null || selection.mode === null) return;
 
     setStarting(true);
     setOutcome(null);
+    setMint(null);
+    setAwaitingLink(null);
     try {
+      const minting = shouldMint(selection);
+      // Asked for BEFORE the session is written, so the popup rides the gesture that is still live.
+      // A token acquired after two awaits is a token the browser refuses to open a window for.
+      if (minting) {
+        await googleOnThisDevice().connection.acquireForGesture(UserGesture.fromTrustedEvent(event));
+      }
+
       const answer = await startTheSession(store, {
         routineId: selection.routineId,
         clientIds: selection.clientIds,
@@ -323,12 +370,26 @@ export function CalendarScreen({ destination }: { destination: Destination }) {
       });
       setOutcome(describeOutcome(answer));
       setReloads((count) => count + 1);
+
+      if (!answer.ok || answer.session_id === undefined) return;
+
+      if (minting) {
+        const got = describeMint(await mintTheLink(
+          store, googleOnThisDevice().meet, answer.session_id, new Date(),
+        ));
+        setMint(got);
+        if (!got.linked) {
+          // The exit has to be reachable, so he stays where the box is. See the note above.
+          setAwaitingLink(answer.session_id);
+          setReloads((count) => count + 1);
+          return;
+        }
+      }
+
       // THE LEASE IS NOW HELD FOR THE RUNNER, so the runner is where he goes. Leaving him on the
       // calendar with a session open behind the screen would be this window holding a lease nothing
       // on screen is using.
-      if (answer.ok && answer.session_id !== undefined) {
-        goToTheSession(sessionAddress(answer.session_id));
-      }
+      goToTheSession(sessionAddress(answer.session_id));
     } catch (error: unknown) {
       console.error('[calendar] the session could not be started', error);
       setOutcome({
@@ -342,6 +403,37 @@ export function CalendarScreen({ destination }: { destination: Destination }) {
       setStarting(false);
     }
   }, [store, starting, start.canStart, selection, routinesByKey, goToTheSession]);
+
+  /**
+   * PASTE A LINK ONTO THE SESSION THAT HAS ALREADY STARTED — the exit, made real.
+   *
+   * This is what stops every "you can paste one instead" sentence in this screen being a form of
+   * words. The session is running and this window holds its lease, so the link goes onto the record
+   * through the held handle. `pasted` is the truth about where it came from, and the record holds a
+   * link and its origin to travelling together.
+   */
+  const pressAttach = useCallback(async () => {
+    if (store === null || awaitingLink === null) return;
+    const link = afterwards.trim();
+    if (link.length === 0) return;
+
+    const written = await attachTheLink(store, awaitingLink, link, 'pasted');
+    if (!written) {
+      setMint({
+        linked: false,
+        headline: 'That link could not be saved onto the session. Check it starts with https:// and '
+          + 'try again, or open the session and carry on without one.',
+        offerPaste: true,
+        url: null,
+      });
+      return;
+    }
+    setMint({ linked: true, headline: LINK_PASTED, offerPaste: false, url: link });
+    setAwaitingLink(null);
+    setAfterwards('');
+    setReloads((count) => count + 1);
+    goToTheSession(sessionAddress(awaitingLink));
+  }, [store, awaitingLink, afterwards, goToTheSession]);
 
   const pressPickUp = useCallback(
     async (sessionId: string, routineKey: string) => {
@@ -544,25 +636,65 @@ export function CalendarScreen({ destination }: { destination: Destination }) {
               ))}
             </fieldset>
 
-            {/* Only on the online answer. On the other it would be a control that cannot do what
-                its words say — the record refuses a link on an in-person session outright. */}
+            {/*
+              HOW THIS SESSION GETS ITS LINK — and making one and pasting one are TWO ANSWERS TO ONE
+              QUESTION rather than a feature and its fallback. Only on the online answer: on the
+              other it would be a control that cannot do what its words say, because the record
+              refuses a link on an in-person session outright.
+            */}
             {selection.mode === 'online' && (
-              <div className="field">
-                <label htmlFor="session-meet-url">{PASTED_LINK_LABEL}</label>
-                <input
-                  id="session-meet-url"
-                  name="meet_url"
-                  type="url"
-                  autoComplete="off"
-                  aria-describedby="session-meet-url-hint"
-                  value={selection.pastedLink}
-                  onChange={(event) =>
-                    setSelection((held) => pasteLink(held, event.target.value))}
-                />
-                <p id="session-meet-url-hint" className="muted read">
-                  {PASTED_LINK_HINT}
-                </p>
-              </div>
+              <fieldset className="stack">
+                <legend className="title-section">{LINK_QUESTION}</legend>
+                {LINK_CHOICES.map((choice) => (
+                  <div key={choice.value} className="stack-tight">
+                    <label className="choice" htmlFor={`session-link-${choice.value}`}>
+                      <input
+                        id={`session-link-${choice.value}`}
+                        type="radio"
+                        name="session-link"
+                        value={choice.value}
+                        checked={selection.linkPlan === choice.value}
+                        onChange={() => setSelection((held) => chooseLinkPlan(held, choice.value))}
+                      />
+                      <span>{choice.label}</span>
+                    </label>
+                    <p className="muted read">{choice.consequence}</p>
+                  </div>
+                ))}
+
+                {/*
+                  WHICH CALENDAR THIS LANDS ON, SAID BEFORE IT LANDS THERE — permanent, ahead of the
+                  tap, never once-only and never afterwards. This application cannot create or even
+                  find a calendar under the narrow scope it holds, so until he sets one aside the
+                  events go on his own. That is a working state he can change, and it is honest only
+                  for as long as it is on the screen.
+                */}
+                {selection.linkPlan === 'mint' && (
+                  <p className="note read">
+                    <Glyph name="note" size="inline" decorative />
+                    <span>{googleOnThisDevice().meet.calendarNotice()}</span>
+                  </p>
+                )}
+
+                {selection.linkPlan === 'paste' && (
+                  <div className="field">
+                    <label htmlFor="session-meet-url">{PASTED_LINK_LABEL}</label>
+                    <input
+                      id="session-meet-url"
+                      name="meet_url"
+                      type="url"
+                      autoComplete="off"
+                      aria-describedby="session-meet-url-hint"
+                      value={selection.pastedLink}
+                      onChange={(event) =>
+                        setSelection((held) => pasteLink(held, event.target.value))}
+                    />
+                    <p id="session-meet-url-hint" className="muted read">
+                      {PASTED_LINK_HINT}
+                    </p>
+                  </div>
+                )}
+              </fieldset>
             )}
 
             {/* Read back beside the button, so what he is about to start is on screen. */}
@@ -572,6 +704,19 @@ export function CalendarScreen({ destination }: { destination: Destination }) {
               <p className="note read">
                 <Glyph name="note" size="inline" decorative />
                 <span>{start.secondInstanceHint}</span>
+              </p>
+            )}
+
+            {/*
+              THE SIXTY-MINUTE CUT, AT BOOKING TIME. Here rather than when the call drops: a session
+              runs about an hour and Google cuts a group call at an hour on a free personal account,
+              so for two clients this is the ordinary case. The words attribute it to Google and say
+              it applies to a link he makes himself, so it does not read as this app being deficient.
+            */}
+            {start.groupCallWarning !== null && (
+              <p className="note read">
+                <Glyph name="note" size="inline" decorative />
+                <span>{start.groupCallWarning}</span>
               </p>
             )}
 
@@ -592,7 +737,10 @@ export function CalendarScreen({ destination }: { destination: Destination }) {
                 type="button"
                 className="btn btn-primary"
                 disabled={!start.canStart || starting}
-                onClick={() => void pressStart()}
+                // THE EVENT ITSELF is passed on, because a token can only be acquired inside
+                // something the coach did: `UserGesture` is minted from an event the BROWSER marked
+                // trusted, and there is no other way to obtain one.
+                onClick={(event) => void pressStart(event.nativeEvent)}
               >
                 <Glyph name="session-start" size="inline" decorative />
                 {start.label}
@@ -613,6 +761,53 @@ export function CalendarScreen({ destination }: { destination: Destination }) {
                   <blockquote className="note read">
                     <span>{outcome.detail}</span>
                   </blockquote>
+                )}
+              </section>
+            )}
+
+            {/*
+              WHAT CAME OF THE LINK, AND THE WAY OUT WHERE IT IS NEEDED.
+
+              Never a danger band. Not one of these situations is a failure of the session: it has
+              started, it is being recorded into, and what is in question is only the link. A red
+              band here would tell him something went wrong with the thing that did not.
+            */}
+            {mint !== null && (
+              <section className="stack" role="status">
+                <p className="note read">
+                  <Glyph name={mint.linked ? 'session-start' : 'note'} size="inline" decorative />
+                  <span>{mint.headline}</span>
+                </p>
+
+                {/*
+                  THE EXIT, AND IT IS A REAL ONE. Every sentence above ends by telling him he can
+                  paste a link instead, so the box to paste it into is right here, pointed at the
+                  session that has ALREADY STARTED. Without it those words would be a dead end
+                  wearing the clothes of a way out.
+                */}
+                {mint.offerPaste && awaitingLink !== null && (
+                  <div className="field">
+                    <label htmlFor="session-meet-url-after">{PASTE_AFTERWARDS_LABEL}</label>
+                    <input
+                      id="session-meet-url-after"
+                      name="meet_url_after"
+                      type="url"
+                      autoComplete="off"
+                      value={afterwards}
+                      onChange={(event) => setAfterwards(event.target.value)}
+                    />
+                    <div className="spread">
+                      <button
+                        type="button"
+                        className="btn"
+                        disabled={afterwards.trim().length === 0}
+                        onClick={() => void pressAttach()}
+                      >
+                        <Glyph name="add" size="inline" decorative />
+                        {PASTE_AFTERWARDS_BUTTON}
+                      </button>
+                    </div>
+                  </div>
                 )}
               </section>
             )}

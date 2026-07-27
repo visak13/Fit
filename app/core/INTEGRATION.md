@@ -151,9 +151,16 @@ The same flow with the credential dead from before the session starts until afte
 - Nothing about whether a real device's non-extractable key survives iOS Safari's storage eviction.
   The recorded requirement that a vanished device slot must fail **loudly** rather than silently is
   a design rule here, not a measured platform fact.
-- **Key rotation and sign-out are not covered and are not settled.** What signing out destroys, and
-  what survives it, is **undefined behaviour** owned by the Google integration step, which owns the
-  token flow. Nothing in this document should be read as settling it.
+- **Key rotation is not covered.** Nothing here rotates a data key, and nothing in this document
+  should be read as settling how one would be rotated.
+- **Sign-out is no longer undefined, and it is not proven HERE.** It is built, in the shell, by the
+  Google integration step that owns the token flow — `src/platform/google-account.ts`, with its own
+  suites. Signing out drops the Google connection only: local data, the outbox, the event log and
+  **the device key slot all survive it**, and he can sign back in and carry on. Erasing the device
+  is a separate, separately confirmed action that deletes the local database, and **the device key
+  slot goes with it**, because a browser holds a non-extractable key by keeping the key object in
+  that same database. What is not proven anywhere in THIS document is any of it: these scenarios
+  cover the core, and sign-out is not core.
 
 ### 4. A client is deleted, and the people they trained with are not
 
@@ -171,9 +178,22 @@ The same flow with the credential dead from before the session starts until afte
   the tombstone rule exists for: a delete written as an absence would have the other device push
   its surviving copy straight back, and the client returns from the dead with no error anywhere.
 
-**NOT PROVEN — AND THIS ONE IS A REAL, KNOWN, OPEN GAP**
+**ALSO PROVEN — AND THE REMOTE HALF OF A DELETION NOW REACHES HIM**
 
-> **Deletion is not absolute, and this document will not say that it is.**
+- A pass reads this device's own area back and reports, per removal, exactly which record identities
+  it **still found** there. That detail no longer stops at the report: it travels to the
+  pending-removals screen as a field on the reading that screen already had, and the screen says
+  plainly that their records are still in his backup. That is the **strong** claim, and it is made
+  only for a removal the report NAMES.
+- **An empty `still_present` is never turned into reassurance.** The engine runs the verify step only
+  when deletions were carried AND a compaction ran, so on most passes an empty list means nothing
+  was looked at. There is deliberately no sentence anywhere for the empty case, asserted with a
+  non-vacuity probe.
+- **A pass whose only effect was a deletion records a non-zero `affected_count`**, on both sides of
+  the device boundary — the device that carried the removal outward and the device that received it.
+  Proved with both record figures at zero, so the count can only have come from the removal.
+
+**DELETION IS STILL NOT ABSOLUTE, AND THIS DOCUMENT WILL NOT SAY THAT IT IS**
 
 A durable outbox is a **second full copy** of everything it carries. The purge sweeps the queue in
 the same transaction as the record stores, and for our own documents it genuinely removes the
@@ -182,17 +202,34 @@ of our documents, so it cannot be cleaned record by record — which references 
 client and a staying one** is **left entirely alone**. Cleaning it would destroy the staying
 client's data, and the code cannot see inside it.
 
-**That conservative choice is correct and is not being asked to change.** The gap is what happens
-next: the purge reports the entry in its manifest as `unresolved` with reason
-`opaque_payload_shared_with_another_client`, and **nothing anywhere consumes that report**. The
-accountability surface does not carry it. So a departed client's data can persist in that entry
-with the coach never told.
+**That conservative choice is correct and is not being asked to change.** What HAS changed is that
+the coach is now told. The purge reports the entry in its manifest as `unresolved` with reason
+`opaque_payload_shared_with_another_client`, the purge **persists that on the deletion record**, and
+`pendingDeletions` was already handing it to a reader — so closing this needed no wire at all, only
+somebody reading what was already there. It is worded from the declared CODE (never from any message
+text) and drawn on the pending-removals screen, inside the removal it belongs to, saying in plain
+words that **this one will not clear on its own** — because everything else on that screen does.
 
-This is the same shape as the defect the queue sweep was written to close: **a correct routine whose
-output has no caller.** It is asserted in the test suite rather than merely described here — the
-test proves the entry survives, proves it is reported, and proves the surface does not mention it.
-That last assertion fails the day somebody wires the manifest to the surface, which is exactly when
-it should be rewritten.
+**WHICH SURFACE SAYS IT, AND WHICH DELIBERATELY DOES NOT.** The removals screen says it. The
+**accountability surface does not**, and `needs_attention` stays at nought. That is a decision, not
+an omission left over from before: `sync-indicator.ts` floors the indicator at **overdue** the moment
+a needs-attention entry exists, and this entry is by design uncleanable. Counting it would pin the
+coach's indicator at overdue **for ever**, on a condition he can never clear — and a permanent alarm
+on the one indicator he is meant to trust is what teaches him to ignore all of them. Surfacing it
+where it can be **stated** rather than **escalated** is the whole point of putting it on the screen
+instead.
+
+**WHAT IS STILL OPEN, STATED AS A GAP RATHER THAN A LIMITATION**
+
+The screen shows the unresolved entry **only while its deletion manifest is pending**. Once the
+removal is confirmed propagated the manifest leaves `pendingDeletions`, and the opaque queued entry —
+which is untouched by any of that and survives indefinitely — stops being mentioned anywhere. Closing
+that needs a surface for a standing, uncleanable fact; it must NOT be closed by adding a
+needs-attention entry, for the reason above.
+
+The assertions in the test suite are unchanged and now mean something different: they no longer wait
+to be inverted, they hold the line that the LADDER carries no permanent condition while the screen
+that can say it without escalating does say it.
 
 Also not proven: that any *already generated and delivered* export is reachable at all. Once a file
 has left for a client's device, nothing in this application can unsend it.
@@ -282,9 +319,10 @@ decisions rather than restating or characterising them.
   person, and on a shared device the log cannot say which person acted. **The application does now
   have an append-only, integrity-protected event log** (`core/journal`, per d105, which overturned
   the earlier decision not to build one). It covers authentication, record changes, exports,
-  synchronisation, and key and recovery activity as a closed vocabulary; three of those five domains
-  have call sites today and the other two are defined and deliberately unwritten until the steps that
-  own them are built. Its notes are at `core/journal/JOURNAL.md`, including — with equal weight — the
+  synchronisation, and key and recovery activity as a closed vocabulary; four of those five domains
+  have call sites today — authentication acquired its account half from the shell when the Google
+  step landed — while exports and the local-unlock half of authentication stay defined and
+  deliberately unwritten until the steps that own them are built. Its notes are at `core/journal/JOURNAL.md`, including — with equal weight — the
   section on what it does **not** establish. Two things from the paragraph this replaces survive
   unchanged and are not softened by the log existing: **the accountability surface is a different
   thing from a log** — it reports what synced, what is pending and what failed, which is the present
@@ -297,12 +335,24 @@ decisions rather than restating or characterising them.
   of domains is not conforming to that standard. The architecture minimises hard — no clinical text
   stored at all, only a pointer; no client email, phone, address, date of birth or photo ever
   collected — and that posture is defensible without needing a claim attached to it.
-- **Sign-out is settled, and this file is not where it is settled.** It is **d110**: signing out
-  drops the Google connection only and keeps local data, and erasing the device is a separate,
-  separately confirmed action that will not run until everything pending has synced. That is the
-  whole of what belongs here — read d110 for the shape and the Google integration step owns building
-  it. What is **not built** is the implementation, which is the honest version of what the entry
-  replaced here once said.
+- **Sign-out is settled AND BUILT, and this file is not where either happened.** It is **d110**:
+  signing out drops the Google connection only and keeps local data, and erasing the device is a
+  separate, separately confirmed action. The Google integration step has now built both, in the
+  shell — nothing under `core/` knows a provider exists, which is why none of it is here. Two things
+  belong in this document because they are facts about the core rather than about the shell. First,
+  the **event log now has authentication call sites**: `auth.account_connected` and
+  `auth.account_disconnected` are written from `src/platform/google-account.ts`, and
+  `journal/unwritten-kinds.test.js` reads both layers so that a kind written from the shell cannot
+  go on being claimed as unwritten. Second, the erase deletes the whole local database, so the
+  **device key slot goes with it** — `src/platform/erasure-completeness.test.ts` asserts that
+  nothing else holds device key material and goes red the day something does.
+
+  One refinement of d110's own wording, made where the code had to answer it: erasing refuses while
+  anything can still be sent, but a change Google has **permanently refused** never resolves by
+  itself, and neither does a queue on an account the coach has lost. So the refusal carries an exit
+  — the work is named, what will be lost is stated, and he may proceed on a separate explicit
+  acknowledgement. There is no state he can be stuck in for ever, which was the point of the rule
+  rather than a relaxation of it.
 - **Android is unknown.** The platform proof that gates this build was cleared on **iOS only** —
   install, share delivery, image, comma-separated and spreadsheet export. Android behaviour is
   untested for all of it. No claim in this document is an Android claim.

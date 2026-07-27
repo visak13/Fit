@@ -23,10 +23,23 @@
  * the scan pass or fail — finds no control and no handler, proven in the same run against the
  * divergence picker, which has both.
  *
+ * ## Six conditions, one screen, and what varies between them is DATA
+ *
+ * The family in `key-material-condition.ts` words six conditions and this file draws all six. Four of
+ * them carry no candidates, so they have no figure, no list of things to compare and nothing anyone
+ * could be tempted to delete; two of them have a real step the coach can take alone. Every one of
+ * those differences arrives here as a NULL or an empty list on the report, and the only thing this
+ * file does about it is not draw what is not there. There is no branch on a condition's code in this
+ * file and there must not be one: a second differently-worded surface for the same subject is exactly
+ * what the family shape exists to prevent, and the moment a `code` is read here that prevention is
+ * gone.
+ *
  * ## Where the dense-screen rule lands here
  *
  * ONE FIGURE THE SCREEN IS FOR: how many were found where one was expected. On every visit but the
  * one that matters it is 1, and that is a good state worded as one rather than as an empty screen.
+ * A condition with no candidates has NO figure — null, not zero — and the figure is simply absent
+ * rather than drawn as a nought, which would read as a defect report about the wrong thing.
  *
  * THE SECONDARY FOLDS AND IS COUNTED: the candidates' own detail — identifiers, dates, sizes — is the
  * forensic half, and it is what the person helping him will read out. It sits behind a
@@ -87,8 +100,14 @@ function Condition({ report }: { report: ConditionReport }) {
         <h2 id="screen-key-material" className="title-screen">
           {report.title}
         </h2>
-        <p className="value-display">{report.count}</p>
-        <p className="screen-intro read">{report.countMeans}</p>
+        {/* The figure and its sentence travel together, and both are absent for a condition that
+            found nothing. A nought here would be a number nobody asked for. */}
+        {report.count !== null && (
+          <>
+            <p className="value-display">{report.count}</p>
+            <p className="screen-intro read">{report.countMeans}</p>
+          </>
+        )}
       </section>
 
       <section className="card card-tight" aria-labelledby="key-material-what">
@@ -131,23 +150,53 @@ function Condition({ report }: { report: ConditionReport }) {
         </div>
 
         <div className="card-body stack">
-          {/* The human exit, and it is the first thing under the heading rather than the last thing
-              on the screen. Read-only means the application will not resolve this; if the person who
-              set it up for him is not named here, he has been stopped with nowhere to go. */}
-          <p className="read">{report.whoToAsk}</p>
+          {/* HIS OWN STEPS COME FIRST where he has any, because a person who can fix this himself
+              in a minute should not read a paragraph about who to telephone before he reads how.
+              Where he has none the order is unchanged from the duplicates this screen was built
+              for: the named person is the first thing under the heading rather than the last thing
+              on the screen. Read-only means the application will not resolve those; if the person
+              who set it up for him is not named there, he has been stopped with nowhere to go. */}
+          {report.whatHeCanDo.length > 0 && (
+            <ol className="steps">
+              {report.whatHeCanDo.map((step) => (
+                <li key={step} className="read">
+                  {step}
+                </li>
+              ))}
+            </ol>
+          )}
 
-          <p className="note note-danger read">
-            <Glyph name="delete" size="inline" decorative />
-            <span>{report.doNotDelete}</span>
-          </p>
+          {/* Said OUT LOUD rather than left as an empty space. A screen that shows a problem and
+              offers nothing reads as one that is quietly working on it, and nothing behind this
+              screen is. */}
+          {report.noExitOfHisOwn !== null && (
+            <p className="note read">
+              <Glyph name="note" size="inline" decorative />
+              <span>{report.noExitOfHisOwn}</span>
+            </p>
+          )}
 
-          <p className="note note-warning read">
-            <Glyph name="note" size="inline" decorative />
-            <span>{report.doNotContinue}</span>
-          </p>
+          {report.whoToAsk !== null && <p className="read">{report.whoToAsk}</p>}
+
+          {report.doNotDelete !== null && (
+            <p className="note note-danger read">
+              <Glyph name="delete" size="inline" decorative />
+              <span>{report.doNotDelete}</span>
+            </p>
+          )}
+
+          {report.doNotContinue !== null && (
+            <p className="note note-warning read">
+              <Glyph name="note" size="inline" decorative />
+              <span>{report.doNotContinue}</span>
+            </p>
+          )}
         </div>
       </section>
 
+      {/* Drawn only where the core carried candidates out of the failure. An empty "what was found"
+          with a nought on its chip is a card that says a thing was looked for and missing. */}
+      {report.candidates.length > 0 && (
       <section className="card card-tight" aria-labelledby="key-material-candidates">
         <div className="card-header">
           <h3 id="key-material-candidates" className="title-section">
@@ -162,14 +211,25 @@ function Condition({ report }: { report: ConditionReport }) {
             <Candidate key={candidate.heading} candidate={candidate} />
           ))}
         </div>
+      </section>
+      )}
 
-        {/* The app's own wording, folded and carried through unchanged for whoever is helping him.
-            It is not what he reads first: for the recovery key the core words both conditions the
-            same way and names the wrong object — measured, and stated in `key-material-condition.ts`
-            rather than papered over here. */}
+      {/* The app's own wording, folded and carried through unchanged for whoever is helping him.
+          ALWAYS PRESENT, on every one of the six conditions, because it is the only thing on this
+          screen the core itself wrote and it is what the person helping him will want to see; it
+          used to sit inside the candidates card, which would have taken it away from the four
+          conditions that have no candidates. It is not what he reads first: for the recovery key
+          the core words both conditions the same way and names the wrong object — measured, and
+          stated in `key-material-condition.ts` rather than papered over here. */}
+      <section className="card card-tight" aria-labelledby="key-material-as-reported">
+        <div className="card-header">
+          <h3 id="key-material-as-reported" className="title-section">
+            What the app itself reported
+          </h3>
+        </div>
         <details className="disclose">
           <summary>
-            What the app itself reported
+            In the app&apos;s own words
             <span className="count">1</span>
           </summary>
           <div className="card-body">

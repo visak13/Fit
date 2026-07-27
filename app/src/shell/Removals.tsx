@@ -16,19 +16,30 @@
  * - What the screen may do with the reading is decided by what the reading contains, and it contains
  *   facts only.
  *
- * ## WHAT IS DELIBERATELY ABSENT, AND WHOSE IT IS
+ * ## THE REMOTE HALF LANDED HERE, EXACTLY WHERE THIS FILE SAID IT WOULD
  *
- * There is NO `still_present` on this reading, and that is a scope boundary rather than an omission.
- * `core/sync/deletions.js` computes exactly which record identities are still sitting in the remote
- * copy, and carries them out as `SyncReport.deletions.still_present` — the remote half. Reaching a
- * screen with it needs the report-to-surface wire that **S16** is building, and there is no second wire
- * to be invented here.
+ * This section used to say `still_present` was deliberately absent and belonged to S16. S16 is done and
+ * it went where this file specified: **a field on this reading and a section in `removals.ts`**, not a
+ * second screen and not a second wire. `remote` is a {@link RemoteConfirmation} carrying
+ * `SyncReport.deletions.still_present` field for field — record identities only, no name, no note, and
+ * nothing the provider authored.
  *
- * So this reading carries the LOCAL half only: the pending manifest, read straight from this device's
- * own store, which says truthfully that a removal has not been CONFIRMED gone. That statement is honest
- * on day one and needs nothing from Google. When S16 lands, it adds the remote detail to this same
- * surface — a field here and a section in `removals.ts` — and does not build a second screen for the
- * other half of one question.
+ * So the reading now carries BOTH halves of one question. The local half — the pending manifest, read
+ * straight from this device's own store — says truthfully that a removal has not been CONFIRMED gone,
+ * and is honest on day one with nothing from Google. The remote half can only ever STRENGTHEN what is
+ * said about a removal the report NAMES: `core/sync/engine.js` skips the verify step entirely on most
+ * passes, so an empty `still_present` means "nothing was checked" at least as often as it means
+ * "nothing was found", and `removals.ts` is forbidden from turning either into good news.
+ *
+ * ## WHAT FILLS `remote`, AND THE ONE LINE THAT IS NOT HERE YET
+ *
+ * `remoteConfirmationFrom(report)` in `removals-source.ts` is the derivation, and it takes a LIVE
+ * `SyncReport`. Nothing in this build runs `syncNow` yet — the synchronisation runner is the
+ * sync-to-accountability join — so `main.tsx` supplies {@link NO_PASS_HAS_REPORTED}, which is not a
+ * placeholder but the true state of a build in this condition: no pass has reported, therefore nothing
+ * is confirmed present. **The join must pass each pass's report through that derivation into
+ * `RemovalsFromStore`'s `remote` prop.** That handoff is recorded on the plan rather than left to this
+ * comment; see `RemovalsFromStore.tsx`.
  *
  * There is also no retry and no "give up on this one". `markDeletionFailed` in `core/store/purge.js`
  * exists, is correct, and has NO PRODUCTION CALLER — which is a real gap and is reported as one, not
@@ -49,23 +60,37 @@
 import { createContext, useContext } from 'react';
 import type { ReactNode } from 'react';
 
-import type { RemovalsPage } from '../screens/removals';
+import { NO_PASS_HAS_REPORTED } from '../screens/removals';
+import type { RemoteConfirmation, RemovalsPage } from '../screens/removals';
 
-export type { DeletionManifest, RemovalsPage } from '../screens/removals';
+export type {
+  DeletionManifest, RemoteConfirmation, RemovalsPage, StillPresentEntry,
+} from '../screens/removals';
+export { NO_PASS_HAS_REPORTED } from '../screens/removals';
 
 export interface RemovalsReading {
   /**
    * The removals not yet confirmed gone from the backup, as the core paged them.
    *
-   * There is no second field. See the note above: the absence is the scope boundary.
+   * The LOCAL half, read from this device's own store. Honest with nothing from Google.
    */
   readonly pending: RemovalsPage;
+  /**
+   * The REMOTE half: what the last synchronisation pass READ BACK and still found.
+   *
+   * `NO_PASS_HAS_REPORTED` until a pass has reported one. It carries `reported` as well as the list
+   * precisely so that "no pass has run" can never be mistaken for "a pass found nothing".
+   */
+  readonly remote: RemoteConfirmation;
 }
 
 /**
  * What is true in this build: no local store is wired, so no client has ever been removed on this
  * device, so nothing can be waiting to be confirmed. It is not a placeholder standing in for a real
  * value — it is exactly what `pendingDeletions` returns over a store in that condition.
+ *
+ * Its `remote` is `NO_PASS_HAS_REPORTED` for the same kind of reason and not as a default: nothing
+ * has run a synchronisation pass, so nothing has been read back, so nothing is confirmed present.
  */
 export const NOTHING_AWAITING_REMOVAL: RemovalsReading = Object.freeze({
   pending: Object.freeze({
@@ -73,6 +98,7 @@ export const NOTHING_AWAITING_REMOVAL: RemovalsReading = Object.freeze({
     cursor: null,
     done: true,
   }),
+  remote: NO_PASS_HAS_REPORTED,
 });
 
 const RemovalsContext = createContext<RemovalsReading | null>(null);

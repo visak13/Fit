@@ -20,11 +20,13 @@
  * moved, and the question stops being asked. A resolution that left the clash in place would put the
  * same question to him on every pass until he stopped reading the surface.
  *
- * **Four. The interface writes the log itself.** `core/journal/unwritten-kinds.test.js` asserts a
- * partition over the whole vocabulary — every kind either wired with a named owning file or unwritten
- * with a stated reason — and its scan walks `core/` ALONE. A call site in `src/` would leave that
- * test green while the partition it asserts had quietly become false. So this file scans `src/`
- * itself, and proves the scan can find what it is looking for before believing it found nothing.
+ * **Four. The interface INVENTS a kind.** `core/journal/unwritten-kinds.test.js` asserts a partition
+ * over the whole vocabulary — every kind either wired with a named owning file or unwritten with a
+ * stated reason — and its scan now walks BOTH layers, so a call site in `src/` is checked where it
+ * lives rather than escaping. What is left for this file is not *whether the shell may write to the
+ * log* but *whether the shell may SAY WHAT A KIND IS*: the vocabulary keeps exactly one minter and
+ * gains as many referencers as it needs. See the last section of this file for the rule and its
+ * per-rule known positives.
  *
  *     npm run test:shell
  */
@@ -607,7 +609,107 @@ describe('divergence-picker — the answer reaches the core seam, and the questi
   });
 });
 
-describe('divergence-picker — the interface writes no journal entry, and the scan can prove it', () => {
+/**
+ * ONE MINTER, MANY REFERENCERS — the rule this section enforces, and why it replaced a list.
+ *
+ * ## What was here before, and why it could not stay
+ *
+ * A blanket "nothing under `src` names a journal kind", whose STATED reason was that
+ * `core/journal/unwritten-kinds.test.js` scanned `core/` alone — so a shell call site would have
+ * left that suite green while its partition quietly became false. That scan now walks both layers,
+ * which retired the premise, and the ban was rewritten as a PARTITION with one named exemption:
+ * `platform/google-account.ts`, because the core is provider-neutral and cannot know Google exists.
+ *
+ * That exemption was correct and it was still the wrong shape. The account connection is not the
+ * last honest thing the shell will record — the calendar path and synchronisation are being written
+ * from here for the same provider-neutrality reason — and under a partition EACH needs a NEW ENTRY,
+ * written by the very worker whose code the guard just stopped. An invariant that acquires an
+ * exception per honest caller has stopped being an invariant and become a list of names.
+ *
+ * ## So the rule is about MINTING, not about writing
+ *
+ * The vocabulary keeps exactly one minter — `core/journal/kinds.js` — and gains as many referencers
+ * as the application needs.
+ *
+ *  - **FORBIDDEN: originating a kind in the shell.** A bare string literal that spells a kind, or a
+ *    locally declared kinds map, or reaching around property access into the imported constant. All
+ *    of them put the VALUE, or a second name for it, in the shell, where it drifts from the core's
+ *    silently.
+ *  - **PERMITTED: importing the core's constant and using it**, property access included. That
+ *    duplicates nothing, and a rename in `kinds.js` then breaks it LOUDLY at the call site instead
+ *    of leaving two vocabularies that disagree.
+ *
+ * ## THE GUARD READS THE VOCABULARY FROM THE CORE, and that is not a convenience
+ *
+ * A guard that re-listed the kinds in order to forbid re-listing them would be the second minter it
+ * exists to prevent, sitting inside the check written to forbid it — and it would pass, because a
+ * guard does not scan itself. So {@link KIND_VALUES} and {@link KIND_NAMES} below are derived from
+ * the imported `JOURNAL_KINDS` at scan time. A kind added to the core is covered by this guard the
+ * moment it is added, with nothing to remember.
+ *
+ * ## WHAT THIS RULE CATCHES AND WHAT IT DOES NOT — stated, not left to be discovered
+ *
+ * It is a TEXTUAL scan, as both guards in this application already are. What follows is therefore a
+ * claim about what a text scan can see, which is smaller than a claim about what the code can do.
+ *
+ * CAUGHT: a bare `'auth.account_connected'` in single or double quotes (rule A); an object entry
+ * binding one of the core's own kind NAMES to a string of the shell's own, whether that string
+ * matches the core's or has already drifted from it (rule B — the drifted case is exactly what rule
+ * A cannot see, because a drifted value is by definition not in the vocabulary); and every way of
+ * reaching the imported constant OTHER than dotted property access (rule C): bracket access with a
+ * locally built or computed key, a spread, binding the whole vocabulary to a name of its own,
+ * renaming it on import or export, re-exporting it — the alias a later reader would treat as
+ * authoritative — and re-typing it with a type assertion.
+ *
+ * That last arm was added because a probe found the hole: `(JOURNAL_KINDS as Record<string,
+ * string>)[builtKey]` puts the vocabulary behind parentheses where the bracket arm cannot see it,
+ * and the cast is exactly what a shell file must write to make a built key type-check. The arm is
+ * broad — it refuses ANY assertion on the constant — and that is deliberate rather than sloppy:
+ * the core's constant is already frozen and already has literal types, so there is nothing an
+ * honest shell file needs to re-type it for.
+ *
+ * NOT CAUGHT, each deliberately:
+ *
+ *  - **A kind spelled in a TEMPLATE LITERAL.** Backticks are not matched, because this codebase's
+ *    documentation writes kind values in backtick code spans — `auth.account_connected` in the
+ *    header of `src/platform/google-account.ts` is one — so a backtick-matching rule would fail an
+ *    honest production file on its own prose. Comment-stripping would fix that, and a wrong
+ *    comment-stripper silently weakens the whole scan, which is a worse failure than this gap.
+ *  - **A kind assembled by CONCATENATION**, `'auth.' + 'account_connected'`. Neither fragment is a
+ *    kind, so no textual rule sees it. Note the narrower half of this shape is not a gap at all:
+ *    concatenating onto an imported fragment, `JOURNAL_KINDS.SYNC_STARTED + '.retry'`, produces a
+ *    value the vocabulary does not contain, and `assertKind` throws on it at the first call — loud,
+ *    not silent, which is the failure mode this rule cares about.
+ *  - **A map with drifted values AND renamed keys**, `{ connected: 'auth.acount_connected' }`. Rule
+ *    B keys on the core's own names, so this escapes it. It is also no longer a shadow of the
+ *    vocabulary: it is an object of wrong strings, and `assertKind` refuses each one.
+ *  - **`export const X = JOURNAL_KINDS.ACCOUNT_CONNECTED`** — a single kind re-exported under a new
+ *    name. Rule C permits it, and that is a judgement rather than an oversight: it originates no
+ *    value, stays coupled to the core, and breaks loudly on a rename. What rule C forbids is
+ *    aliasing the VOCABULARY, which is the thing a later reader mistakes for authoritative.
+ *
+ * ## AND WHAT THE OLD BLANKET BAN COULD CATCH THAT THIS CANNOT
+ *
+ * One thing, honestly: the old detector fired on ANY import line reaching the journal, so it caught
+ * a shell file that had begun to depend on the log at all — before it had written anything. This
+ * rule does not, and cannot, because that dependency is now the PERMITTED case. That is a narrowing
+ * and it is named as one. Everything else the old ban caught was a `JOURNAL_KINDS.` property access,
+ * which this rule deliberately permits. Beyond that the two are differently shaped rather than one
+ * being weaker: rule B sees a drifted kinds map and rule C sees a bracket-access or an alias, and
+ * the old blanket ban saw neither — it never had to look, because it forbade the import above them.
+ *
+ * Tests are excluded from the scan by SHAPE — a `.test.ts` names kinds in order to assert about
+ * them, and this file is one — rather than by a list of file names, because a list of file names is
+ * what this whole section exists to remove.
+ */
+describe('divergence-picker — the interface may REFERENCE a journal kind and may not MINT one', () => {
+  /**
+   * The vocabulary, READ FROM THE CORE at scan time. Never re-listed here — see the header: a guard
+   * that copied the vocabulary in order to forbid copying it would be the defect wearing the cure.
+   */
+  const KIND_VALUES: ReadonlySet<string> = new Set(Object.values(JOURNAL_KINDS));
+  const KIND_NAMES: readonly string[] = Object.keys(JOURNAL_KINDS);
+
   /** Every shipped interface source file. Tests excluded: they name the kind to assert about it. */
   function interfaceSources(): string[] {
     const found: string[] = [];
@@ -620,61 +722,146 @@ describe('divergence-picker — the interface writes no journal entry, and the s
     return found;
   }
 
-  /**
-   * Whether a source file could write to the log: it reaches for the vocabulary, or it imports the
-   * journal at all.
-   *
-   * Deliberately NOT a plain search for the kind's name. Half the files here EXPLAIN in prose why
-   * the call site belongs in the core, naming `core/journal/unwritten-kinds.test.js` while doing so
-   * — and a scan that cannot tell an explanation from a call site is one that has to be defeated by
-   * deleting the explanation, which is the wrong thing to lose. So it looks for CODE: a property
-   * access on the vocabulary, or an import line reaching the journal.
-   */
-  function namesAJournalKind(text: string): boolean {
-    if (text.includes('JOURNAL_KINDS.')) return true;
-    for (const line of text.split('\n')) {
-      const trimmed = line.trim();
-      if (!trimmed.startsWith('import ')) continue;
-      if (trimmed.includes('journal')) return true;
+  /** Single- and double-quoted string literals. Backticks deliberately excluded — see the header. */
+  const QUOTED = /'([^'\\\n]*)'|"([^"\\\n]*)"/g;
+
+  /** RULE A — the value itself, spelled in the shell. */
+  function mintsAKindValue(text: string): string | null {
+    for (const match of text.matchAll(QUOTED)) {
+      const literal = match[1] ?? match[2] ?? '';
+      if (KIND_VALUES.has(literal)) {
+        return `spells the kind '${literal}' as a bare string literal instead of naming it`;
+      }
     }
-    return false;
+    return null;
   }
 
-  it('names no journal kind anywhere under src, and this scan really walked src', () => {
+  /**
+   * RULE B — a second vocabulary, keyed by the core's own names.
+   *
+   * Built from `KIND_NAMES` rather than from a pattern, so the entry it catches is one that claims
+   * to BE a kind of the core's rather than merely to look like one. This is what sees the map whose
+   * value has ALREADY drifted, which rule A cannot: a drifted value is not in the vocabulary.
+   */
+  const KINDS_MAP_ENTRY = new RegExp(String.raw`(?:^|[{,])\s*(${KIND_NAMES.join('|')})\s*:\s*['"]`, 'm');
+
+  function declaresAKindsMap(text: string): string | null {
+    const found = KINDS_MAP_ENTRY.exec(text);
+    return found === null ? null
+      : `declares its own kinds map, binding ${found[1]} to a string of its own. A second `
+        + 'vocabulary agrees with the first exactly until it does not, and nothing says when';
+  }
+
+  /**
+   * RULE C — every way of reaching the imported constant other than dotted property access.
+   *
+   * Property access is the permitted shape precisely because a rename in the core breaks it at the
+   * call site. Each of these loses that: a bracket key is a string the shell built, and an alias or
+   * a re-export is a second name for the vocabulary that the next reader treats as authoritative.
+   */
+  const REACHES_AROUND_PROPERTY_ACCESS: readonly (readonly [RegExp, string])[] = Object.freeze([
+    Object.freeze([/\bJOURNAL_KINDS\s*\[/,
+      'reaches the vocabulary by BRACKET ACCESS, whose key the shell builds — a rename in the core '
+      + 'then yields `undefined` silently rather than failing here'] as const),
+    Object.freeze([/\.\.\.\s*JOURNAL_KINDS\b/,
+      'SPREADS the vocabulary into an object of its own, which is a copy taken at import time'] as const),
+    Object.freeze([/=\s*JOURNAL_KINDS\b(?!\s*\.)/,
+      'binds the WHOLE vocabulary to a name of its own'] as const),
+    Object.freeze([/[{,]\s*\bJOURNAL_KINDS\s+as\s+\w/,
+      'RENAMES the vocabulary in an import or export clause, creating a second name for it'] as const),
+    Object.freeze([/export\s*\{[^}]*\bJOURNAL_KINDS\b[^}]*\}/,
+      'RE-EXPORTS the vocabulary, so the shell becomes a place it can be imported FROM'] as const),
+    // Last, and broad on purpose. A cast is how bracket access is smuggled past the type checker —
+    // `(JOURNAL_KINDS as Record<string, string>)[builtKey]` puts the vocabulary behind parentheses
+    // where the bracket rule above cannot see it. There is no legitimate reason for the shell to
+    // re-type the core's frozen constant, so any assertion on it is refused rather than parsed.
+    Object.freeze([/\bJOURNAL_KINDS\s+as\s/,
+      'RE-TYPES the vocabulary with a type assertion, which is the shape that smuggles a built key '
+      + 'past the type checker'] as const),
+  ]);
+
+  function aliasesTheVocabulary(text: string): string | null {
+    for (const [pattern, why] of REACHES_AROUND_PROPERTY_ACCESS) {
+      if (pattern.test(text)) return why;
+    }
+    return null;
+  }
+
+  /** The three rules together. Null means the file may name kinds all it likes — it originates none. */
+  function originatesAKind(text: string): string | null {
+    return mintsAKindValue(text) ?? declaresAKindsMap(text) ?? aliasesTheVocabulary(text);
+  }
+
+  function offendersUnderSrc(): string[] {
+    return interfaceSources()
+      .map((file) => ({ file, why: originatesAKind(readFileSync(file, 'utf8')) }))
+      .filter((found): found is { file: string; why: string } => found.why !== null)
+      .map(({ file, why }) => `${path.relative(SRC, file).split('\\').join('/')} — ${why}`);
+  }
+
+  it('lets no interface file ORIGINATE a kind, and this scan really walked src', () => {
     const sources = interfaceSources();
     assert.ok(sources.length > 20, 'the scan walked an empty list and would report clean regardless');
 
-    const writers = sources
-      .filter((file) => namesAJournalKind(readFileSync(file, 'utf8')))
-      .map((file) => path.relative(SRC, file).split('\\').join('/'));
-
     assert.deepEqual(
-      writers,
+      offendersUnderSrc(),
       [],
-      'the interface names a journal kind. `core/journal/unwritten-kinds.test.js` scans core/ ALONE, '
-        + 'so a call site here leaves that suite GREEN while the partition it asserts — every kind '
-        + 'either wired to a named owning file or unwritten with a stated reason — has quietly '
-        + 'become false. The core applies and records; this screen only collects the choice.',
+      'an interface file says what a kind IS. There is one minter — core/journal/kinds.js — and any '
+        + 'number of referencers: import JOURNAL_KINDS and name the kind through it. Do NOT add this '
+        + 'file to an exception list; there is deliberately no list to add it to, because a rule that '
+        + 'acquires an exception per honest caller is a list of names wearing a rule\'s clothes.',
     );
   });
 
-  it('proves the scan CAN find what it is looking for before its silence is believed', () => {
-    // THE SWEEP RUN AGAINST A KNOWN POSITIVE. Its entire output is an absence: there is no count to
-    // inspect and no artefact to weigh, and a sweep that is broken, misdirected or looking for the
-    // wrong shape reports exactly what a clean tree reports. So the SAME function is pointed at the
-    // one file in the application that genuinely does write the kind, and must say so.
-    const owner = path.join(path.dirname(SRC), 'core', 'sync', 'resolution.js');
-    assert.equal(
-      namesAJournalKind(readFileSync(owner, 'utf8')),
-      true,
-      'the detector cannot see the ONE call site everybody agrees exists, so its silence about src '
-        + 'is evidence of nothing whatsoever',
-    );
+  it('PERMITS the shell file that imports the constant and uses it — proven on the real one', () => {
+    // The permit side, in the same run as the forbid side. A rule that is green because nothing
+    // exercises it is not a rule; this points at the file that genuinely does reference the
+    // vocabulary from the shell, and requires it to reference it AND to pass.
+    const referencer = path.join(SRC, 'platform', 'google-account.ts');
+    const text = readFileSync(referencer, 'utf8');
 
-    // And that it is not simply saying yes to everything it is handed.
-    assert.equal(
-      namesAJournalKind(readFileSync(path.join(SRC, 'screens', 'divergence-picker.ts'), 'utf8')),
-      false,
+    assert.ok(
+      text.includes('JOURNAL_KINDS.'),
+      'the file chosen to prove the PERMIT side no longer references the vocabulary at all, so its '
+        + 'passing says nothing. Point this at whichever shell file does.',
     );
+    assert.equal(
+      originatesAKind(text),
+      null,
+      'the guard fails the one shell file that does exactly what the rule permits — imports the '
+        + 'core\'s constant and names a kind through it. The guard is wrong, not the file.',
+    );
+  });
+
+  it('proves EACH of the three rules can fire, against real files rather than a fixture', () => {
+    // A guard whose entire output is an absence reports the same thing when it is broken as when
+    // the tree is clean. One known positive PER RULE, because a scanner alive in one rule and blind
+    // in another is indistinguishable from an honest absence — and two of these rules exist
+    // precisely to see what the third cannot.
+    const CORE = path.dirname(SRC);
+    const minter = readFileSync(path.join(CORE, 'core', 'journal', 'kinds.js'), 'utf8');
+    const barrel = readFileSync(path.join(CORE, 'core', 'journal', 'journal.js'), 'utf8');
+
+    assert.ok(KIND_VALUES.size > 10 && KIND_NAMES.length === KIND_VALUES.size,
+      'the vocabulary was read from the core as an empty or degenerate set, which would make rules '
+      + 'A and B pass for free over the whole of src');
+
+    // Rule A. The one file in the application that is SUPPOSED to spell every kind out.
+    assert.ok(mintsAKindValue(minter) !== null,
+      'rule A cannot see a bare kind string in the file that is nothing but bare kind strings');
+    // Rule B. `JOURNAL_KINDS` in that same file IS a kinds map — the legitimate one.
+    assert.ok(declaresAKindsMap(minter) !== null,
+      'rule B cannot see a map binding the core\'s own kind names to kind strings, in the file that '
+      + 'defines exactly that. It would then be blind to the drifted map, which is the only shape '
+      + 'rule A can never catch.');
+    // Rule C. The journal barrel re-exports the vocabulary — the alias shape, in real code.
+    assert.ok(aliasesTheVocabulary(barrel) !== null,
+      'rule C cannot see a re-export of the vocabulary in the barrel that re-exports it');
+
+    // And that none of the three simply says yes to whatever it is handed.
+    const innocent = readFileSync(path.join(SRC, 'screens', 'divergence-picker.ts'), 'utf8');
+    assert.equal(originatesAKind(innocent), null,
+      'a file that mentions no kind at all is reported as originating one, so a clean result from '
+      + 'this guard would mean nothing either');
   });
 });

@@ -126,7 +126,7 @@ describe('integration — a deleted client leaves, and the people they trained w
     assert.deepEqual(stillOnPhone.content.client_ids, [staying.record_id]);
   });
 
-  it('THE RESIDUAL CASE, PROVEN RATHER THAN ASSUMED: an opaque shared payload is left alone, reported, and surfaced NOWHERE', async () => {
+  it('THE RESIDUAL CASE: an opaque shared payload is left alone, reported, and NOT on the accountability surface — which is now a decision, not a gap', async () => {
     const world = aPractice();
     after(() => world.close());
     const laptop = await world.signedInDevice('coach-laptop');
@@ -163,22 +163,37 @@ describe('integration — a deleted client leaves, and the people they trained w
     assert.equal(unresolved.length, 1, 'it IS reported');
     assert.equal(unresolved[0].why, UNRESOLVED.OPAQUE_SHARED);
 
-    // ── AND HERE IS THE GAP, asserted rather than described ─────────────────────────────────
-    // The report has no consumer. The accountability surface — the one place the coach is told
-    // what did not happen — does not carry it, so a departed client's data can persist in that
-    // entry with him never told. Same shape as the defect this purge was written to close: a
-    // correct routine whose output has no caller.
+    // ── THE REPORT NOW HAS A CONSUMER, AND IT IS NOT THIS SURFACE ───────────────────────────
+    //
+    // This block used to say the report had no consumer anywhere, and that "the surface does not
+    // mention it" was a GAP that should be inverted the day somebody wired it. Somebody has. The
+    // manifest's `outbox.unresolved` — which the purge PERSISTS on the deletion record, so it was
+    // already reaching a reader — is now worded and drawn on the pending-removals screen, from the
+    // declared code and never from message text. See `src/screens/removals.ts`.
+    //
+    // WHAT DID NOT CHANGE, AND IT IS NOW A DELIBERATE POSITION RATHER THAN AN OVERSIGHT: the
+    // ACCOUNTABILITY surface still says nothing, and `needs_attention` is still nought. That is
+    // correct and was ruled on rather than skipped. `sync-indicator.ts` floors the indicator at
+    // OVERDUE the moment a needs-attention entry exists, and this entry is BY DESIGN uncleanable —
+    // cleaning it would destroy the staying client's data, which this test proves and which
+    // INTEGRATION.md says is not being asked to change. Counting it would therefore pin his
+    // indicator at overdue for ever, on a condition he can never clear, and a permanent alarm on the
+    // one indicator he is meant to trust teaches him to ignore all of them.
+    //
+    // So these assertions stay, and what they mean has changed: they are no longer waiting to be
+    // inverted. They hold the line that the LADDER does not carry a permanent condition, while the
+    // screen that CAN say it without floors or escalation does say it.
     const status = await accountabilityStatus(laptop.store, { now: world.now() });
     const surfaced = JSON.stringify(status);
     assert.ok(!surfaced.includes(UNRESOLVED.OPAQUE_SHARED),
-      'the surface does not mention it');
+      'the ACCOUNTABILITY surface does not mention it, deliberately — the removals screen does');
     assert.ok(!surfaced.includes(entry.entry_id),
       'and does not name the entry either');
     assert.equal(status.needs_attention, 0,
-      'nothing on the surface needs attention, while a departed client\'s data sits in the queue. '
-      + 'THIS ASSERTION IS THE POINT OF THE TEST: it fails the day somebody wires the manifest to '
-      + 'the surface, which is exactly when it should be rewritten. Until then, deletion is not '
-      + 'absolute and INTEGRATION.md says so.');
+      'the accountability ladder counted a permanently uncleanable condition as needing attention. '
+      + 'That floors the indicator at overdue for ever and trains the coach to ignore it. If this '
+      + 'is ever to change, it needs a rung that can hold a standing fact WITHOUT escalating — not '
+      + 'a needs-attention entry. See INTEGRATION.md section 4.');
   });
 });
 

@@ -169,8 +169,11 @@ export function AdminScreen({ destination }: { destination: Destination }) {
             {keyMaterial.title}
           </h3>
           <span className="spacer" />
+          {/* `chip` rather than `count`: four of the six key-material conditions have no figure to
+              give, and an empty chip reads as a card that failed to load rather than as a card with
+              nothing to report. `key-material-condition.ts` decides what goes on it. */}
           <span className={keyMaterial.settled ? 'chip chip-success' : 'chip chip-danger'}>
-            {keyMaterial.count}
+            {keyMaterial.chip}
           </span>
         </div>
 

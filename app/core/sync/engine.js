@@ -86,6 +86,7 @@ import { SyncBoundaryError } from './errors.js';
 import { AREA_FILE_KINDS, areaFileName, areaPrefix, assertDeviceTag } from './partition.js';
 import { DOCUMENT_KINDS, encodeDocument } from './payload.js';
 import { PUBLISH, assembleSnapshot, locateSnapshot, publishSnapshot, readSnapshot } from './snapshot.js';
+import { completionWithheldBy } from './withheld.js';
 
 /**
  * Every opportunity the platform allows. Declared as data so the list is testable, and so that adding
@@ -422,6 +423,8 @@ async function attempt(step, run, failures) {
  * @property {{queued: boolean, records: number, purges: number}} pushed
  * @property {any} flush                      The outbox's own report from the final flush of this pass.
  * @property {{completed_sync_at: string}|null} completion The ONLY value that may say "backed up".
+ * @property {{code: string, skipped: number, newer_version: number}|null} completion_withheld
+ *                                            Why there is none, when there is none. See `withheld.js`.
  * @property {{step: string, code: string, message: string, retryable: boolean, needs_reauth: boolean}[]} failures
  *                                            Steps that could not reach the service. Loud and specific;
  *                                            `needs_reauth` is the one with a tap attached.
@@ -430,7 +433,15 @@ async function attempt(step, run, failures) {
  * @property {{notices_applied: string[], propagated: string[], still_present: any[], pending: number}} deletions
  * @property {{ran: boolean, records: number, replaced: number}} compaction
  * @property {any} snapshot
- * @property {{name: string, file_id: string, why: string}[]} unreadable
+ * @property {{name: string, file_id: string, why: string, written_by_newer_version: boolean}[]} unreadable
+ *                                            Files skipped because this engine could not DECODE them.
+ *                                            NOT a failure — and, since it withholds the completion,
+ *                                            not a clean pass either.
+ * @property {{name: string, file_id: string, why: string, written_by_newer_version: boolean}[]} unplaceable
+ *                                            Files skipped because this engine could not PLACE their
+ *                                            name. The same fact through the other door.
+ * @property {any[]} unrecognised             Files in the space this application did not write at
+ *                                            all — the coach's own. Reported, and NOT a fault.
  * @property {any} outbox                     The figures the accountability surface is built on.
  */
 
@@ -547,7 +558,14 @@ export async function syncNow(store, remote, options) {
   // with entries still queued, and the best-effort flush on `leave`, which is deliberately incapable
   // of completing. Calling that last one refused is not a slight on it — the pass genuinely stopped
   // without draining, which is the fact the log exists to hold.
-  const completion = failures.length === 0 ? syncCompletionMarker(flush) : null;
+  //
+  // The disqualifying conditions are asked for ONCE, in `withheld.js`, because `core/status`
+  // re-derives the same verdict rather than trusting this field — and two derivations that must
+  // agree are two derivations that will not.
+  const unreadable = union ? union.unreadable : [];
+  const unplaceable = union ? union.unplaceable : [];
+  const withheld = completionWithheldBy({ failures, unreadable, unplaceable });
+  const completion = withheld ? null : syncCompletionMarker(flush);
   await recordEvent(store, {
     kind: completion ? JOURNAL_KINDS.SYNC_COMPLETED : JOURNAL_KINDS.SYNC_REFUSED,
     // Records that actually moved in this pass. A count, and a count cannot carry a name, a note or
@@ -572,8 +590,14 @@ export async function syncNow(store, remote, options) {
     // Taken from the outbox and nowhere else. A pass that flushed best-effort, was interrupted, or
     // left anything undelivered has no completion, and this engine cannot manufacture one. A step
     // that could not reach the service withholds it as well: the queue may have drained before the
-    // pull failed, and "synchronised" would then mean "sent mine, never read yours".
+    // pull failed, and "synchronised" would then mean "sent mine, never read yours". A file this
+    // engine could not READ withholds it for the same reason and it is the same class of fact — a
+    // pass that skipped every file the other device wrote holds none of its work, and green is the
+    // one thing it must not show. See `withheld.js`.
     completion,
+    // WHY there is no completion, when there is none. Null when the pass earned one. The surface
+    // turns this into the coach's own words rather than deriving the condition a second time.
+    completion_withheld: withheld,
     failures,
     pulled: {
       applied: pulled.applied, kept: pulled.kept, same: pulled.same,
@@ -588,7 +612,13 @@ export async function syncNow(store, remote, options) {
     },
     compaction,
     snapshot,
-    unreadable: union ? union.unreadable : [],
+    unreadable,
+    // Files named for this application that this build cannot place. Detected in `partition.js`
+    // since the beginning and, until now, dropped here: `groupByArea` recorded them, the note beside
+    // it said they were worth surfacing, and the report did not carry them — so the surface could
+    // not say a word about work of his that never arrived.
+    unplaceable,
+    unrecognised: union ? union.unrecognised : [],
     outbox,
   };
 }

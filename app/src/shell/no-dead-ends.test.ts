@@ -481,10 +481,23 @@ describe('the check itself cannot go stale', () => {
 
   it('is checking the router that actually ships', async () => {
     const routes = await readFile(path.join(here, 'routes.tsx'), 'utf8');
-    const main = await readFile(path.join(here, '..', 'main.tsx'), 'utf8');
+
+    // BOTH FILES THAT START THE APPLICATION, because there are two now: `main.tsx` is the composition
+    // root and `App.tsx` is what it mounts. This read used to be `main.tsx` alone, and the split moved
+    // the thing it was looking for — a check pointed at the file the application USED to be composed in
+    // would have gone on passing right up until it stopped, then failed for the wrong reason.
+    const composed = await Promise.all(
+      ['main.tsx', 'App.tsx'].map((name) => readFile(path.join(here, '..', name), 'utf8')),
+    );
+    const start = composed.join('\n');
+    assert.ok(
+      composed.every((source) => source.length > 200),
+      'one of the two files that start the application is missing or empty, so this check is reading '
+      + 'nothing and would report a pass for it',
+    );
 
     assert.ok(
-      routes.includes('createHashRouter(') && main.includes('createAppRouter()'),
+      routes.includes('createHashRouter(') && start.includes('createAppRouter()'),
       'the application no longer starts a hash router built from this table. Every address in this ' +
         'suite is a FRAGMENT, so if routing moved to history paths these checks are exercising a ' +
         'convention the coach no longer uses.',
@@ -495,7 +508,7 @@ describe('the check itself cannot go stale', () => {
         'no explanation and no way back',
     );
     assert.equal(
-      main.split('createHashRouter').length - 1,
+      start.split('createHashRouter').length - 1,
       0,
       'a second router is being built outside routes.tsx, so there are now two route tables and ' +
         'this suite can only see one of them',

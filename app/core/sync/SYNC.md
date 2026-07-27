@@ -188,9 +188,16 @@ from a different device whenever it turns up. `divergence-provenance.test.js` ru
 `resolved_from` is **additive and optional in both directions**, and `DOCUMENT_VERSION` does not move
 for it. An envelope that lacks the field is valid and means "no answer"; the writer omits the field
 when it is null, so a record the coach has never resolved goes out byte-identical to what a build
-without the field writes; the reader puts the null back. This matters because an unrecognised
-envelope key is refused, a refused file is **skipped per file** while the pass still reports a clean
-completion — the older device would show green while holding none of the newer one's work.
+without the field writes; the reader puts the null back. Both directions are proven against a reader
+built from this application's own field list with `resolved_from` removed — which is what the
+previous build's list was — in `migration-two-sided.test.js`, as two separate assertions each shown
+failing for its own reason.
+
+This matters because an unrecognised envelope key is refused, and a refused file is **skipped per
+file**. That used to be the end of the story and it was the most dangerous state this application
+could be in: the pass still reported a clean completion, so the older device showed green while
+holding none of the newer one's work, with nothing erroring anywhere. **A pass that skipped a file no
+longer earns a completion** — see `withheld.js` and section 6a below.
 
 ---
 
@@ -210,6 +217,47 @@ completion — the older device would show green while holding none of the newer
 
 Push before pull is deliberate: this device's own work is safely queued before anybody else's is
 applied, so an interruption anywhere after step 1 cannot lose it.
+
+### 6a. A pass that passed over a file has not earned a completion
+
+The one value permitted to say "everything is backed up" is withheld by three conditions, and the
+question is asked in exactly one place — `withheld.js` — because `core/status/completion.js`
+re-derives the same verdict rather than trusting the report's own field, and two derivations that
+must agree are two derivations that will not. That is not a hypothetical: `completion.js` carried a
+copy of the failures rule under a comment saying it mirrored the engine, and the third condition
+below is the clause that would have been added to one of them and not the other.
+
+| Condition | Why it withholds |
+|---|---|
+| a step could not reach the service | the queue may have drained before the pull failed, so "backed up" would mean *sent mine, never read yours* |
+| a file could not be **decoded** | the document is a version this build does not read — a newer install wrote it |
+| a file's name could not be **placed** | the name sits in a device area this space can show, and this build does not know its kind |
+
+The last of the three arrives by an **ordinary additive change** rather than a version bump: a build
+that adds a third kind of area file writes names this one groups as unrecognised, and until this
+existed those were not in the report at all. Both file conditions are the same fact to the coach —
+work of his is in the backup and is not on this device — so both count toward one sentence, which
+names how many files and says his other device is running a newer version of the app.
+
+**What keeps the second one from becoming the opposite defect.** A permanent false alarm on the one
+indicator he is meant to trust is the same danger with a better disguise: technically accurate every
+time it fires, and it teaches him to ignore the surface that has to warn him when something is really
+wrong. The visible space is a folder he browses, `fit.` is a short prefix, and he is free to use it —
+so the namespace alone is suggestive, not conclusive. The conclusive test is the DEVICE: the file's
+device segment must name an area holding at least one file this build parsed. A device writing real
+area files here is an installation of this application, so a name it wrote that this build cannot
+place came from a build that knows a name this one does not. Anything else in the space is reported
+as found-and-not-ours and says nothing alarming.
+
+The honest residual: a future build that changed the naming scheme so completely that a device had no
+parseable file at all would be under-reported. That device would also be absent from `devices`
+entirely — a larger and more visible problem — and under-reporting an exotic case is the right side
+to err on when the alternative is a permanent false alarm on an ordinary one.
+
+Nothing here fails a pass, throws or blocks: the push happened, the queue drained, the readable files
+were applied and the application still opens. Only the CLAIM is withheld — and because nothing is
+persisted without one, last-synced stays where it was rather than advancing over a pass that did not
+deserve it.
 
 ### The push cursor is an instant PLUS what was already sent at it
 

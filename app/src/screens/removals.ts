@@ -38,13 +38,50 @@
  * showing a bare identifier and letting it read as a defect. A surface that apologised for it, or
  * worse, that kept a name in order to be friendlier, would be undoing the protection.
  *
- * ## What it does NOT do
+ * ## THE REMOTE HALF, WHICH IS NOW HERE — and the one thing it may say that the local half may not
  *
- * It names no record identity that is still present remotely — that rides the sync report and belongs to
- * S16 (see `shell/Removals.tsx`). It offers no retry and no give-up: `markDeletionFailed` has no
- * production caller, which is a real gap reported as one rather than filled from a screen.
+ * S16 is this paragraph. `core/sync/deletions.js` reads this device's own area BACK and reports, per
+ * removal, exactly which record identities it STILL FOUND there — `SyncReport.deletions.still_present`.
+ * That is a different and STRONGER fact than a pending manifest: the app has looked, and they were
+ * there. So the sentence above — *"not yet confirmed gone" is not "still there"* — is not weakened by
+ * this; it is what makes it possible to say "still there" HONESTLY, on the one removal where it is
+ * known, without ever saying it about the others.
+ *
+ * It arrives as a FIELD ON THE SAME READING and a section here, exactly as `shell/Removals.tsx`
+ * specified. There is no second screen and no second wire.
+ *
+ * ### THE TRAP INSIDE IT, AND IT IS A FALSE-GREEN OF THE FAMILIAR SHAPE
+ *
+ * **An EMPTY `still_present` does not mean "checked and clear".** `core/sync/engine.js` only runs the
+ * verify-deletions step when there were carried deletions AND a compaction actually ran; every other
+ * pass reports `still_present: []` having looked at nothing. If this surface turned that into "the
+ * last check found none of these in your backup", it would be manufacturing the reassuring answer out
+ * of a step that never executed — the exact defect `core/sync/false-green.test.js` exists for.
+ *
+ * So the remote half is **PURELY ADDITIVE**: it can only ever STRENGTHEN what is said about a removal
+ * it NAMES. It never produces a reassuring sentence, and `reported` exists on the reading so that a
+ * later reader cannot mistake "no pass has run" for "a pass found nothing". A removal the report does
+ * not name keeps the local half's words unchanged, which are already the honest ones.
+ *
+ * ## WHAT THE PURGE COULD NOT CLEAN, WHICH WAS ALREADY IN THIS READING AND SAID NOWHERE
+ *
+ * `core/store/purge.js` persists the queue sweep's own result ON the manifest — `outbox.unresolved` —
+ * and `pendingDeletions` has been handing it to this surface all along. It is the same detected-but-
+ * unsurfaced shape as everything else in this step, and closing it needed no wire at all: an opaque
+ * queued payload naming the departed client AND a staying one is LEFT ALONE, deliberately and
+ * correctly, because cleaning it would destroy the other client's data. That choice is right and is
+ * not being changed. What was wrong is that nothing told him.
+ *
+ * It is worded as what it is: a thing that **will not clear on its own**, unlike everything else on
+ * this screen. See `core/INTEGRATION.md` §4 for what is and is not surfaced, and by which surface.
+ *
+ * ## What it STILL does not do
+ *
+ * It offers no retry and no give-up: `markDeletionFailed` has no production caller, which is a real
+ * gap reported as one rather than filled from a screen.
  */
 
+import { UNRESOLVED } from '../../core/outbox/scrub.js';
 import type { ReportPair } from './admin-report';
 
 /**
@@ -68,6 +105,28 @@ export interface DeletionManifest {
   readonly removed: readonly { readonly type: string; readonly record_id: string }[];
   /** Records to be pushed as a revision instead, because somebody else's history is in them. */
   readonly revised: readonly { readonly type: string; readonly record_id: string; readonly rev: number }[];
+  /**
+   * What the queue sweep did, as `core/outbox/scrub.js` reported it and the purge PERSISTED it.
+   *
+   * Identities and counts only — `core/store/purge.js` is explicit that this travels in a manifest
+   * that carries no content — which is why it can be shown at all.
+   */
+  readonly outbox: OutboxSweep;
+}
+
+/** The queue sweep's own result, field for field as `core/outbox/scrub.js` names them. */
+export interface OutboxSweep {
+  readonly inspected: number;
+  readonly rewritten: number;
+  readonly removed: number;
+  readonly unresolved: readonly UnresolvedEntry[];
+}
+
+/** One queued delivery the sweep could not clean. `why` is a declared CODE, never a message. */
+export interface UnresolvedEntry {
+  readonly entry_id: string;
+  readonly why: string;
+  readonly record_ids: readonly string[];
 }
 
 /** A page exactly as the core paged it. `done` is carried because a restore can produce many at once. */
@@ -77,8 +136,43 @@ export interface RemovalsPage {
   readonly done: boolean;
 }
 
+/**
+ * One entry of `SyncReport.deletions.still_present`, field for field and name for name.
+ *
+ * `found` is record IDENTITIES the read-back saw in this device's own area — no name, no note, no
+ * content, and nothing the provider authored. That is what makes it safe to put on a screen.
+ */
+export interface StillPresentEntry {
+  readonly deletion_id: string;
+  readonly found: readonly string[];
+}
+
+/**
+ * What the last synchronisation pass was able to confirm about removals — the REMOTE half.
+ *
+ * `reported` is carried separately from the list and it is not decoration. An empty `still_present`
+ * has two completely different meanings — "a pass verified and found none" and "no pass verified
+ * anything" — and this surface is forbidden from turning either into reassurance. See the header.
+ */
+export interface RemoteConfirmation {
+  /** True once a synchronisation pass has reported at all. Never used to say anything is clear. */
+  readonly reported: boolean;
+  readonly still_present: readonly StillPresentEntry[];
+}
+
+/**
+ * What is true before any pass has reported, and it is a FACT rather than a placeholder: nothing has
+ * been read back, so nothing is confirmed present. It says nothing reassuring, on purpose.
+ */
+export const NO_PASS_HAS_REPORTED: RemoteConfirmation = Object.freeze({
+  reported: false,
+  still_present: Object.freeze([]) as readonly StillPresentEntry[],
+});
+
 export interface RemovalsReading {
   readonly pending: RemovalsPage;
+  /** The remote half. `NO_PASS_HAS_REPORTED` until a synchronisation pass has reported one. */
+  readonly remote: RemoteConfirmation;
 }
 
 /** The screen's own title, one constant, so the link into it and the screen cannot disagree. */
@@ -101,6 +195,52 @@ export const NO_NAME_IS_DELIBERATE =
   'This app did not keep their name. When you remove a client it keeps only a reference, so that '
   + 'removing somebody does not leave their name behind in the very record that proves they were '
   + 'removed.';
+
+/**
+ * What a queued delivery the sweep could not clean MEANS, keyed on the declared code.
+ *
+ * KEYED ON THE CODE AND NEVER ON MESSAGE TEXT. `core/status/reasons.js` already draws that line for
+ * classification; this draws it for DISPLAY, which is the half that line did not cover. A provider's
+ * own words can carry an account address or a response fragment, and a surface is where text stops
+ * being transient and starts being written down. Nothing here is authored anywhere but here.
+ */
+export const UNRESOLVED_MEANS: Readonly<Record<string, string>> = Object.freeze({
+  [UNRESOLVED.OPAQUE_SHARED]:
+    'A file that was already waiting to go to your Google Drive mentions this client and another '
+    + 'client together. This app cannot open that file to take one of them out of it, and deleting '
+    + 'the whole file would take data belonging to the other client with it. So it was left exactly '
+    + 'as it is.',
+  [UNRESOLVED.NO_REVISION]:
+    'A shared session this client was in could not be rewritten without them, so it was left exactly '
+    + 'as it is rather than removing history belonging to another client along with theirs.',
+});
+
+/** What is said about a code nobody has worded yet. It says what is known and invents nothing. */
+export const UNRESOLVED_UNWORDED =
+  'Part of this removal could not be carried out, and this app was not able to say why in plain '
+  + 'words. The reference below is what somebody helping you will need.';
+
+/**
+ * The sentence that says this one is DIFFERENT from everything else on the screen.
+ *
+ * Every other state here resolves itself the next time the app has a connection. This one does not,
+ * ever, and a surface that let it sit among things that clear on their own would have him waiting for
+ * something that is never coming.
+ */
+export const WILL_NOT_CLEAR_ON_ITS_OWN =
+  'This one will not clear on its own. This app has deliberately not touched that file, because '
+  + 'data belonging to another client is in it too.';
+
+/** One queued delivery the purge could not clean, worded. Identities and our own words only. */
+export interface LeftBehindItem {
+  readonly entryId: string;
+  /** The declared code, kept literal because it is what somebody helping him will search for. */
+  readonly why: string;
+  readonly whatItMeans: string;
+  readonly persists: string;
+  readonly whatToDo: string;
+  readonly forensic: readonly ReportPair[];
+}
 
 /** One pending removal, worded. */
 export interface RemovalItem {
@@ -128,6 +268,17 @@ export interface RemovalItem {
   readonly whatToDo: string;
   /** How much this removal covers, permanently, so its weight is not hidden behind a fold. */
   readonly scope: string;
+  /**
+   * TRUE only when a pass READ THE BACKUP BACK AND FOUND THEM. This is the one flag on this screen
+   * that licenses the strong claim, and it is never inferred from an absence — see the header.
+   */
+  readonly confirmedPresent: boolean;
+  /** How many of their record identities the read-back actually saw. Zero unless confirmed. */
+  readonly foundCount: number;
+  /** What the read-back found, said out loud. Null unless it found something. */
+  readonly foundWords: string | null;
+  /** What the purge could not clean, worded. Empty on almost every removal there will ever be. */
+  readonly leftBehind: readonly LeftBehindItem[];
   /** The forensic half: references and counts, folded and counted. Nothing is discarded. */
   readonly forensic: readonly ReportPair[];
 }
@@ -138,6 +289,15 @@ export interface RemovalsReport {
   /** The one figure the screen is for: how many removals are not yet confirmed gone. */
   readonly count: number;
   readonly intro: string;
+  /**
+   * How many of them a pass READ BACK AND FOUND. Never a proportion and never a reassurance: the
+   * other `count - confirmedPresent` are UNKNOWN, not clear.
+   */
+  readonly confirmedPresent: number;
+  /** Said only when something was found. Null otherwise, including when no pass has ever run. */
+  readonly confirmedPresentWords: string | null;
+  /** How many queued deliveries the purge could not clean, across every removal on this page. */
+  readonly leftBehind: number;
   readonly settled: boolean;
   /** The standing sentence, present in both states, never reworded. */
   readonly meaning: string;
@@ -168,7 +328,7 @@ function scopeWords(manifest: DeletionManifest): string {
   );
 }
 
-function forensicPairs(manifest: DeletionManifest): readonly ReportPair[] {
+function forensicPairs(manifest: DeletionManifest, found: readonly string[]): readonly ReportPair[] {
   const pairs: ReportPair[] = [
     { label: 'Removal reference', literal: true, value: manifest.deletion_id },
     { label: 'Client reference', literal: true, value: manifest.subject_client_id },
@@ -181,35 +341,107 @@ function forensicPairs(manifest: DeletionManifest): readonly ReportPair[] {
   if (manifest.last_error !== null) {
     pairs.push({ label: 'Last reason given', literal: true, value: manifest.last_error });
   }
+  // Only when the read-back genuinely found something. A row reading "0" would be a claim that a
+  // check ran and came back clear, which is precisely what an absent entry does NOT mean.
+  for (const identity of found) {
+    pairs.push({ label: 'Still in the backup', literal: true, value: identity });
+  }
   return pairs;
 }
 
-/** One removal, worded. The two states — never tried, and tried and not done — get different words. */
-export function describeRemoval(manifest: DeletionManifest): RemovalItem {
+/** How many of their records the read-back saw, said as a fact about a moment rather than a state. */
+function foundWords(count: number): string {
+  return count === 1
+    ? '1 of their records was still in your Google Drive backup when this app last looked.'
+    : `${count} of their records were still in your Google Drive backup when this app last looked.`;
+}
+
+/** One queued delivery the purge could not clean, worded from the CODE and nothing else. */
+export function describeLeftBehind(unresolved: UnresolvedEntry): LeftBehindItem {
+  return {
+    entryId: unresolved.entry_id,
+    why: unresolved.why,
+    whatItMeans: UNRESOLVED_MEANS[unresolved.why] ?? UNRESOLVED_UNWORDED,
+    persists: WILL_NOT_CLEAR_ON_ITS_OWN,
+    whatToDo:
+      'There is nothing to tap for this one. If you want that file out of your Google Drive, read '
+      + 'this out to whoever set the app up for you — do not go into Drive and delete files '
+      + 'yourself, because data belonging to another client is in it.',
+    forensic: [
+      { label: 'Queued delivery reference', literal: true, value: unresolved.entry_id },
+      { label: 'Reason recorded', literal: true, value: unresolved.why },
+      ...unresolved.record_ids.map((recordId) => (
+        { label: 'Record named in it', literal: true, value: recordId } as ReportPair
+      )),
+    ],
+  };
+}
+
+/**
+ * One removal, worded.
+ *
+ * THREE states now, and the third is the only one permitted to say they are still there: never
+ * tried, tried and not confirmed, and READ BACK AND FOUND. The third comes from `still_present` and
+ * from nowhere else — an absence never produces it, and an absence never softens the other two.
+ */
+export function describeRemoval(
+  manifest: DeletionManifest,
+  found: readonly string[] = [],
+): RemovalItem {
   const tried = manifest.attempts > 0 || manifest.last_error !== null;
+  const confirmedPresent = found.length > 0;
+  const leftBehind = (manifest.outbox?.unresolved ?? []).map(describeLeftBehind);
 
   return {
     deletionId: manifest.deletion_id,
     heading: 'A client you removed',
     reference: manifest.subject_client_id,
     requestedAt: manifest.requested_at,
-    chipWord: tried ? 'Tried and not done' : 'Waiting to be checked',
-    whatHappened: tried
-      ? 'They are gone from this device. This app has tried to make sure they are gone from your '
-        + 'Google Drive backup as well, and it has not been able to confirm it.'
-      : 'They are gone from this device. This app has not yet been able to look in your Google Drive '
-        + 'backup and confirm they are gone from there too.',
+    chipWord: confirmedPresent
+      ? 'Still in your backup'
+      : (tried ? 'Tried and not done' : 'Waiting to be checked'),
+    // The strong claim, made ONLY here. Everywhere else on this screen the honest statement is the
+    // uncomfortable middle one, because "not confirmed gone" is all that is known. Here the app
+    // has looked and seen them, so saying anything softer would be underselling a fact he needs.
+    whatHappened: confirmedPresent
+      ? 'They are gone from this device. This app has now looked in your Google Drive backup, and '
+        + 'some of their records are still there.'
+      : (tried
+        ? 'They are gone from this device. This app has tried to make sure they are gone from your '
+          + 'Google Drive backup as well, and it has not been able to confirm it.'
+        : 'They are gone from this device. This app has not yet been able to look in your Google '
+          + 'Drive backup and confirm they are gone from there too.'),
     whyVerbatim: manifest.last_error,
     tried,
-    whatToDo: tried
-      ? 'Tap Sync, or open the app while you have a connection, and it will try again and check. If '
-        + 'this one keeps saying the same thing, read this screen out to whoever set the app up for '
-        + 'you — do not go into Drive and delete files yourself.'
-      : 'Open the app while you have a connection, or tap Sync. This app checks by reading your '
-        + 'backup back, so it needs one connected moment before it can tell you they are gone.',
+    whatToDo: confirmedPresent
+      ? 'Tap Sync while you have a connection. This app rewrites its part of your backup and then '
+        + 'reads it back to check, so another attempt is what clears this. If it keeps saying the '
+        + 'same thing, read this screen out to whoever set the app up for you — do not go into '
+        + 'Drive and delete files yourself.'
+      : (tried
+        ? 'Tap Sync, or open the app while you have a connection, and it will try again and check. If '
+          + 'this one keeps saying the same thing, read this screen out to whoever set the app up for '
+          + 'you — do not go into Drive and delete files yourself.'
+        : 'Open the app while you have a connection, or tap Sync. This app checks by reading your '
+          + 'backup back, so it needs one connected moment before it can tell you they are gone.'),
     scope: scopeWords(manifest),
-    forensic: forensicPairs(manifest),
+    confirmedPresent,
+    foundCount: found.length,
+    foundWords: confirmedPresent ? foundWords(found.length) : null,
+    leftBehind,
+    forensic: forensicPairs(manifest, found),
   };
+}
+
+/**
+ * Which record identities the last pass found for one removal.
+ *
+ * A lookup and nothing more: no entry means NOT NAMED BY THE REPORT, which is not the same as clear
+ * and is never treated as such.
+ */
+function foundFor(remote: RemoteConfirmation, deletionId: string): readonly string[] {
+  const entry = remote.still_present.find((held) => held.deletion_id === deletionId);
+  return entry ? entry.found : [];
 }
 
 /**
@@ -220,17 +452,39 @@ export function describeRemoval(manifest: DeletionManifest): RemovalItem {
  * surface cries wolf — which would cost him the one time it was not empty.
  */
 export function describeRemovals(reading: RemovalsReading): RemovalsReport {
-  const items = reading.pending.items.map(describeRemoval);
+  const items = reading.pending.items.map(
+    (manifest) => describeRemoval(manifest, foundFor(reading.remote, manifest.deletion_id)),
+  );
+  const confirmedPresent = items.filter((item) => item.confirmedPresent).length;
+  const leftBehind = items.reduce((total, item) => total + item.leftBehind.length, 0);
 
   return {
     title: REMOVALS_TITLE,
     count: items.length,
+    // The opening sentence STRENGTHENS when the read-back found something and never weakens when it
+    // did not. `reading.remote.reported` is deliberately not consulted here: a pass that ran without
+    // reaching the verify step reports an empty list, and letting that soften anything would be the
+    // reassuring answer built out of a check that did not happen.
     intro:
       items.length === 0
         ? 'Every client you have removed is confirmed gone from your Google Drive backup as well as '
           + 'from this device.'
-        : `${removalCount(items.length)} you made are done on this device, and this app has not yet `
-          + 'confirmed they are gone from your Google Drive backup.',
+        // "1 removal you made IS done", "2 removals you made ARE done". The verb agrees here for the
+        // same reason it agrees in `describeRemovalsAdminEntry` below, and it did NOT until now — see
+        // the note there, which used to claim this function already agreed and was wrong about it.
+        : (confirmedPresent > 0
+          ? `${removalCount(items.length)} you made ${items.length === 1 ? 'is' : 'are'} done on this `
+            + 'device, and this app has looked in your Google Drive backup and found records still there.'
+          : `${removalCount(items.length)} you made ${items.length === 1 ? 'is' : 'are'} done on this `
+            + 'device, and this app has not yet confirmed they are gone from your Google Drive backup.'),
+    confirmedPresent,
+    confirmedPresentWords: confirmedPresent === 0
+      ? null
+      : (confirmedPresent === 1
+        ? 'For 1 of them, this app has looked and their records are still in your backup.'
+        : `For ${confirmedPresent} of them, this app has looked and their records are still in your `
+          + 'backup.'),
+    leftBehind,
     settled: items.length === 0,
     meaning: NOT_CONFIRMED_IS_NOT_STILL_THERE,
     more: !reading.pending.done,
@@ -277,10 +531,24 @@ export function describeRemovalsAdminEntry(reading: RemovalsReading): RemovalsAd
     // "1 removal IS", "2 removals ARE". Found by looking at the Admin screen during the s5 join
     // walk-through, with one removal pending: it read "1 removal are done on this device". The
     // count is interpolated and the verb was not, so the sentence was correct for every number but
-    // the one the coach meets first. `describeRemovals` above already agrees its own verb.
-    intro:
-      `${removalCount(report.count)} ${report.count === 1 ? 'is' : 'are'} done on this device and `
-      + 'not yet confirmed gone from your backup.',
+    // the one the coach meets first.
+    //
+    // THIS NOTE USED TO END "`describeRemovals` above already agrees its own verb", AND THAT WAS FALSE
+    // — it hardcoded "are" and shipped "1 removal you made are done on this device" to the removals
+    // screen for the whole of that time. The sentence was corrected in the s7 join walk-through, by
+    // READING THE SCREEN rather than the code. The reason it survived one round of this exact fix is
+    // the clause itself: a comment asserting coverage is what stops the next reader looking, and no
+    // test had ever driven the singular case. Both are fixed together, because leaving either would
+    // leave the trap armed.
+    //
+    // AND IT STRENGTHENS WHEN THE READ-BACK FOUND SOMETHING. The way in must not be milder than the
+    // screen behind it: "not yet confirmed" in front of a screen saying "still there" would have him
+    // decide from the summary not to open it.
+    intro: report.confirmedPresent > 0
+      ? `${removalCount(report.count)} ${report.count === 1 ? 'is' : 'are'} done on this device, and `
+        + 'this app has looked in your backup and found records still there.'
+      : `${removalCount(report.count)} ${report.count === 1 ? 'is' : 'are'} done on this device and `
+        + 'not yet confirmed gone from your backup.',
     linkLabel: 'See which removals',
     settled: false,
   };

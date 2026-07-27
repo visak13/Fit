@@ -393,14 +393,21 @@ function removalCount(count: number): string {
  */
 export function describeRegisterRemovals(reading: RemovalsReading): RegisterRemovalsNotice {
   const count = reading.pending.items.length;
+  // The remote half STRENGTHENS this notice and never softens it. A register panel reading "not yet
+  // confirmed" while the screen behind it says "still there" would have him decide from the summary
+  // not to look. An empty still-present list changes nothing here, for the reason `removals.ts`
+  // states: on most passes the verify step never runs, so empty is not clear.
+  const found = reading.remote.still_present.some((entry) => entry.found.length > 0);
 
   return {
     present: count > 0,
     count,
     heading: REMOVALS_TITLE,
-    intro:
-      `${removalCount(count)} you made ${count === 1 ? 'is' : 'are'} done on this device, and this `
-      + 'app has not yet confirmed they are gone from your Google Drive backup.',
+    intro: found
+      ? `${removalCount(count)} you made ${count === 1 ? 'is' : 'are'} done on this device, and this `
+        + 'app has looked in your Google Drive backup and found records still there.'
+      : `${removalCount(count)} you made ${count === 1 ? 'is' : 'are'} done on this device, and this `
+        + 'app has not yet confirmed they are gone from your Google Drive backup.',
     meaning: NOT_CONFIRMED_IS_NOT_STILL_THERE,
     noName: NO_NAME_IS_DELIBERATE,
     linkLabel: 'See which removals',

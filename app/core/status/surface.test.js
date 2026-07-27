@@ -262,6 +262,61 @@ test('the last-synced time comes ONLY from a sealed completion — a killed flus
   await dev.store.close();
 });
 
+test('THE FILES A PASS COULD NOT READ REACH THE WORDS — the figure is carried, not stranded', async () => {
+  // A figure measured in `core/sync/areas.js` and carried in the report is worth nothing until a
+  // sentence is built from it. This asserts the thread end to end at this layer: the surface reads
+  // the report's `unreadable` list and the count is in the message a screen would show.
+  const dev = await aDevice();
+  await backUpSuccessfully(dev);
+  dev.advance(HOUR);
+
+  const status = await accountabilityStatus(dev.store, {
+    now: dev.now(),
+    last_attempt: {
+      failures: [],
+      unreadable: [
+        { name: 'a.json', file_id: '1', why: 'newer', written_by_newer_version: true },
+        { name: 'b.json', file_id: '2', why: 'newer', written_by_newer_version: true },
+      ],
+    },
+  });
+
+  assert.equal(status.reason.code, REASON.BACKUP_PARTLY_UNREADABLE);
+  assert.match(status.reason.message, /\b2 files\b/, 'the count is in the words he reads');
+  assert.match(status.reason.message, /newer version of this app/i);
+  assert.equal(status.blocks_application, false, 'and it is still not a gate');
+
+  // NON-VACUITY: the same device, same instant, a report that skipped nothing. Without this the
+  // assertions above could be matching a sentence that is always present.
+  const clean = await accountabilityStatus(dev.store, {
+    now: dev.now(), last_attempt: { failures: [], unreadable: [] },
+  });
+  assert.equal(clean.reasons.some((r) => r.code === REASON.BACKUP_PARTLY_UNREADABLE), false);
+  await dev.store.close();
+});
+
+test('a pass that BOTH failed a step and skipped files still says both things', async () => {
+  // The verdict in `withheld.js` names one condition — the failed step, which is the broader fact —
+  // so a surface reading the verdict rather than the list would fall silent about the skipped files
+  // in exactly the state where more has gone wrong, not less.
+  const dev = await aDevice();
+  await backUpSuccessfully(dev);
+
+  const status = await accountabilityStatus(dev.store, {
+    now: dev.now(),
+    last_attempt: {
+      failures: [{ step: 'pull', code: 'unavailable', retryable: true }],
+      unreadable: [{ name: 'a.json', file_id: '1', why: 'newer', written_by_newer_version: true }],
+    },
+  });
+
+  const codes = status.reasons.map((r) => r.code);
+  assert.ok(codes.includes(REASON.BACKUP_PARTLY_UNREADABLE), 'the skipped file is still said');
+  assert.ok(codes.includes(REASON.NO_NETWORK), 'and so is the unreachable service');
+  assert.equal(status.blocks_application, false);
+  await dev.store.close();
+});
+
 test('a manufactured last-synced time is reported loudly rather than believed or ignored', async () => {
   const dev = await aDevice();
   await dev.store.setMeta('status.last_completed_sync', { completed_sync_at: 'yesterday-ish' });

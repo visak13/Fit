@@ -201,7 +201,16 @@ the platform.
   completion was genuinely earned, and it never clears an earlier one: advancing it would say the
   coach is safe when he is not, and clearing it would say he has never backed up when he has.
 - The interface calls `accountabilityStatus(store, { in_progress, last_attempt, credential })` and
-  renders the result. `last_attempt` is read for its FAILURES only — never for a completion.
+  renders the result. `last_attempt` is read for the reasons a synchronisation did not FULLY happen —
+  its failures, and the files it passed over — never for a completion.
+- **A pass that passed over a file it could not decode, or whose name it could not place, is not a
+  clean pass.** `completionFrom` withholds the seal by asking `core/sync/withheld.js` the same
+  question the engine asked, so the report and the stored last-synced time cannot disagree; and
+  `backup_partly_unreadable` says so in his own words, naming how many files were skipped and
+  stating plainly that his other device is running a newer version of the app. It ranks immediately
+  below `never_synchronised` because it is the same kind of fact: the backup does not hold what he
+  thinks it holds. Its action is `null` — this application cannot update itself on his tap, and
+  there is no screen in it that resolves the condition.
 - `reason.action` is a code (`connect_google`, `reconnect_google`, `sync_now`, `review_refused`,
   `review_unconfirmed`) or `null` where there is genuinely nothing the coach can do. Offering an
   action that does not help is how an indicator earns the reputation of lying.

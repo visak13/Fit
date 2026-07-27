@@ -26,6 +26,22 @@
  * plausible different kind, and that convention is what makes this scan reliable. It reads no
  * comments out of the way and strips nothing: `kinds.js` is excluded because it is the definition,
  * and the prose in every other file refers to unwritten kinds as plain strings, not as constants.
+ *
+ * ## THE SCAN WALKS BOTH LAYERS, AND IT DID NOT ALWAYS
+ *
+ * It used to walk `core/` alone, which was right for exactly as long as `core/` was the only layer
+ * that could hold a call site. It is not any more. The core is dependency-free and PROVIDER-NEUTRAL
+ * — nothing under it may learn that Google exists — so the step that connects an account necessarily
+ * writes `auth.account_connected` from the shell, in `src/platform/google-account.ts`.
+ *
+ * A core-only scan would therefore have gone on asserting that the authentication domain is written
+ * NOWHERE, for ever, while it was being written every day. GREEN, and its own stated claim false,
+ * with no detector anywhere — which is the exact shape this file exists to prevent, wearing this
+ * file as a disguise. So the scan reads `src/` too, and an owner is named as the path a call site
+ * actually lives at, whichever layer that is.
+ *
+ * THE GENERAL LESSON, worth more than this instance: a cross-layer scan inherits the ROOT it was
+ * written against, and a step allowed to satisfy it from a different layer escapes it silently.
  */
 
 import assert from 'node:assert/strict';
@@ -38,6 +54,14 @@ import { JOURNAL_KINDS, KIND_SPECS } from './kinds.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CORE = dirname(HERE);
+/** The shell. A call site may legitimately live here — see the header. */
+const SHELL = join(dirname(CORE), 'src');
+
+/** The two layers a call site may live in, and the prefix each one's paths are reported under. */
+const LAYERS = Object.freeze([
+  { root: CORE, prefix: '' },
+  { root: SHELL, prefix: 'src/' },
+]);
 
 /** The definition itself. Every name appears here; that is what it is for. */
 const DEFINITION = join(HERE, 'kinds.js');
@@ -51,11 +75,11 @@ const DEFINITION = join(HERE, 'kinds.js');
  */
 const UNWRITTEN = Object.freeze({
   // ── owned by a step that does not exist ──────────────────────────────────────────────────────
-  UNLOCKED: 'authentication is owned by the step that builds the unlock screen; it does not exist',
-  UNLOCK_REFUSED: 'as above — there is nothing that can refuse an unlock yet',
-  LOCKED: 'as above',
-  ACCOUNT_CONNECTED: 'as above — the remote account integration is a later step',
-  ACCOUNT_DISCONNECTED: 'as above',
+  UNLOCKED: 'the LOCAL unlock — the screen-lock resume gate — is owned by the step that builds the '
+    + 'unlock screen, and that step does not exist. It is a different act from connecting a remote '
+    + 'account, which is now built and wired below.',
+  UNLOCK_REFUSED: 'as above — there is nothing that can refuse a local unlock yet',
+  LOCKED: 'as above — nothing locks the local data again, by hand or by inactivity',
   EXPORT_STARTED: 'exports are owned by the reports and admin step; nothing exports anything yet',
   EXPORT_COMPLETED: 'as above',
   EXPORT_REFUSED: 'as above',
@@ -76,6 +100,12 @@ const UNWRITTEN = Object.freeze({
  * that already belongs to one.
  */
 const WIRED = Object.freeze({
+  // IN THE SHELL, AND THAT IS NOT A COMPROMISE. The core is provider-neutral by decision: nothing
+  // under it may know Google exists. So the act of authorising an account can only be recorded from
+  // the layer that knows what an account IS. This is why the scan above walks `src/` as well.
+  ACCOUNT_CONNECTED: 'src/platform/google-account.ts',
+  ACCOUNT_DISCONNECTED: 'src/platform/google-account.ts',
+
   RECORD_CREATED: 'store/local-store.js',
   RECORD_UPDATED: 'store/local-store.js',
   RECORD_DELETED: 'store/local-store.js',
@@ -102,32 +132,38 @@ const WIRED = Object.freeze({
   RETENTION_PRUNED: 'journal/durable.js',
 });
 
-/** Every application source file under `core/` — no tests, no test harnesses. */
+/**
+ * Every application source file in both layers — no tests, no test harnesses.
+ *
+ * Each is returned with the name it is reported under, so an owner reads as `store/local-store.js`
+ * in the core and `src/platform/google-account.ts` in the shell, and the layer a kind is written
+ * from is visible at a glance rather than inferred.
+ */
 function applicationSources() {
   const files = [];
-  for (const name of readdirSync(CORE, { recursive: true })) {
-    const path = join(CORE, String(name));
-    const posix = String(name).split('\\').join('/');
-    if (!posix.endsWith('.js')) continue;
-    if (posix.endsWith('.test.js')) continue;
-    if (posix.includes('/testing/') || posix.endsWith('/testing.js')) continue;
-    if (posix.endsWith('/index.js')) continue;
-    if (path === DEFINITION) continue;
-    files.push(path);
+  for (const { root, prefix } of LAYERS) {
+    for (const name of readdirSync(root, { recursive: true })) {
+      const path = join(root, String(name));
+      const posix = String(name).split('\\').join('/');
+      if (!posix.endsWith('.js') && !posix.endsWith('.ts') && !posix.endsWith('.tsx')) continue;
+      if (posix.includes('.test.')) continue;
+      if (posix.includes('/testing/') || posix.endsWith('/testing.js')) continue;
+      if (posix.endsWith('/index.js')) continue;
+      if (path === DEFINITION) continue;
+      files.push({ path, name: prefix + relative(root, path).split('\\').join('/') });
+    }
   }
   return files;
 }
 
-/** Which files reference `JOURNAL_KINDS.<name>`, relative to `core/`. */
+/** Which files reference `JOURNAL_KINDS.<name>`. */
 function callSitesFor(name) {
   const needle = `JOURNAL_KINDS.${name}`;
   const found = [];
-  for (const path of applicationSources()) {
-    if (readFileSync(path, 'utf8').includes(needle)) {
-      found.push(relative(CORE, path).split('\\').join('/'));
-    }
+  for (const source of applicationSources()) {
+    if (readFileSync(source.path, 'utf8').includes(needle)) found.push(source.name);
   }
-  return found;
+  return found.sort();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════════
@@ -192,11 +228,24 @@ test('a kind that would change meaning under a second writer has exactly one', (
   }
 });
 
-test('the authentication domain is defined in full and written nowhere', () => {
+test('the authentication domain is defined in full, and split by what has actually been built', () => {
   const auth = ['UNLOCKED', 'UNLOCK_REFUSED', 'LOCKED', 'ACCOUNT_CONNECTED', 'ACCOUNT_DISCONNECTED'];
   for (const name of auth) {
     assert.ok(name in JOURNAL_KINDS, `${name} must stay DEFINED — that is the whole point of the `
       + 'vocabulary being settled before the steps that write to it exist');
+  }
+
+  // The half that is now built. This assertion is the one that would have been impossible to make
+  // while the scan walked the core alone, and its absence is what would have let the claim rot.
+  for (const name of ['ACCOUNT_CONNECTED', 'ACCOUNT_DISCONNECTED']) {
+    assert.deepEqual(callSitesFor(name), ['src/platform/google-account.ts'],
+      `${name} is written by the Google integration in the SHELL, because the core may not know a `
+      + 'provider exists. A scan that only read the core would report this as unwritten for ever.');
+  }
+
+  // The half that is not. A LOCAL unlock is a different act from connecting a remote account, and
+  // nothing performs one yet.
+  for (const name of ['UNLOCKED', 'UNLOCK_REFUSED', 'LOCKED']) {
     assert.deepEqual(callSitesFor(name), []);
   }
 });
@@ -208,11 +257,21 @@ test('the export domain is defined in full and written nowhere', () => {
   }
 });
 
-test('the scan can actually find a call site — the guard is not vacuous', () => {
+test('the scan can actually find a call site — the guard is not vacuous, in BOTH layers', () => {
   assert.deepEqual(callSitesFor('RECORD_CREATED'), ['store/local-store.js'],
     'if this ever returns nothing, every "no call site" assertion above passes for free and this '
     + 'whole file proves precisely nothing. That is the shape of a gate that reports green while '
     + 'running nothing, which this build has shipped three times.');
-  assert.ok(applicationSources().length > 20,
-    'and it really is walking the source tree rather than an empty list');
+
+  // The core probe alone was what made the old version of this file trustworthy about the core and
+  // silently worthless about everything else. One probe per layer, because a scanner can be alive
+  // in one root and blind in another, and the blindness looks exactly like an honest absence.
+  assert.deepEqual(callSitesFor('ACCOUNT_CONNECTED'), ['src/platform/google-account.ts'],
+    'the shell probe. If THIS goes quiet, every unwritten claim above becomes a claim about the '
+    + 'core only, while asserting something about the whole application.');
+
+  const sources = applicationSources();
+  assert.ok(sources.length > 20, 'and it really is walking the source tree rather than an empty list');
+  assert.ok(sources.some((source) => source.name.startsWith('src/')),
+    'including the shell, which is where a provider-specific call site has to live');
 });

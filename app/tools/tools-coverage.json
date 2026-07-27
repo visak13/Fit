@@ -1,6 +1,6 @@
 {
   "note": "MEASURED test counts per build-tooling directory, used as FLOORS by tools/run-suite-tests.mjs. A directory recorded here that stops being discovered, or that runs fewer tests than this, fails the gate loudly — a number that drops is a failure even when every test passes, and a glob that matches nothing exits zero. Rewrite only with `node tools/run-suite-tests.mjs tools --update-floors`, on a green tree, as a deliberate single act: this file must never be edited by parallel workers, because a concurrent read-modify-write on a shared list is the exact defect the discovering gate was built to end.",
-  "measuredAt": "2026-07-25",
+  "measuredAt": "2026-07-27",
   "measured": {
     "tools": 38
   },
