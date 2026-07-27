@@ -51,7 +51,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
@@ -267,6 +267,70 @@ describe('every destination the navigation surface offers', () => {
       );
     });
   }
+
+  /**
+   * A DESTINATION WHOSE SCREEN EXISTS MUST NOT STILL RESOLVE TO THE PLACEHOLDER.
+   *
+   * Everything above this proves a destination RESOLVES, RENDERS and NAMES ITSELF — and the
+   * placeholder does all three, because that is its entire job. So the suite passes identically
+   * whether a step built its screen or not, and every destination still to come inherits that false
+   * assurance. It was measured on this exact table: with the diet entry removed from
+   * `DESTINATION_SCREENS`, this file reported 33 passes and 0 failures.
+   *
+   * The one thing left to check is that the address reaches the screen somebody BUILT. It is derived
+   * rather than listed: a destination `diet` has a screen when `screens/DietScreen.tsx` is on disk,
+   * which is this application's own naming and the reason a typed list is not written here — such a
+   * list is the defect this build has watched rot four times. A destination with no such file is
+   * legitimately a placeholder and is required to still BE one, which is what stops this reading as
+   * a pass over a scan that matches nothing.
+   */
+  it('resolves to the screen that was BUILT, wherever one exists, rather than to the placeholder', async () => {
+    const { PlaceholderScreen } = await import('../screens/PlaceholderScreen.tsx');
+    const screensDirectory = path.join(here, '..', 'screens');
+    const built = await readdir(screensDirectory);
+
+    /** `diet` → `DietScreen.tsx`, the convention every screen in this application already follows. */
+    const componentFor = (destinationPath: string): string =>
+      `${destinationPath.charAt(0).toUpperCase()}${destinationPath.slice(1)}Screen.tsx`;
+
+    let checked = 0;
+    let placeholders = 0;
+
+    for (const destination of DESTINATIONS) {
+      const file = componentFor(destination.path);
+      const matches = matchRoutes(ROUTES, `/${destination.path}`);
+      assert.ok(matches !== null, `${destination.path} matches no route`);
+      const drawn = (matches.at(-1)?.route.element as { type?: unknown } | undefined)?.type;
+
+      if (!built.includes(file)) {
+        // The NEGATIVE control. Without it, a scan that found no built screens at all would report
+        // the same clean pass as one that found them all correctly wired.
+        assert.equal(
+          drawn,
+          PlaceholderScreen,
+          `${destination.label} has no ${file} but does not draw the placeholder either`,
+        );
+        placeholders += 1;
+        continue;
+      }
+
+      const { [file.replace('.tsx', '')]: component } = await import(`../screens/${file}`);
+      assert.equal(
+        drawn,
+        component,
+        `${destination.label} has a real screen at screens/${file}, but its address still resolves `
+        + 'to something else — the placeholder RENDERS and CARRIES THE LABEL, so every other check '
+        + `in this file passes while the coach never reaches it. Add ${destination.path} to `
+        + 'DESTINATION_SCREENS in routes.tsx.',
+      );
+      checked += 1;
+    }
+
+    // NON-VACUITY, derived rather than recorded: the walk must have found real screens to check AND
+    // at least one destination still legitimately unbuilt, or one of the two branches proved nothing.
+    assert.ok(checked >= 3, `only ${String(checked)} destinations have a built screen to check`);
+    assert.ok(placeholders >= 1, 'no destination is a placeholder, so that branch checked nothing');
+  });
 
   /**
    * WHAT THIS ASSERTION USED TO BE, AND WHY IT IS NOW STRONGER RATHER THAN RELAXED.

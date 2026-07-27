@@ -29,6 +29,7 @@ import type { RouteObject } from 'react-router-dom';
 import { AdminScreen } from '../screens/AdminScreen';
 import { CalendarScreen } from '../screens/CalendarScreen';
 import { ClientsScreen } from '../screens/ClientsScreen';
+import { DietScreen } from '../screens/DietScreen';
 import { DivergencePickerScreen } from '../screens/DivergencePickerScreen';
 import { KeyMaterialConditionScreen } from '../screens/KeyMaterialConditionScreen';
 import { NotFoundScreen } from '../screens/NotFoundScreen';
@@ -60,6 +61,7 @@ const DESTINATION_SCREENS: Readonly<Record<string, (destination: Destination) =>
   admin: (destination) => <AdminScreen destination={destination} />,
   calendar: (destination) => <CalendarScreen destination={destination} />,
   clients: (destination) => <ClientsScreen destination={destination} />,
+  diet: (destination) => <DietScreen destination={destination} />,
 };
 
 /**

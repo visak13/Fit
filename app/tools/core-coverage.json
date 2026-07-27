@@ -3,6 +3,8 @@
   "measuredAt": "2026-07-27",
   "measured": {
     "crypto": 79,
+    "diet": 95,
+    "export": 66,
     "integration": 17,
     "intensity": 76,
     "journal": 91,
@@ -15,5 +17,5 @@
     "store": 96,
     "sync": 139
   },
-  "total": 902
+  "total": 1063
 }

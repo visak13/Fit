@@ -3,10 +3,10 @@
   "measuredAt": "2026-07-27",
   "measured": {
     "src/design": 56,
-    "src/platform": 184,
+    "src/platform": 225,
     "src/proof": 13,
-    "src/screens": 665,
-    "src/shell": 191
+    "src/screens": 802,
+    "src/shell": 192
   },
-  "total": 1109
+  "total": 1288
 }

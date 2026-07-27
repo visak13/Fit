@@ -235,6 +235,23 @@
    * application has needed.
    */
   --pair-label-column: 240px;
+
+  /*
+   * THE WEEK CHART'S TWO COLUMNS. The diet week is the densest grid this application draws — seven
+   * days across, every distinct meal time down — and `app/DESIGN.md` already settled what it becomes
+   * on a phone: the time column PINS and the days scroll sideways. The same information at a
+   * narrower width, never a second design and never a squeeze.
+   *
+   * Both are floors rather than widths, so a laptop spreads the days across whatever room it has and
+   * a phone scrolls instead of compressing "Chicken & rice" into a column two characters wide.
+   *
+   * The time column holds the widest thing that goes in it — a time and its slot name, "08:00
+   * Breakfast" — at the 16px reading floor. The day column holds a meal: at 16px this is around
+   * eighteen characters, so an ordinary line wraps to two rather than to five, which is the width at
+   * which a grid stops being readable and becomes a column of syllables.
+   */
+  --week-time-column: 152px;
+  --week-day-column: 160px;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────────────
@@ -1800,6 +1817,157 @@ button[disabled],
   .compare-label {
     margin-block-start: var(--space-3);
   }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────────
+ * WEEK. A repeating week laid out by day and by time of day — the diet chart, and the densest thing
+ * this application asks a coach to read.
+ *
+ * IT IS A REAL `<table>`, for the reason `.compare` above is one: a time is a row and a day is a
+ * column, which is what a table IS, and `<th scope>` is the only way a screen reader can say
+ * "Tuesday, 13:00" rather than reading a cell with no idea what it belongs to. A `<div>` grid would
+ * have had to reinvent the row-and-column association in ARIA and get every cell of it right by
+ * hand, on the one surface where being wrong looks exactly like being right.
+ *
+ * ## WHAT SEVEN COLUMNS BECOME ON A PHONE — decided, not left to collapse
+ *
+ * `app/DESIGN.md` already ruled on this and it is followed rather than re-argued: **the table
+ * scrolls inside its own container and the column that identifies the row pins.** The time stays
+ * under his thumb while the days move past it, which is the only arrangement in which a cell three
+ * columns along still means anything. There is NO width query here on purpose: the behaviour is the
+ * same at every width, and a laptop simply has room for all seven at once. A grid that reflowed
+ * into a list of days would be a second design of the same information, and it would lose the thing
+ * the chart exists for — reading ACROSS, Tuesday against Thursday, on one line.
+ *
+ * The scroll container is focusable and named where it is used, because a region that scrolls and
+ * cannot be reached from a keyboard is a region that has hidden its right-hand half.
+ *
+ * ## AN EMPTY CELL IS EMPTY, AND IS NOT A DASH
+ *
+ * `core/diet/chart.js` gives every row exactly one cell per day so the grid is rectangular — a
+ * sparse row would render SHIFTED, Thursday's lunch appearing under Tuesday. Nothing is drawn in a
+ * cell with nothing in it: an absence rendered as a mark is a mark he has to learn the meaning of.
+ * ───────────────────────────────────────────────────────────────────────────────────── */
+.week-scroll {
+  overflow-x: auto;
+  min-width: 0;
+  /*
+   * NO PADDING ON THIS CONTAINER, AND IT IS LOAD-BEARING RATHER THAN TIDINESS.
+   *
+   * It was written with `padding: var(--space-1)` to give the focus indicator room, and at 390px that
+   * padding became a strip the scrolled table showed THROUGH, to the left of the pinned time column:
+   * a sticky cell sticks to the padding box, so Thursday's food bled out past Monday's time as fragments
+   * of half-words. Every property check passed — the column pinned, the times stayed put, nothing was
+   * clipped — and it was found by looking at the page while dragging it sideways. The card this sits
+   * in already carries the room the focus indicator needs.
+   */
+  padding: 0;
+  /*
+   * A DRAG LANDS ON A WHOLE DAY, and this is the difference between a phone that works and one that
+   * technically scrolls. Without it a sideways drag stops wherever the thumb left off, and what sits
+   * against the pinned time column is half of Wednesday — a fragment of a word that reads as though
+   * it belonged to the time beside it. `proximity` rather than `mandatory` on purpose: a coach
+   * comparing two days wants to stop between them, and a mandatory snap would refuse him.
+   *
+   * The scroll padding is what keeps the snap honest. A day snapped to the scrollport's own start
+   * edge lands UNDERNEATH the pinned column, which is the same fragment problem wearing a feature's
+   * name; this holds the landing point at the far side of the pinned width.
+   */
+  scroll-snap-type: inline proximity;
+  scroll-padding-inline-start: var(--week-time-column);
+}
+
+.week-day,
+.week-meal {
+  scroll-snap-align: start;
+}
+
+.week {
+  border-collapse: separate;
+  border-spacing: 0;
+  /*
+   * FIXED, AND THAT WAS DECIDED BY LOOKING RATHER THAN BY READING THE RULE.
+   *
+   * With the browser's automatic layout the columns size to their CONTENT, so one long meal on
+   * Monday widened Monday, pushed the total past the window, and put Saturday half off the edge of a
+   * LAPTOP — a plan of six days on a 1280px screen, scrolling for no reason a coach could see. Every
+   * column is the same width instead, and a long meal wraps inside its own column: the day a coach
+   * is looking for is where he expects it, and the grid's total width is arithmetic rather than a
+   * consequence of what somebody ate.
+   */
+  table-layout: fixed;
+  /* Wider than the surface when seven days need it — that is what makes it scroll — and never
+   * narrower than it, so a two-day plan does not leave a laptop with a table hugging the left. */
+  width: max-content;
+  min-width: 100%;
+}
+
+.week th,
+.week td {
+  padding: var(--space-2);
+  text-align: start;
+  vertical-align: top;
+  border-block-end: var(--border-hairline) solid var(--line-divider);
+  /* The reading floor, said here rather than inherited by luck: a table cell is one of the places a
+   * browser has its own opinion, and this is a grid a coach reads to decide what to feed somebody. */
+  font-size: var(--type-body);
+  line-height: var(--leading-body);
+}
+
+/* The day headings. A heading, so it reads as one — weight rather than size, because size is where
+ * a dense table gets bought back and this application does not buy it there. */
+.week-day {
+  width: var(--week-day-column);
+  color: var(--text-primary);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+}
+
+/*
+ * THE PINNED COLUMN. It carries its own background: a sticky cell sits over the cells it passes,
+ * and a transparent one would let a meal scroll through underneath the time it belongs to.
+ */
+.week-time {
+  position: sticky;
+  inset-inline-start: 0;
+  z-index: var(--layer-sticky);
+  width: var(--week-time-column);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  font-weight: var(--weight-medium);
+  border-inline-end: var(--border-hairline) solid var(--line-divider);
+}
+
+/* The corner cell is pinned in the same column and is deliberately empty of words: the two headings
+ * it sits between already say what the row and the column are. */
+.week-corner {
+  width: var(--week-time-column);
+  position: sticky;
+  inset-inline-start: 0;
+  z-index: var(--layer-sticky);
+  background: var(--surface-card);
+}
+
+/* The slot's own name — "Breakfast" — under its time, when every day on the row agrees on one. */
+.week-slot {
+  display: block;
+  color: var(--text-muted);
+  font-weight: var(--weight-regular);
+}
+
+.week-meal {
+  /* The column above sets the width; a long meal wraps inside it rather than widening it. */
+  overflow-wrap: anywhere;
+}
+
+/* Two entries at one time on one day — a snack and a supplement, say. Each takes its own line: run
+ * together they read as one long meal, which is a different instruction. */
+.week-meal-line {
+  display: block;
+}
+
+.week-meal-line + .week-meal-line {
+  margin-block-start: var(--space-1);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────────────

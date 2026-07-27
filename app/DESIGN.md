@@ -279,6 +279,7 @@ Every gap you write is one of the eight steps of the shared spacing scale, throu
 | `.rows` + `.row` | the dense list: 40px, hairline-separated, `.row-name` `.row-value` `.row-actions` inside |
 | `.pairs` + `.pair-label` `.pair-value` | a `<dl>` of facts you read: label column beside the values, stacked on the narrow surface |
 | `.compare` + `.compare-head` `.compare-label` `.compare-value` `.compare-whose` | `.pairs` with a SECOND value column: one field, what each of the two devices holds for it, rows lining up by construction. One column on the narrow surface, where `.compare-whose` carries the device instead of the heading |
+| `.week-scroll` + `.week` `.week-day` `.week-time` `.week-corner` `.week-slot` `.week-meal` | a repeating week by day and time of day: a real `<table>` scrolling inside its own container, with the time column PINNED. No width query — the same behaviour at every width, and a laptop simply has room for all seven days at once. `--week-time-column` and `--week-day-column` are floors, so the days spread on a laptop and scroll on a phone rather than compressing |
 | `.steps` | an `<ol>` of things to DO, in order, with the numbers KEPT: the order is part of the instruction, so unlike `.rows` this one does not suppress its markers. Reading text, not a dense list — one step per `<li className="read">` |
 
 ## A dense screen that stays legible
