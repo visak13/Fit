@@ -55,6 +55,7 @@ import { NO_REMOVAL_RECORDED_YET, oneMoreRemoval } from '../platform/local-store
 import { NO_PASS_HAS_REPORTED, describeRemovals } from '../screens/removals.ts';
 import type { RemovalsPage } from '../screens/removals.ts';
 import { readPendingRemovals } from './removals-source.ts';
+import type { PendingRemovalsOutcome } from './removals-source.ts';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const applicationRoot = path.join(here, '..', '..');
@@ -81,11 +82,18 @@ async function aStore(): Promise<any> {
 /** One read of the surface's source, settled. Null when the read published nothing. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function readTheSurface(store: any): Promise<RemovalsPage | null> {
-  let published: RemovalsPage | null = null;
-  readPendingRemovals(store, (page) => { published = page; });
+  let published: PendingRemovalsOutcome | null = null;
+  readPendingRemovals(store, (outcome) => { published = outcome; });
   // The core's own settle: a read on the double is a scheduled task rather than a resolved promise.
   await settle();
-  return published;
+  // A FAILURE IS NOT A PAGE, and this helper hands back only pages. The read now publishes one of
+  // three outcomes — see `removals-source.ts` — and every test in this file is about the refresh
+  // TRIGGER over reads that succeed; a failure reaching here as `null` would be read as "the read
+  // never fired", which is a different fault from the one these tests are watching for.
+  // The cast is the compiler's flow analysis, not a claim: `published` is only ever written inside
+  // the callback above, which TypeScript cannot see running, so it narrows the binding to `null`.
+  const outcome = published as PendingRemovalsOutcome | null;
+  return outcome !== null && outcome.status === 'read' ? outcome.page : null;
 }
 
 const source = (relative: string) => readFile(path.join(applicationRoot, relative), 'utf8');

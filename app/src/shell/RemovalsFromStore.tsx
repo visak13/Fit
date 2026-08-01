@@ -70,10 +70,11 @@ import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useLocalRemovals, useLocalStore } from '../platform/LocalStore';
-import type { RemoteConfirmation, RemovalsPage } from '../screens/removals';
+import type { RemoteConfirmation } from '../screens/removals';
 import { NOTHING_AWAITING_REMOVAL, NO_PASS_HAS_REPORTED, RemovalsProvider } from './Removals';
 import type { RemovalsReading } from './Removals';
 import { readPendingRemovals } from './removals-source';
+import type { PendingRemovalsOutcome } from './removals-source';
 import type { LocalStore } from '../../core/store/store.js';
 
 /**
@@ -85,7 +86,7 @@ import type { LocalStore } from '../../core/store/store.js';
  */
 interface PageFromStore {
   readonly from: LocalStore;
-  readonly page: RemovalsPage;
+  readonly outcome: PendingRemovalsOutcome;
 }
 
 export function RemovalsFromStore({
@@ -108,18 +109,25 @@ export function RemovalsFromStore({
   // file said was missing, on the line it said it belonged on.
   useEffect(() => {
     if (store === null) return undefined;
-    return readPendingRemovals(store, (page) => setRead({ from: store, page }));
+    return readPendingRemovals(store, (outcome) => setRead({ from: store, outcome }));
   }, [store, recorded, remote]);
 
   const reading = useMemo<RemovalsReading>(
-    () =>
-      read !== null && read.from === store
-        ? { pending: read.page, remote }
-        // The empty literal already carries `NO_PASS_HAS_REPORTED`, and it is kept rather than
-        // merged with a live `remote`: a still-present entry has no removal to attach to when the
-        // page has not been read, and a count of confirmed-present removals derived from no
-        // manifests would be a figure about nothing.
-        : NOTHING_AWAITING_REMOVAL,
+    () => {
+      // The empty literal already carries `NO_PASS_HAS_REPORTED`, and it is kept rather than merged
+      // with a live `remote`: a still-present entry has no removal to attach to when the page has
+      // not been read, and a count of confirmed-present removals derived from no manifests would be
+      // a figure about nothing. It carries `status: 'not_yet'`, which is the bounded transient this
+      // file's header names — and NOT the failed state, which is now its own thing.
+      if (read === null || read.from !== store) return NOTHING_AWAITING_REMOVAL;
+      // A FAILED READ IS PUBLISHED AS A FAILURE. It used to publish nothing, which left the line
+      // above standing — and the screen then said every removal was confirmed gone from a backup
+      // this app had not looked at. The remote half is deliberately NOT carried through: it is a
+      // fact about removals that were read, and none were.
+      return read.outcome.status === 'failed'
+        ? { status: 'failed', failure: read.outcome.failure }
+        : { status: 'read', pending: read.outcome.page, remote };
+    },
     [read, store, remote],
   );
 

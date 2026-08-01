@@ -105,6 +105,14 @@ export const GLYPHS = {
       { kind: 'path', d: 'M20 8v8M4 12h13M9 7l-5 5 5 5' },
     ],
   },
+  'link-external': {
+    title: 'Opens in a new tab',
+    shapes: [
+      { kind: 'path', d: 'M12 5H5v14h14v-7' },
+      { kind: 'path', d: 'M14 4h6v6' },
+      { kind: 'path', d: 'm20 4-8 8' },
+    ],
+  },
   'link-forward': {
     title: 'Follow link forward',
     shapes: [

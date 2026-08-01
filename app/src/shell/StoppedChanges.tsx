@@ -58,6 +58,15 @@ import type { StoppedPage } from '../screens/stopped-changes';
 export type { StoppedEntry, StoppedPage } from '../screens/stopped-changes';
 
 export interface StoppedChangesReading {
+  /**
+   * WHETHER ANYTHING LOOKED AT THE QUEUE AT ALL, and it is the field that stops this seam lying.
+   *
+   * Two empty pages mean either that a real read found nothing stopped or that NOBODY EVER READ,
+   * and "Nothing has stopped. Everything you have done has either gone into your backup or is on its
+   * way there." is only true of the first. Nothing in this build reads the queue, so the second is
+   * what the coach was reading, worded as the first.
+   */
+  readonly checked: boolean;
   /** The page of entries the service REFUSED, oldest first, exactly as the core paged them. */
   readonly rejected: StoppedPage;
   /** The page whose outcome CANNOT BE TOLD, oldest first, exactly as the core paged them. */
@@ -78,6 +87,7 @@ const NO_ENTRIES: StoppedPage = Object.freeze({
  * synchronisation step lands.
  */
 export const NOTHING_STOPPED: StoppedChangesReading = Object.freeze({
+  checked: false,
   rejected: NO_ENTRIES,
   ambiguous: NO_ENTRIES,
 });

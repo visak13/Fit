@@ -255,6 +255,10 @@ const STATE_WORDS: Readonly<Record<string, string>> = {
   in_progress: 'Running in this window.',
   interrupted: 'Left unfinished. Picking it up puts it back exactly as it stood.',
   planned: 'Written down, not started.',
+  // FINISHED. Reachable since the finish control was wired — `screens/session-ending.ts` — and until
+  // then this fell through to "Recorded as completed.", which is the record's word and not his.
+  // It says the record is kept because that is the question a finished session raises.
+  completed: 'Finished. Everything recorded in it is kept.',
 };
 
 /** What the record says about one line, by the outcome the projection derived. */

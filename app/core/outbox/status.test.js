@@ -13,7 +13,7 @@ import { HOLD, STATUS } from './entry.js';
 import { flushOutbox } from './flush.js';
 import { queueBackup } from './enqueue.js';
 import {
-  SEQ_META_KEY, countByStatus, entriesByStatus, oldestInStatus, pruneDelivered,
+  SEQ_META_KEY, countByStatus, entriesByStatus, getEntry, oldestInStatus, recordDelivered,
 } from './queue.js';
 import { countCredentialHolds, needsAttention, outboxStatus } from './status.js';
 import { aDevice, restart } from './testing.js';
@@ -161,31 +161,110 @@ test('the queue is paged, and there is no call that loads it whole', async () =>
   await dev.store.close();
 });
 
-test('delivered entries are kept as evidence, and pruned only when asked', async () => {
+test('delivered entries are kept as evidence, and bounded by the delivery that adds to them', async () => {
   const dev = await aDevice();
-  await queueSpread(dev, 2);
+  const [first] = await queueSpread(dev, 2);
   await flushOutbox(dev.store, dev.remote, { now: dev.now() });
 
   assert.equal(await countByStatus(dev.store, STATUS.DELIVERED), 2, 'kept: this is the evidence a delivery happened');
 
-  dev.advance(40 * 24 * 60 * 60_000);
-  const removed = await pruneDelivered(dev.store, { before: dev.now() });
-  assert.equal(removed, 2);
-  assert.equal(await countByStatus(dev.store, STATUS.DELIVERED), 0);
+  // There is no prune to call and no sweep to schedule. The NEXT DELIVERY is what applies the bound,
+  // in its own transaction — which is why time is not advanced here and nothing needs to.
+  const [third] = await queueSpread(dev, 1);
+  await recordDelivered(dev.store, third.entry_id, {
+    now: dev.now(), retention: { max: 2, batch: 1, ceiling: 1 },
+  });
+
+  assert.equal(await countByStatus(dev.store, STATUS.DELIVERED), 2, 'the set is held at its cap');
+  assert.equal(await getEntry(dev.store, first.entry_id), undefined, 'and the OLDEST evidence is what went');
   await dev.store.close();
 });
 
-test('pruning never touches an entry that stopped, however old it is', async () => {
+test('THE BOUND CAN REACH NOTHING BUT DELIVERED ENTRIES — the invariant a retention policy rests on', async () => {
+  // The bound now runs inside `recordDelivered` itself, in the same transaction, so what it can and
+  // cannot reach is not theoretical: it applies on every delivery this application makes.
+  //
+  // THE ONE THAT MATTERS: when a client is purged, `scrub.js` LEAVES an entry whose payload is opaque
+  // and whose refs name both the departed client and a staying one — it cannot be cleaned without
+  // destroying the other client's data — and reports it `unresolved` by identity. A surface exists
+  // whose whole job is to keep naming those. If the bound ate one, that surface would go QUIET, and
+  // quiet reads as good news. It survives because it is not DELIVERED, and that is a property of this
+  // range rather than of anything checking whether it is unresolved.
+  const dev = await aDevice();
+
+  // One of every status the queue has, settled in that order because a flush drains whatever is due:
+  // the two that must stay undelivered are queued LAST and never flushed.
+  const [landed] = await queueSpread(dev, 1);
+  await flushOutbox(dev.store, dev.remote, { now: dev.now() });
+
+  const [rejected] = await queueSpread(dev, 1);
+  dev.adversity.failNext(1, { operation: 'create', error: () => new RemoteInvalidRequest('refused') });
+  await flushOutbox(dev.store, dev.remote, { now: dev.now() });
+
+  const [pending] = await queueSpread(dev, 1);
+  const { entry: opaque } = await queueBackup(dev.store, {
+    space: SPACES.VISIBLE,
+    baseName: 'sealed-export.json',
+    payload: 'AAAA-sealed-bytes-this-layer-never-opens-BBBB',
+    label: 'a sealed export naming two clients',
+    refs: ['client-departed', 'client-staying'],
+    now: dev.now(),
+  });
+
+  // Fixture check, because everything below is about which status each entry is IN. Written after
+  // the first attempt at this test put the opaque entry behind a flush that delivered it — the
+  // assertion then failed for a fixture reason and said nothing at all about the prune.
+  assert.equal(await countByStatus(dev.store, STATUS.DELIVERED), 1);
+  assert.equal(await countByStatus(dev.store, STATUS.REJECTED), 1);
+  assert.equal(await countByStatus(dev.store, STATUS.PENDING), 2);
+
+  // Two further deliveries, under a cap of two, so the bound genuinely has work to do and the oldest
+  // delivered entry — `landed` — is what it has to reach for.
+  const extra = await queueSpread(dev, 2);
+  const TIGHT = { max: 2, batch: 1, ceiling: 2 };
+  for (const entry of extra) {
+    // eslint-disable-next-line no-await-in-loop
+    await recordDelivered(dev.store, entry.entry_id, { now: dev.now(), retention: TIGHT });
+  }
+
+  const stillThere = async (id) => Boolean(await dev.store.read('outbox', (s) => s.get('outbox', id)));
+
+  // Asserted BEFORE the count, so a bound widened past its range reds HERE rather than being
+  // shadowed by a tally — a guard whose red always arrives from an earlier assertion has never been
+  // seen to fail. This ordering was arrived at by breaking the range and watching where it went red.
+  assert.ok(await stillThere(opaque.entry_id), 'the unresolved opaque-shared entry must survive the bound untouched');
+  assert.ok(await stillThere(pending.entry_id), 'pending: still being attempted');
+  assert.ok(await stillThere(rejected.entry_id), 'rejected: the problem it records did not stop mattering');
+
+  // THE POSITIVE CONTROL, same run: without it every survival above would also be satisfied by a
+  // bound that did nothing at all.
+  assert.equal(await stillThere(landed.entry_id), false, 'the bound genuinely ran on this fixture');
+  // One, not two: a bound with headroom takes the set to `max - batch` when it fires, so the next
+  // few deliveries cost nothing. The cap is a ceiling on the set, never a target it is held at.
+  assert.equal(await countByStatus(dev.store, STATUS.DELIVERED), 1, 'and took the delivered set below its cap');
+
+  await dev.store.close();
+});
+
+test('the bound never touches an entry that stopped, however many deliveries follow it', async () => {
   const dev = await aDevice();
   await queueSpread(dev, 1);
   dev.adversity.failNext(1, { operation: 'create', error: () => new RemoteInvalidRequest('no') });
   await flushOutbox(dev.store, dev.remote, { now: dev.now() });
 
-  dev.advance(365 * 24 * 60 * 60_000);
-  await pruneDelivered(dev.store, { before: dev.now() });
+  // The old shape of this test advanced a year, because the bound was an age. It is now a count, so
+  // the pressure that could reach a stopped entry is DELIVERIES, and that is what is applied here.
+  const later = await queueSpread(dev, 4);
+  for (const entry of later) {
+    // eslint-disable-next-line no-await-in-loop
+    await recordDelivered(dev.store, entry.entry_id, {
+      now: dev.now(), retention: { max: 2, batch: 1, ceiling: 2 },
+    });
+  }
+  assert.equal(await countByStatus(dev.store, STATUS.DELIVERED), 2, 'positive control: the bound did run here');
 
   const status = await outboxStatus(dev.store, { now: dev.now() });
-  assert.equal(status.needs_attention, 1, 'the problem it records does not stop mattering because time passed');
+  assert.equal(status.needs_attention, 1, 'the problem it records does not stop mattering because more work landed');
   await dev.store.close();
 });
 

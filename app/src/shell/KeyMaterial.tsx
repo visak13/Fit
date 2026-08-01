@@ -53,22 +53,47 @@ import type { KeyMaterialCondition } from '../screens/key-material-condition';
 
 export type { KeyMaterialCondition, RemoteFileMeta } from '../screens/key-material-condition';
 
-export interface KeyMaterialReading {
-  /**
-   * The condition the core refused to resolve, or null when there is nothing wrong.
-   *
-   * There is no second field. See the note above: the absence is the design.
-   */
-  readonly condition: KeyMaterialCondition | null;
-}
+/**
+ * THE READING, AND IT HAS EXACTLY TWO ARMS TODAY BECAUSE ONLY TWO ARE REAL.
+ *
+ * A bare `condition: KeyMaterialCondition | null` cannot tell A SURVEY THAT FOUND ONE SET OF KEYS
+ * apart from NOBODY HAVING SURVEYED ANYTHING, and the screen chose its words off that null — so a
+ * device on which nothing has ever looked read "One set of encryption details, which is how it
+ * should be. Your devices agree on how your client medical notes are locked." That count of one was
+ * a constant in the wording module, not a measurement.
+ *
+ * The surveyed-and-clean state is deliberately NOT representable here. It is a real future state and
+ * it needs words the user has not chosen, so the step that wires `establishKeyMaterial` adds the arm
+ * AND its sentence together, and until it does the type refuses to let the old reassurance be reused
+ * for it. That refusal is a compile error rather than a review comment.
+ */
+export type KeyMaterialReading =
+  | {
+    /** Nothing has surveyed the hidden space on this device, so there is nothing to report. */
+    readonly checked: false;
+    /** Always null on this arm: an unsurveyed device cannot have detected anything. */
+    readonly condition: null;
+  }
+  | {
+    /** A survey ran and the core refused to resolve what it found. */
+    readonly checked: true;
+    /** The condition the core refused to resolve, carried unchanged. Never null on this arm. */
+    readonly condition: KeyMaterialCondition;
+  };
 
 /**
  * What is true in this build: no remote is wired, so nothing has been surveyed and no condition can
  * have been detected. It is not a placeholder standing in for a real value — it is the real value for
  * a device that has never reached the hidden space, which is every device until the Google step
  * lands.
+ *
+ * The name is the older, weaker claim and is left alone deliberately: `App.tsx` imports it and
+ * another action owns that file while this one runs.
  */
-export const NO_KEY_MATERIAL_CONDITION: KeyMaterialReading = Object.freeze({ condition: null });
+export const NO_KEY_MATERIAL_CONDITION: KeyMaterialReading = Object.freeze({
+  checked: false,
+  condition: null,
+});
 
 const KeyMaterialContext = createContext<KeyMaterialReading | null>(null);
 

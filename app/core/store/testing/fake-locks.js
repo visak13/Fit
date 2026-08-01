@@ -11,6 +11,8 @@
  *    notification off as a peer's, and one that delivered synchronously would hide ordering bugs.
  */
 
+import { trackedTask } from './pending-work.js';
+
 /**
  * The lock manager double.
  * @implements {import('../platform.js').LockPort}
@@ -106,11 +108,12 @@ export class FakeBus {
         for (const other of ports) {
           if (other === port || other.closed) continue;
           // Asynchronous, as the platform's is: a peer never observes a message inside the
-          // sender's own call stack.
-          setTimeout(() => {
+          // sender's own call stack. Registered as pending work so a drain can wait for it to land
+          // rather than guess at how many turns it takes.
+          trackedTask(`a message delivery on the ${name} channel`, () => {
             if (other.closed) return;
             for (const listener of other._listeners) listener({ data: structuredClone(payload) });
-          }, 0);
+          });
         }
       },
       addEventListener: (type, listener) => {

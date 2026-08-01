@@ -234,12 +234,19 @@ export const SEEDING_LOCK = 'fit.seed-the-library';
  *
  * WHAT THAT COSTS, MEASURED RATHER THAN ASSUMED. The first guess was that it produces two copies of
  * the shipped library, since `importRecords` files each envelope under a freshly minted
- * `record_id`. It does not: `by_content_key` is a UNIQUE index, so the second transaction is refused
- * whole with a `ConstraintError` naming the first duplicate content key it met. The store is
- * therefore already safe from a doubled library — and what the coach gets instead is a SEEDING
- * FAILURE REPORTED ON A DEVICE THAT WAS SEEDED PERFECTLY WELL a moment earlier, in the app's own
- * words, on his first run. That is a false alarm about his own data, which is the class of thing
- * this application spends most of its care avoiding.
+ * `record_id`. It does not, and the reason CHANGED UNDER THIS PARAGRAPH — which is worth stating,
+ * because the note that used to be here read as a standing fact and had become false:
+ *
+ *  - **It used to be refused.** `by_content_key` is UNIQUE, so the second transaction was thrown out
+ *    whole with a `ConstraintError`, and what the coach got was a SEEDING FAILURE REPORTED ON A
+ *    DEVICE THAT SEEDED PERFECTLY WELL a moment earlier, in the app's own words, on his first run.
+ *  - **It is now reconciled.** That same refusal was the mechanism by which two DEVICES could never
+ *    merge (s11/a9, measured on two real profiles), so the store now reconciles a library record
+ *    arriving under a different identity onto the one it already holds, on the content key. The
+ *    second import therefore lands, writes nothing new, doubles nothing, and reports no failure.
+ *
+ * The guard below is UNCHANGED and is still the point: the second import is now redundant work
+ * rather than a false alarm, and redundant work on first run is still work worth not doing.
  *
  * The second caller therefore WAITS for the first and then asks again — `seedIfNeeded` re-reads the
  * store, finds the library, and writes nothing. It is not skipped, because skipping would make the
@@ -260,8 +267,9 @@ let seedingInFlight: Promise<LibrarySeeding> | null = null;
  * importing — and neither is told the library failed. A platform with no lock manager
  * (`platform.locks` is null — an old browser, or one where the facility is switched off) still gets
  * the in-process guard above, and its residual case is two SEPARATE windows racing on the very first
- * run of a fresh install. That residual is a false failure report and never a doubled or half-written
- * library: the store's unique content-key index refuses the second import whole.
+ * run of a fresh install. That residual is now one redundant import and never a doubled or
+ * half-written library: the store reconciles the second copy of each record onto the first, on the
+ * content key, in the same transaction. It used to be a false failure report — see above.
  */
 export async function seedTheLibrary(store: LocalStore): Promise<LibrarySeeding> {
   const mine = (seedingInFlight ?? Promise.resolve(LIBRARY_NOT_YET))

@@ -58,6 +58,8 @@ import type {
   BrowserSharing, Delivery, DownloadSurface, SharingSurface,
 } from '../platform/share-delivery';
 import type { PictureSurface } from '../platform/table-picture';
+import { auditedExport } from './export-audit';
+import type { ExportAudit } from './export-audit';
 
 /** The chart as `core/diet/chart.js` projects it — the same view the screen already draws. */
 type WeekChartView = ReturnType<typeof projectWeekChart>;
@@ -250,31 +252,45 @@ export interface DietExportSurfaces {
  *  - the canvas gives no image back — an error, said as one.
  *
  * `deliverFile` itself never throws, so everything after the file exists is already a stated outcome.
+ *
+ * ## THE AUDIT IS A REQUIRED ARGUMENT AND THE WHOLE BODY RUNS INSIDE IT
+ *
+ * A diet week handed to a client is a disclosure, and the log records that it began and how it
+ * ended — including the two refusals above, which are the half of the record that a coach actually
+ * needs later: an export that failed and an export nobody attempted are otherwise the same silence.
+ * The sink is required rather than optional for the reason written at `export-audit.ts`: an optional
+ * one is omitted by a later call site, still compiles, and the omission cannot be seen afterwards.
+ *
+ * The one thing that CAN now throw out of here is the log itself failing to append, and that is
+ * deliberate — see the same file.
  */
 export async function sendDietExport(
+  audit: ExportAudit,
   kind: DietExportKind,
   table: Table,
   surfaces: DietExportSurfaces,
 ): Promise<DietExportReport> {
-  let file: File;
-  try {
-    file = kind === 'picture'
-      ? await pictureFile(table, surfaces.picture)
-      : workbookFile(table);
-  } catch (error) {
-    // The seam's own sentence, labelled and reworded nowhere. It names the cell that is wrong, which
-    // is the difference between a fixable chart and a hunt through a week of meals.
-    const said = error instanceof Error ? error.message : String(error);
-    return { words: `This week could not be made into a file. ${said}`, tone: 'warning' };
-  }
+  return auditedExport(audit, async () => {
+    let file: File;
+    try {
+      file = kind === 'picture'
+        ? await pictureFile(table, surfaces.picture)
+        : workbookFile(table);
+    } catch (error) {
+      // The seam's own sentence, labelled and reworded nowhere. It names the cell that is wrong, which
+      // is the difference between a fixable chart and a hunt through a week of meals.
+      const said = error instanceof Error ? error.message : String(error);
+      return { words: `This week could not be made into a file. ${said}`, tone: 'warning' as ExportTone };
+    }
 
-  const delivery = await deliverFile(file, {
-    sharing: surfaces.sharing,
-    download: surfaces.download,
-    title: table.title,
+    const delivery = await deliverFile(file, {
+      sharing: surfaces.sharing,
+      download: surfaces.download,
+      title: table.title,
+    });
+
+    return { words: describeDelivery(delivery, file.name), tone: toneOf(delivery) };
   });
-
-  return { words: describeDelivery(delivery, file.name), tone: toneOf(delivery) };
 }
 
 /**

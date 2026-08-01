@@ -27,9 +27,17 @@
  * this core is provider-neutral and may not know Google exists — see `unwritten-kinds.test.js`,
  * whose scan reads both layers for exactly that reason.
  *
- * **The rest of the authentication domain, and the whole export domain, still have no call sites,
- * and that is deliberate.** The local unlock — the screen-lock resume gate — and the export screen
- * belong to steps that do not exist. Nothing here stubs a fake call site to make a kind look used.
+ * **It has now happened a second time, in the export domain.** The reports and admin step arrived
+ * needing to record that data had left the application and found all three export kinds already
+ * named — including {@link JOURNAL_KINDS.EXPORT_REFUSED}, which says that an export that did NOT
+ * complete is recorded too. That is the half a step inventing its own vocabulary drops, and it is
+ * the half a coach needs later: an export that failed and an export nobody attempted are otherwise
+ * the same silence. They are written from `src/screens/export-audit.ts`, in the SHELL, because
+ * `core/export/` is byte machinery that cannot know a disclosure happened.
+ *
+ * **What still has no call site is the LOCAL unlock — the screen-lock resume gate — and that is
+ * deliberate.** It belongs to a step that does not exist. Nothing here stubs a fake call site to
+ * make a kind look used.
  *
  * **A THIRD kind is unwritten, for a different reason, and the difference matters.**
  * {@link JOURNAL_KINDS.SYNC_CONFLICT_RESOLVED} means *one revision was chosen over the other*, and
@@ -157,9 +165,9 @@ export const KIND_SPECS = Object.freeze({
   },
 
   // ── Exports ────────────────────────────────────────────────────────────────────────────────
-  // DEFINED AND UNWRITTEN. The step that owns the export screen does not exist yet. An export is
-  // a disclosure — data leaving the application in readable form — which is why it is recorded at
-  // all, and why it is recorded even when it fails.
+  // WRITTEN, from `src/screens/export-audit.ts` — the one seam all five export paths run through.
+  // An export is a disclosure — data leaving the application in readable form — which is why it is
+  // recorded at all, and why it is recorded even when it fails.
   'export.started': {
     kind: 'export.started', domain: DOMAIN.EXPORT, subject: SUBJECT.OPTIONAL,
     means: 'an export of data out of the application began',
@@ -238,6 +246,7 @@ export const KIND_SPECS = Object.freeze({
     means: 'the log discarded its oldest entries under the retention policy, and this entry is the '
       + 'record of what was discarded so that verification can tell a prune from a deletion',
   },
+
 });
 
 /**

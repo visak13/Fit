@@ -34,4 +34,5 @@ import './entry.test.js';
 import './chain.test.js';
 import './retention.test.js';
 import './durable.test.js';
+import './survey.test.js';
 import './unwritten-kinds.test.js';

@@ -86,10 +86,17 @@ import type { LocalStore } from '../../core/store/store.js';
 
 import { THEME_STORAGE_KEY } from '../design/theme.ts';
 import { CLINICAL_HINT_KEY } from '../screens/clinical-hint.ts';
+import { SETUP_PROGRESS_KEY } from '../screens/setup-surface.ts';
+// THE ONE PLACE THAT KNOWS WHAT THE INTERFACE OFFERS. Read rather than remembered: this module's
+// refusal used to describe the screen from memory, and it was wrong in the state the whole feature
+// exists for. See `remedyForAction` for the argument, and for why the WORDS still belong here.
+import { NO_REMEDY, REMEDY, remedyForAction } from '../shell/action-destinations.ts';
+import type { Remedy } from '../shell/action-destinations.ts';
 
 import { GOOGLE_CONNECTION_KEY } from './google-identity.ts';
 import type { AcquireOutcome, GoogleConnection, SmallFactStorage, UserGesture } from './google-identity.ts';
 import { COACHING_CALENDAR_KEY, GOOGLE_CLIENT_ID_KEY } from './google-settings.ts';
+import { CLIENT_ID_PROVEN_KEY, COACHING_CALENDAR_PROVEN_KEY } from './setting-proof.ts';
 import { DEVICE_TAG_KEY } from './local-store.ts';
 import { PERSISTENCE_JOURNAL_KEY } from './storage-persistence.ts';
 
@@ -214,14 +221,75 @@ export interface DeliveryReading {
    * This is what stops WAIT becoming permanent. `null` means there is nothing undelivered to age.
    */
   readonly oldest_undelivered_age_ms: number | null;
+  /**
+   * THE LEADING REASON THE INDICATOR IS SHOWING HIM RIGHT NOW — the same object, not a second read.
+   *
+   * `accountabilityStatus()` returns it under this name and `SyncFromStore.tsx` hands the whole
+   * reading to both, so the sentence this gate writes and the control the indicator draws are two
+   * renderings of ONE fact. That is the whole of the fix: they cannot disagree, because there is
+   * nothing for them to disagree about.
+   *
+   * Nullable and REQUIRED, deliberately. Null is a real state — everything is backed up and there is
+   * no reason to show — and it is not the same as a caller having forgotten to pass one, which the
+   * compiler now refuses. A remedy is never guessed from its absence.
+   */
+  readonly reason: { readonly action: string | null } | null;
 }
 
-/** Whether this device may be erased, and if not, which kind of not. */
-export type EraseVerdict = 'clear' | 'wait' | 'decide';
+/**
+ * THE READING, OR THE FACT THAT THERE ISN'T ONE — and the gate takes THIS rather than the figures.
+ *
+ * ## Why the parameter changed shape rather than a flag being added beside it
+ *
+ * `shell/sync-runner.ts` reads the delivery figures from the local store, and that read can THROW.
+ * When it did, nothing published and the seam stood at its empty literal — every figure nought,
+ * every age null — and this gate read those four zeroes and returned `clear`. **A DELETION TAKEN ON
+ * A FALSE PREMISE**, and unlike a wrong sentence it is not recoverable: this device is the only
+ * place unbacked-up work exists.
+ *
+ * A boolean beside the figures would have re-created that one refactor later, because the next
+ * reader of `reading.pending` is under no obligation to consult it. Here the figures are UNREACHABLE
+ * without first saying whether they were ever taken, and every caller that used to pass a bare
+ * reading stops compiling rather than stopping being safe.
+ *
+ * `not_yet` is refused on the same ground as `failed`, and the ground is not the exception — it is
+ * that NOBODY COUNTED. The seam carries the empty literal for a bounded window before its first read
+ * lands, and inside that window the zeroes are as unmeasured as a failed read's. *Do not destroy
+ * what you did not count.*
+ *
+ * The failure is declared STRUCTURALLY, like {@link DeliveryReading} above and for the same reason:
+ * the shape is `screens/read-failure.ts`'s `ReadFailure`, and this module may not depend on a screen.
+ */
+export type DeliveryReadingOutcome =
+  | ({ readonly status: 'not_yet' | 'read' } & DeliveryReading)
+  | { readonly status: 'failed'; readonly failure: { readonly stage: string; readonly errorName: string } };
+
+/**
+ * EVERY ANSWER THIS GATE CAN GIVE, as a value rather than as a type alone.
+ *
+ * The type is derived FROM this list, so the two cannot come apart: a fourth verdict is a fourth
+ * entry here or it does not compile. That matters because a guard has to be able to enumerate the
+ * branches AT RUNTIME — a hand-typed list of states in a test is exactly the rot that let the
+ * refusal point at a control nobody had built, since no list anybody typed ever grew the state that
+ * was wrong.
+ */
+export const ERASE_VERDICTS = Object.freeze(['clear', 'wait', 'decide', 'unknown'] as const);
+
+/** Whether this device may be erased, and if not, which kind of not. @see ERASE_VERDICTS */
+export type EraseVerdict = (typeof ERASE_VERDICTS)[number];
 
 /** The gate's answer, including the words. */
 export interface EraseReadiness {
   readonly verdict: EraseVerdict;
+  /**
+   * WHAT THE WORDS BELOW ARE ALLOWED TO NAME, read off the reason the indicator is showing.
+   *
+   * Carried on the answer rather than kept inside the sentence so that a guard can hold the two
+   * against each other: the prose must name this and nothing else, and this must be what the
+   * interface genuinely offers in the same state. A sentence checked only against itself is how
+   * "connect to Google and tap Sync" survived every test in this build.
+   */
+  readonly remedy: Remedy;
   /** Still being retried. Will land on its own. */
   readonly waiting: number;
   /** Permanently stopped. Will never land without a person. */
@@ -240,7 +308,79 @@ export interface EraseReadiness {
  *
  * @param reading anything with the delivery figures on it — an `accountabilityStatus()` result is one
  */
-export function eraseReadiness(reading: DeliveryReading): EraseReadiness {
+/**
+ * HOW LONG A WAIT CAN LAST, IN HIS UNITS, DERIVED FROM THE LADDER'S OWN FIGURE.
+ *
+ * Written as a division of {@link PERSISTENT_WARNING_MS} rather than as the number three, so that if
+ * the ceiling ever moves the sentence moves with it. A promise about when a refusal ends is worth
+ * only as much as its arithmetic.
+ */
+const WAIT_LASTS_AT_MOST_DAYS = Math.round(PERSISTENT_WARNING_MS / (24 * 60 * 60_000));
+
+/**
+ * WHAT HE CAN DO, IN ONE SENTENCE, AND ONLY EVER ABOUT SOMETHING THAT IS THERE.
+ *
+ * Three shapes and no fourth, one per {@link REMEDY} kind, and the name of the control or the screen
+ * is QUOTED — always, and nothing else in a refusal ever is. That is a house rule with a purpose:
+ * it makes "what does this sentence tell him to press" a thing a guard can extract from the finished
+ * prose instead of a thing a reviewer has to read for, which is how this defect got past a reviewer
+ * in the first place.
+ *
+ * THE THIRD SHAPE IS NOT A FAILURE TO WRITE THE OTHER TWO. Where the core declares no action there
+ * is genuinely nothing in this application that helps, and the honest sentence — nothing to press,
+ * and where the explanation is — is worth more to him than an invented button. `reasons.js` makes
+ * the same argument for leaving those actions null: offering one that does not help is how an
+ * indicator earns the reputation of lying.
+ */
+/** The same sentence, continuing one rather than opening it. The quoted name is untouched. */
+function lowerFirst(sentence: string): string {
+  return sentence.charAt(0).toLowerCase() + sentence.slice(1);
+}
+
+function whatHeCanDo(remedy: Remedy): string {
+  if (remedy.kind === REMEDY.ACT) {
+    return `Tap "${remedy.named}" on the backup indicator, which is on the edge of every screen.`;
+  }
+  if (remedy.kind === REMEDY.ADDRESS) {
+    return `Open "${remedy.named}" from this screen and see what the backup said about them.`;
+  }
+  return 'There is nothing here you can press that would help — the backup indicator says what is '
+    + 'in the way, and this device keeps trying on its own.';
+}
+
+export function eraseReadiness(reading: DeliveryReadingOutcome): EraseReadiness {
+  // THE FIRST QUESTION IS NOT HOW MUCH IS OUTSTANDING — IT IS WHETHER ANYBODY COUNTED.
+  //
+  // Refusing is the only defensible default for a figure nobody measured. There is nothing to
+  // acknowledge either: no count was ever put in front of him, so there is nothing he could have
+  // agreed to lose, and `EraseAcknowledgement.forReadiness` therefore mints none here.
+  if (reading.status !== 'read') {
+    return Object.freeze({
+      verdict: 'unknown' as const,
+      // NO REMEDY. A remedy is read off the reason the indicator is showing him, and this is the
+      // state in which there is no reason because there is no reading. Naming a control from a
+      // reason nobody read is how an indicator earns the reputation of lying.
+      remedy: NO_REMEDY,
+      // NOT NOUGHT — nought is a count, and counting is what did not happen. There is no honest
+      // number for these two, so the words below quote neither and no sentence anywhere may.
+      waiting: 0,
+      stopped: 0,
+      oldestUndeliveredLabel: null,
+      headline: 'This app cannot tell what is backed up on this device',
+      whatHappened:
+        'This app could not read what is backed up and what is still waiting here, so it does not '
+        + 'know whether anything on this device is the only copy. It will not erase work it has not '
+        + 'been able to count.',
+      whatToDo:
+        'Reload the app and open this screen again. If it still cannot read the backup status, '
+        + 'close every other window of this app and reload once more.',
+      // NO OVERRIDE, and this is the one refusal with no way past it at all. A `decide` names what
+      // he would be losing and lets him accept it; here there is nothing to name, so an override
+      // would be him agreeing to lose something nobody could describe.
+      mayProceedWithAcknowledgement: false,
+    });
+  }
+
   // `waiting_for_credential` is a subset of `pending` and is NOT added to it. It is work held on a
   // dead credential, which one tap fixes — usually. See `stuck` below for when it is not.
   const waiting = reading.pending;
@@ -252,9 +392,14 @@ export function eraseReadiness(reading: DeliveryReading): EraseReadiness {
   const age = reading.oldest_undelivered_age_ms;
   const stuck = age !== null && age >= PERSISTENT_WARNING_MS;
 
+  // THE ONE FACT EVERY SENTENCE BELOW IS ALLOWED TO NAME A CONTROL FROM. Read once, from the reason
+  // the coach is being shown, through the table that decides what the interface actually offers.
+  const remedy = remedyForAction(reading.reason?.action ?? null);
+
   if (waiting > 0 && !stuck) {
     return Object.freeze({
       verdict: 'wait' as const,
+      remedy,
       waiting,
       stopped,
       oldestUndeliveredLabel,
@@ -263,9 +408,14 @@ export function eraseReadiness(reading: DeliveryReading): EraseReadiness {
         `${countOf(waiting, 'change')} on this device ${waiting === 1 ? 'has' : 'have'} not reached `
         + `your Google Drive yet${nameOf(oldestUndeliveredLabel)}. This device is the only place `
         + 'that work exists, so erasing now would lose it.',
+      // The remedy first, then the two promises that make this a wait rather than a dead end: it
+      // ends by itself when the work lands, and it ends anyway if it does not. The second one used
+      // to go unsaid, which was survivable while the first sentence named a cheap fix — and is not,
+      // now that the honest answer in several states is that there is no fix to name.
       whatToDo:
-        'Connect to Google and tap Sync, then come back. This does not need you to decide anything — '
-        + 'once the last change is backed up, this screen will let you carry on.',
+        `${whatHeCanDo(remedy)} You do not have to decide anything: once the last change is backed `
+        + 'up, this screen will let you carry on, and if it is still waiting after '
+        + `${WAIT_LASTS_AT_MOST_DAYS} days this screen will let you erase anyway.`,
       mayProceedWithAcknowledgement: false,
     });
   }
@@ -275,6 +425,7 @@ export function eraseReadiness(reading: DeliveryReading): EraseReadiness {
     const one = atRisk === 1;
     return Object.freeze({
       verdict: 'decide' as const,
+      remedy,
       waiting,
       stopped,
       oldestUndeliveredLabel,
@@ -287,16 +438,23 @@ export function eraseReadiness(reading: DeliveryReading): EraseReadiness {
         + `This is yours to decide rather than something to wait out: if you erase this device now, `
         + `${one ? 'that change is' : 'those changes are'} lost and cannot be recovered from your `
         + 'backup.',
+      // THE EXIT IS SAID WHATEVER THE REMEDY IS, and it is said second. He is allowed to erase this
+      // device from here; what changes with the state is only whether there is anything he could
+      // try first. Where there is nothing, that is the sentence — and the decision is still his.
       whatToDo:
-        'If you would rather not lose them, connect to Google and tap Sync once more, or look '
-        + 'through the changes that were refused. If you have decided they can go, confirm that '
-        + 'separately and this device can be erased.',
+        `${one ? 'To keep it' : 'To keep them'}: ${lowerFirst(whatHeCanDo(remedy))} If you have `
+        + 'decided they can go, confirm that separately and this device can be erased.',
       mayProceedWithAcknowledgement: true,
     });
   }
 
   return Object.freeze({
     verdict: 'clear' as const,
+    // NOT the remedy for the reason, and this is the one place that is right: nothing is undelivered,
+    // so there is nothing to remedy and nothing for this sentence to name. The confirm button below
+    // it is this panel's own control and is drawn from `mayProceedWithAcknowledgement` and the
+    // verdict, which is where a control belongs — not smuggled in as advice about somewhere else.
+    remedy: NO_REMEDY,
     waiting,
     stopped,
     oldestUndeliveredLabel,
@@ -377,12 +535,19 @@ export async function signOutAndEraseThisDevice({
 }: {
   connection: GoogleConnection;
   store: LocalStore;
-  reading: DeliveryReading;
+  reading: DeliveryReadingOutcome;
   erasure: DeviceErasure;
   acknowledgement?: EraseAcknowledgement | null;
 }): Promise<EraseOutcome> {
   const readiness = eraseReadiness(reading);
 
+  // NOBODY COUNTED, SO NOTHING IS DESTROYED. This is checked HERE and not only where the panel is
+  // drawn: the screen already declines to draw a button, but the gate is the thing that must be
+  // un-bypassable, and a caller reaching this function directly is exactly what it exists for. No
+  // acknowledgement is consulted, because none can be minted for a reading nobody took.
+  if (readiness.verdict === 'unknown') {
+    return Object.freeze({ outcome: 'refused' as const, readiness });
+  }
   if (readiness.verdict === 'wait') {
     return Object.freeze({ outcome: 'refused' as const, readiness });
   }
@@ -428,11 +593,21 @@ export const SMALL_FACT_KEYS = Object.freeze([
   // trace that says the app was used here and how.
   THEME_STORAGE_KEY,
   CLINICAL_HINT_KEY,
+  // How far he got through the one-time setup. His own note of where he stopped, and swept for the
+  // same reason as the two above it: this application is demonstrated on somebody else's computer,
+  // and a set of ticks left behind afterwards says the app was used here and how far somebody got.
+  SETUP_PROGRESS_KEY,
   // The two settings he supplied about Google. Neither is a credential — a client id is public by
   // design and a calendar id is an address — but both say WHO used this device and with what
   // account, which is exactly what erasing is for when the computer belongs to somebody else.
   GOOGLE_CLIENT_ID_KEY,
   COACHING_CALENDAR_KEY,
+  // And which VALUE of each has actually been proven to work — the evidence behind the setup screen's
+  // statement about whether an id has ever been used. Each holds a copy of the id itself, so the
+  // argument above applies to them word for word; and a proof left behind on somebody else's computer
+  // says not only that this account was set up here but that it got as far as working.
+  CLIENT_ID_PROVEN_KEY,
+  COACHING_CALENDAR_PROVEN_KEY,
 ]);
 
 /**

@@ -49,7 +49,10 @@ function aCoachRoutine() {
   };
 }
 
-test('reset restores exactly the shipped set', async () => {
+// The name says "every shipped record", not "exactly the shipped set": this store holds nothing the
+// coach authored, so the counts coincide here. What reset guarantees is the SHIPPED half; that a
+// coach-created record survives alongside it is the separate claim proven below.
+test('reset returns every shipped record to its shipped state', async () => {
   const store = await seeded();
   const shipped = seedCounts();
 

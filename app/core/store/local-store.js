@@ -361,14 +361,16 @@ export class LocalStore {
 
   /**
    * Apply a record that came from somewhere else — the remote copy, a restored backup, the other
-   * device — under the model's last-write-wins rule.
+   * device — under the model's last-write-wins rule, RECONCILING ON THE CONTENT KEY where the same
+   * library content arrived under a different identity.
    *
-   * The rule is not re-implemented here: `supersedes` in the model is the whole of it, so both
-   * devices resolve every comparison identically and cannot converge on two different records.
+   * The last-write-wins rule is not re-implemented here: `supersedes` in the model is the whole of
+   * it, so both devices resolve every comparison identically and cannot converge on two different
+   * records. The identity rule is {@link reconcileOnContentKey}, and it is deterministic for exactly
+   * the same reason.
    *
    * @param {any} record An envelope.
-   * @returns {Promise<{applied: boolean, record: any}>} `applied: false` means the local revision
-   *   was already the winner and nothing was written.
+   * @returns {Promise<ApplyOutcome>} A named outcome, never a boolean. See {@link APPLY}.
    */
   async putRecord(record) {
     assertValid(record);
@@ -385,17 +387,33 @@ export class LocalStore {
       subject: { type, record_id: record.record_id },
     }, async (scope) => {
       const current = await scope.get(store, record.record_id);
-      if (current && !supersedes(current, record)) {
-        throw new NothingApplied({ applied: false, record: laterOf(current, record) });
+      if (current) {
+        if (!supersedes(current, record)) {
+          throw new NothingApplied({ outcome: APPLY.KEPT_LOCAL, record: laterOf(current, record) });
+        }
+        await scope.put(store, record);
+        if (type === 'session') await rebuildParticipants(scope, record);
+        return { outcome: APPLY.APPLIED, record };
       }
+
+      // Nothing is held under this identity. The same CONTENT may still be here under another one —
+      // the whole of the two-device seeding defect — and the unique content-key index would refuse
+      // the write. Reconcile instead of colliding.
+      const twin = await twinOnContentKey(scope, store, type, record);
+      if (twin) return applyReconciliation(scope, store, type, twin, record, {});
+
       await scope.put(store, record);
       if (type === 'session') await rebuildParticipants(scope, record);
-      return { applied: true, record };
+      return { outcome: APPLY.APPLIED, record };
     });
 
-    if (result.applied) {
+    if (result.outcome !== APPLY.KEPT_LOCAL) {
       this.coordinator.announce({
-        kind: 'put', type, record_id: record.record_id, rev: record.rev, device: this.device,
+        kind: 'put',
+        type,
+        record_id: result.record.record_id,
+        rev: result.record.rev,
+        device: this.device,
       });
     }
     return result;
@@ -435,20 +453,34 @@ export class LocalStore {
     }, async (scope) => {
       let written = 0;
       let skipped = 0;
+      let reconciled = 0;
       for (const record of records) {
         const store = storeNameFor(record.type);
-        if (!overwrite) {
-          const current = await scope.get(store, record.record_id);
-          if (current && !supersedes(current, record)) { skipped += 1; continue; }
+        const current = await scope.get(store, record.record_id);
+        if (current && !overwrite && !supersedes(current, record)) { skipped += 1; continue; }
+
+        // Same reconciliation as `putRecord`, and it is here for the same reason: a restore of a
+        // backup taken on the OTHER device carries the shipped library under that device's
+        // identities, and the unique content-key index would refuse the whole transaction.
+        if (!current) {
+          const twin = await twinOnContentKey(scope, store, record.type, record);
+          if (twin) {
+            const outcome = await applyReconciliation(scope, store, record.type, twin, record, { overwrite });
+            if (outcome.outcome === APPLY.KEPT_LOCAL) { skipped += 1; continue; }
+            reconciled += 1;
+            written += 1;
+            continue;
+          }
         }
+
         await scope.put(store, record);
         if (record.type === 'session') await rebuildParticipants(scope, record);
         written += 1;
       }
       // An import in which every record lost is not an import. Same reasoning as putRecord: nothing
       // was written, so aborting costs nothing and stops the log claiming records arrived.
-      if (written === 0) throw new NothingApplied({ written, skipped });
-      return { written, skipped };
+      if (written === 0) throw new NothingApplied({ written, skipped, reconciled });
+      return { written, skipped, reconciled };
     });
 
     this.coordinator.announce({ kind: 'put', type: 'import', device: this.device });
@@ -551,6 +583,167 @@ class NothingApplied extends Error {
     this.name = 'NothingApplied';
     this.value = value;
   }
+}
+
+// ── applying a record from somewhere else ─────────────────────────────────────────────────────
+
+/**
+ * What {@link LocalStore.putRecord} DID. A named outcome, deliberately not a boolean.
+ *
+ * It was `{applied: boolean}`, and the boolean is what let the reconciliation below be invisible:
+ * every caller wrote `if (result.applied)`, a third possibility could not be expressed, and a caller
+ * that ignored the flag entirely read exactly like one that had thought about it. A caller now has to
+ * name the case it is handling, and a case it has not named is a case it visibly does not handle.
+ */
+export const APPLY = Object.freeze({
+  /** The incoming record was written under its own identity. */
+  APPLIED: 'applied',
+  /** The local revision was already the winner. NOTHING was written. */
+  KEPT_LOCAL: 'kept-local',
+  /** The same content was already here under a DIFFERENT identity; the two lines became one. */
+  RECONCILED: 'reconciled',
+});
+
+/** @type {readonly string[]} */
+export const APPLY_OUTCOMES = Object.freeze(Object.values(APPLY));
+
+/**
+ * @typedef {{outcome: 'applied', record: any}
+ *   | {outcome: 'kept-local', record: any}
+ *   | {outcome: 'reconciled', record: any, retired_record_id: string}} ApplyOutcome
+ */
+
+/**
+ * THE IDENTITY RULE — the one record two devices holding the same content under two identities must
+ * both converge on.
+ *
+ * ## The defect this closes, measured on the real application by s11/a9
+ *
+ * Seeding runs when the store opens, before the store is published as open, so BOTH devices seed the
+ * shipped library before either can possibly have synchronised. `importRecords` files each envelope
+ * under a freshly minted `record_id` while the content key stays the shipped one — so the same 99
+ * exercises exist on both devices under the same `content.id` and ZERO shared `record_id`. The
+ * content-key index is UNIQUE, so the first shipped record to arrive from the other device was
+ * refused, and — because `applyUnion` had no per-record fence — the refusal threw out of the whole
+ * pass and took every record behind it, INCLUDING his clients and sessions, which can never collide.
+ * Nothing merged, ever, in either direction.
+ *
+ * ## Why the survivor is chosen by ARITHMETIC and not by "the local one wins"
+ *
+ * Keeping the local identity is the obvious rule and it never converges: A adopts nothing and keeps
+ * `a`, B adopts nothing and keeps `b`, and the two devices hold the same content under two identities
+ * FOREVER, reconciling again on every pass. The mirror rule — always adopt the incoming identity —
+ * is worse: A takes `b` while B takes `a`, and they SWAP, endlessly.
+ *
+ * So the survivor is the LEXICOGRAPHICALLY SMALLER `record_id`. It is not meaningful and is not meant
+ * to be: it is a function of the pair alone, so both devices compute the same answer from the same
+ * two records with no message between them, which is the only property that matters. It is the same
+ * reasoning `laterOf` gives for breaking a last-write-wins tie on the device tag.
+ *
+ * The CONTENT is decided by the model's own last-write-wins ladder and not by anything invented here,
+ * with one rung added that `laterOf` cannot have: `laterOf` compares two revisions of the SAME record
+ * and therefore cannot break a tie on identity, and a total tie here would otherwise resolve to
+ * "whichever was passed first", which is a DIFFERENT record on each device. `created_at` takes the
+ * earlier of the two, because the record first existed when the earlier of the two devices wrote it.
+ *
+ * @param {any} local The envelope already in this store, under its identity.
+ * @param {any} incoming The envelope that arrived, under its own.
+ * @returns {any} The one envelope both devices converge on. Its `record_id` is the survivor.
+ */
+export function reconcileOnContentKey(local, incoming) {
+  const winner = contentWinner(local, incoming);
+  return {
+    ...winner,
+    record_id: local.record_id <= incoming.record_id ? local.record_id : incoming.record_id,
+    created_at: local.created_at <= incoming.created_at ? local.created_at : incoming.created_at,
+  };
+}
+
+/**
+ * `laterOf`'s ladder, with the fourth rung it cannot have.
+ *
+ * Rungs one to three are the model's, in the model's order, and are not restated as a judgement —
+ * they are re-walked here only because the fourth rung has to sit under them. The fourth is identity,
+ * which is unreachable in `laterOf` because both sides there ARE one record; here the two sides are
+ * two records, and without it a total tie resolves to the argument order, which differs by device.
+ *
+ * @param {any} a @param {any} b @returns {any}
+ */
+function contentWinner(a, b) {
+  if (a.rev !== b.rev) return a.rev > b.rev ? a : b;
+  if (a.updated_at !== b.updated_at) return a.updated_at > b.updated_at ? a : b;
+  if (a.device !== b.device) return a.device > b.device ? a : b;
+  return a.record_id <= b.record_id ? a : b;
+}
+
+/**
+ * The record already here holding the SAME content under a DIFFERENT identity, or null.
+ *
+ * Only library records have a content key and only their stores carry the unique index, so this asks
+ * nothing of the others. It is a keyed index lookup inside the transaction that is about to write —
+ * asking outside it would be a decision taken against a state another window may already have moved.
+ *
+ * @param {import('./db.js').Scope} scope @param {string} store @param {string} type @param {any} record
+ * @returns {Promise<any|null>}
+ */
+async function twinOnContentKey(scope, store, type, record) {
+  if (!LIBRARY_TYPES.includes(type)) return null;
+  const key = record.content?.id;
+  if (typeof key !== 'string') return null;
+  const twin = await scope.getByIndex(store, 'by_content_key', key);
+  if (!twin || twin.record_id === record.record_id) return null;
+  return twin;
+}
+
+/**
+ * Write the reconciled record and retire the identity that lost.
+ *
+ * The loser's row is REMOVED rather than tombstoned. A tombstone is a statement that the coach
+ * deleted something and it propagates as one; this is two names for one thing becoming one name, and
+ * nothing about it should reach him as a deletion. Nothing is lost with the row: the content it held
+ * is the content of the record being written, or it lost the last-write-wins comparison to it.
+ *
+ * @param {import('./db.js').Scope} scope @param {string} store @param {string} type
+ * @param {any} twin @param {any} incoming @param {{overwrite?: boolean}} options
+ * @returns {Promise<ApplyOutcome>}
+ */
+async function applyReconciliation(scope, store, type, twin, incoming, options) {
+  const merged = options.overwrite === true
+    // A restore or a reset says outright that what it carries replaces what is here, so the content
+    // comparison is not asked — only the identity question is, and it is answered the same way.
+    ? { ...incoming, record_id: reconcileOnContentKey(twin, incoming).record_id }
+    : reconcileOnContentKey(twin, incoming);
+
+  // Already reconciled on an earlier pass: the other device's area still carries its old identity and
+  // will until it compacts, so this arrives again and again. Writing an identical record each time
+  // would put an import entry in the log on every pass for a change nobody made.
+  if (isSameStoredRecord(twin, merged)) {
+    throw new NothingApplied({ outcome: APPLY.KEPT_LOCAL, record: twin });
+  }
+
+  assertValid(merged);
+  const retired = merged.record_id === twin.record_id ? incoming.record_id : twin.record_id;
+  if (retired === twin.record_id) await scope.delete(store, twin.record_id);
+  await scope.put(store, merged);
+  if (type === 'session') await rebuildParticipants(scope, merged);
+  return { outcome: APPLY.RECONCILED, record: merged, retired_record_id: retired };
+}
+
+/**
+ * Whether these two envelopes are the same stored thing, field for field.
+ *
+ * Field by field rather than by serialising both: two envelopes assembled by different spreads carry
+ * the same fields in different orders, and a serialised comparison would call them different and
+ * rewrite the record on every pass forever.
+ *
+ * @param {any} a @param {any} b @returns {boolean}
+ */
+function isSameStoredRecord(a, b) {
+  return a.record_id === b.record_id && a.rev === b.rev && a.device === b.device
+    && a.updated_at === b.updated_at && a.created_at === b.created_at
+    && Boolean(a.deleted) === Boolean(b.deleted) && (a.deleted_at ?? null) === (b.deleted_at ?? null)
+    && (a.resolved_from ?? null) === (b.resolved_from ?? null)
+    && JSON.stringify(a.content ?? null) === JSON.stringify(b.content ?? null);
 }
 
 // ── module helpers ────────────────────────────────────────────────────────────────────────────

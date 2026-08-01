@@ -4,8 +4,9 @@
  * ## When it runs, and the thing it can never do
  *
  * Synchronisation is attempted at **every opportunity the platform allows**: on opening, on returning
- * to the foreground, on leaving, at intervals while the application is open, and on demand. Those
- * five are declared as data in {@link SYNC_TRIGGERS} and a test asserts the list.
+ * to the foreground, on the network coming back under a window that never left the screen, on
+ * leaving, at intervals while the application is open, and on demand. Those six are declared as data
+ * in {@link SYNC_TRIGGERS} and a test asserts the list BY NAME.
  *
  * **There is no background synchronisation and there cannot be.** The weaker mobile platform provides
  * no background sync and no periodic sync, and even where a platform did, the credential is
@@ -76,7 +77,7 @@ import {
   syncCompletionMarker,
 } from '../outbox/outbox.js';
 import { RemoteError, SPACES } from '../remote/remote.js';
-import { changedSince } from '../store/store.js';
+import { APPLY, changedSince } from '../store/store.js';
 import { readUnion, listOwnArea } from './areas.js';
 import { VERDICT, classify, describeDivergence } from './divergence.js';
 import {
@@ -90,11 +91,23 @@ import { completionWithheldBy } from './withheld.js';
 
 /**
  * Every opportunity the platform allows. Declared as data so the list is testable, and so that adding
- * a sixth is a visible change rather than a call site somewhere.
+ * a seventh is a visible change rather than a call site somewhere.
+ *
+ * **`reconnect` is the network coming back, and it is deliberately not `foreground`.** The trigger is
+ * PERSISTED with the completion (`core/status/completion.js`) and turned into plain words for the
+ * coach (`BACKUP_OPPORTUNITIES` in `core/status/statement.js`), so a reconnect pass wearing the
+ * `foreground` name would tell him the backup happened because he brought the application back to the
+ * screen — at a moment when he had been looking straight at it the whole time. The event is real and
+ * separately observable, so it gets its own name.
+ *
+ * **It is not a background pass and {@link NO_BACKGROUND_SYNC} is untouched.** The listener behind it
+ * (`src/shell/sync-runner.ts`) runs only while the application is OPEN AND ON SCREEN; a hidden tab
+ * that rejoins a network does nothing until he comes back, which is the `foreground` opportunity.
  */
 export const SYNC_TRIGGERS = Object.freeze({
   OPEN: 'open',
   FOREGROUND: 'foreground',
+  RECONNECT: 'reconnect',
   LEAVE: 'leave',
   INTERVAL: 'interval',
   MANUAL: 'manual',
@@ -120,6 +133,12 @@ export const PUSH_CURSOR_KEY = 'sync.push_cursor';
  * become due at once rather than serving out a delay that was never about a service needing time. On
  * `leave` and `interval` nobody has tapped anything, so releasing would only burn a call to learn the
  * same fact again.
+ *
+ * **`reconnect` IS NOT IN THIS LIST, AND THE OMISSION IS THE DELIBERATE PART.** A reconnect is the
+ * network changing its mind, not the coach arriving: no gesture happened, so no token can have been
+ * acquired, and releasing entries into a pass that cannot possibly satisfy them would burn a call to
+ * learn the same fact again — the exact cost the other two exclusions exist to avoid. His next tap or
+ * his next return is what releases them.
  */
 export const CREDENTIAL_RELEASING_TRIGGERS = Object.freeze(['open', 'foreground', 'manual']);
 
@@ -246,15 +265,33 @@ export async function pushLocalChanges(store, args) {
  * The count is reported rather than hidden: it is how "the removal is still taking effect elsewhere"
  * becomes something the surface can say.
  *
+ * ## A RECORD THAT CANNOT BE WRITTEN STOPS THAT RECORD, NOT THE PASS
+ *
+ * Every apply is fenced individually and a refusal is REPORTED, for the same reason an undecodable
+ * file is reported rather than thrown: one record this store will not take must not stop the coach's
+ * phone from receiving anything at all. It cost exactly that. The unique content-key index refused
+ * the first shipped exercise the other device sent, the `StoreWriteError` went straight up through
+ * `syncNow` — `attempt()` catches `RemoteError` and rethrows everything else — and every record
+ * behind it was never applied, including his CLIENTS, which have no content key and cannot collide.
+ *
+ * **Reported is not the same as swallowed, and the difference is the whole of condition three.** A
+ * refusal here withholds the pass's completion through `withheld.js`, exactly as a skipped file does,
+ * so a pass that could not take the other device's work cannot say everything is backed up. It is
+ * caught broadly ON PURPOSE: the class this closes is "an apply was refused", not "an apply was
+ * refused by the one index we already know about".
+ *
  * @param {import('../store/local-store.js').LocalStore} store
  * @param {import('./areas.js').UnionResult} union
- * @returns {Promise<{applied: number, kept: number, same: number, refused_resurrection: number,
+ * @returns {Promise<{applied: number, kept: number, same: number, reconciled: number,
+ *                    refused_resurrection: number, refused: RefusedApply[],
  *                    divergences: import('./divergence.js').Divergence[]}>}
  */
 export async function applyUnion(store, union) {
-  let applied = 0; let kept = 0; let same = 0; let refused = 0;
+  let applied = 0; let kept = 0; let same = 0; let refused = 0; let reconciled = 0;
   /** @type {import('./divergence.js').Divergence[]} */
   const divergences = [...union.divergences];
+  /** @type {RefusedApply[]} */
+  const refusals = [];
   const purged = await purgedIdentities(store);
 
   for (const incoming of union.records.values()) {
@@ -267,27 +304,102 @@ export async function applyUnion(store, union) {
     if (verdict === VERDICT.KEEP) { kept += 1; continue; }
     if (verdict === VERDICT.DIVERGED) { divergences.push(describeDivergence(local, incoming)); continue; }
 
-    // eslint-disable-next-line no-await-in-loop
-    const result = await store.putRecord(incoming);
-    if (result.applied) applied += 1; else kept += 1;
+    let result;
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      result = await store.putRecord(incoming);
+    } catch (error) {
+      refusals.push(describeRefusal(incoming, error));
+      continue;
+    }
+
+    if (result.outcome === APPLY.APPLIED) applied += 1;
+    else if (result.outcome === APPLY.RECONCILED) { applied += 1; reconciled += 1; }
+    else kept += 1;
   }
 
-  return { applied, kept, same, refused_resurrection: refused, divergences };
+  return {
+    applied, kept, same, reconciled, refused_resurrection: refused, refused: refusals, divergences,
+  };
 }
 
 /**
- * Write this device's whole current state into its area as ONE file, and remove the files it replaces.
+ * @typedef {Object} RefusedApply
+ * @property {string} record_id
+ * @property {string} type
+ * @property {string} why      The refusal's own words, kept verbatim. Never a sentence for the coach.
+ */
+
+/**
+ * One refused apply, as a fact the report can carry.
+ *
+ * The error's own text is kept because this is the only place it exists: it does not reach a screen
+ * and it will be read by whoever is working out why a device is not receiving. It carries no content
+ * and no name — a record identity and a kind, which is what an entry about a record is allowed to say.
+ *
+ * @param {any} record @param {any} error @returns {RefusedApply}
+ */
+function describeRefusal(record, error) {
+  const name = typeof error?.name === 'string' ? error.name : 'Error';
+  const message = typeof error?.message === 'string' ? error.message : String(error);
+  return { record_id: record.record_id, type: record.type, why: `${name}: ${message}` };
+}
+
+/**
+ * Write this device's whole current state into its area as ONE file, and remove the files it
+ * replaces — EXCEPT any file carrying a side of a clash nobody has answered.
  *
  * This is where a deletion reaches the remote copy: the state is written from the local store, and
  * the departed client's records are not in the local store, so they cannot be in it. The older files
  * that did contain them are removed by identifier.
  *
+ * ## THE REFUSAL TO DESTROY AN UNRESOLVED SIDE
+ *
+ * Measured by s11/a10 at engine level. Two devices write revision N of one record, unaware of each
+ * other — a divergence, surfaced, applied by neither side, and nobody has answered it. One of them
+ * then edits on to N+1 in the ordinary way. The other pulls, last-write-wins applies N+1 correctly,
+ * and ITS OWN revision-N words now exist in exactly one place: the earlier file in its own area. Then
+ * this function ran, wrote the whole state from a local store that no longer holds that side, and
+ * removed the file that did. Afterwards a raw scan of every file in the space finds the losing edit
+ * NOWHERE, `divergences` drops to zero because there is no longer a second copy to detect, and the
+ * question stops being asked. No error, no message, and the coach was never asked.
+ *
+ * So a file that carries a side of an UNANSWERED clash is not removed. That is all this does: it is a
+ * refusal to delete, not a resolution and not a surface. Nothing here asks the coach anything — that
+ * remains unbuilt and disclosed. What it buys is that his work is still there when someone builds the
+ * asking.
+ *
+ * **`unresolved` is REQUIRED, and `null` is not the same as `[]`.** An optional argument is one a
+ * later call site omits and still runs, and the omission is undetectable afterwards because a space
+ * with nothing protected looks exactly like a space with nothing to protect. `null` means the pull
+ * could not tell us — a step that failed, a union never read — and it FAILS CLOSED: nothing is
+ * removed. `[]` means asked and answered: there is no unanswered clash, and compaction proceeds in
+ * full, which is the direction that must be proven as hard as the other one.
+ *
  * @param {import('../store/local-store.js').LocalStore} store
  * @param {import('../remote/port.js').RemoteStoragePort} remote
- * @param {{space: string, now?: number|string|Date, timeoutMs?: number, purges?: readonly any[]}} args
- * @returns {Promise<{records: number, replaced: number, name: string}>}
+ * @param {{space: string, now?: number|string|Date, timeoutMs?: number, purges?: readonly any[],
+ *          unresolved: readonly any[]|null}} args
+ * @returns {Promise<{records: number, replaced: number, withheld_removals: number, name: string}>}
  */
 export async function compactOwnArea(store, remote, args) {
+  if (args?.unresolved === undefined) {
+    throw new SyncBoundaryError(
+      'compactOwnArea must be told which clashes are unanswered before it removes anything. Pass '
+      + 'the pass\'s own `union.divergences`, or null when the pull could not say — null withholds '
+      + 'every removal, which is the safe direction. There is deliberately no default: a caller that '
+      + 'forgot would silently delete a side of a clash the coach was never asked about.',
+      // ⚠ THE DAY A SECOND CALLER OF THIS FUNCTION APPEARS, THIS PARAMETER MUST BECOME THE UNION
+      // ITSELF RATHER THAN A LIST. A required argument prevents FORGETTING; it does not prevent
+      // LYING. Today there is exactly one non-test caller — `syncNow` — and it never types a
+      // literal: what it passes is what a completed read of the space RETURNED, so `[]` is not a
+      // claim anybody makes, it is an answer. A second caller could hand this an empty array
+      // without having read anything, and nothing here could tell the difference. That is
+      // disclosed rather than closed, deliberately: widening this boundary to harden it is a
+      // contract change, and this seam's whole licence is a refusal to delete.
+      { device: store.device },
+    );
+  }
   const device = assertDeviceTag(store.device);
   const prefix = areaPrefix(device);
   const existing = await listOwnArea(remote, {
@@ -312,7 +424,10 @@ export async function compactOwnArea(store, remote, args) {
   // Queued AFTER the state file, and delivered after it too, because the queue is ordered by
   // sequence. A removal that reached the service before its replacement would leave a window in
   // which this device's records were nowhere in the remote copy at all.
+  const spared = filesToSpare(existing, args.unresolved, records);
+  let removed = 0;
   for (const meta of existing) {
+    if (spared.has(meta.file_id)) continue;
     // eslint-disable-next-line no-await-in-loop
     await queueRemoval(store, {
       fileId: meta.file_id,
@@ -321,11 +436,55 @@ export async function compactOwnArea(store, remote, args) {
       idempotencyKey: `remove:${meta.file_id}`,
       now: args.now,
     });
+    removed += 1;
   }
 
   // The state file carries everything, so the next push starts from here.
   await store.setMeta(PUSH_CURSOR_KEY, cursor);
-  return { records: records.length, replaced: existing.length, name: /** @type {string} */ (entry.name) };
+  return {
+    records: records.length,
+    replaced: removed,
+    withheld_removals: spared.size,
+    name: /** @type {string} */ (entry.name),
+  };
+}
+
+/**
+ * The files this compaction must NOT remove, and why each one.
+ *
+ * A file is spared when it carries a side of an unanswered clash that the state being written does
+ * not itself carry. The second half of that sentence is what keeps compaction working: once the state
+ * file holds that exact revision, the earlier file is no longer the only copy and removing it
+ * destroys nothing.
+ *
+ * The revision is matched exactly — record, revision AND author — because that triple is what a side
+ * of a clash IS. A record at the same revision written by the other device is the OTHER side, and
+ * treating it as this one would spare a file while the words in it went.
+ *
+ * @param {readonly {file_id: string}[]} existing
+ * @param {readonly any[]|null} unresolved The pass's unanswered clashes, or null for "cannot say".
+ * @param {readonly any[]} records The whole state about to be written.
+ * @returns {Set<string>} file ids to leave alone.
+ */
+function filesToSpare(existing, unresolved, records) {
+  // Cannot say. Every file could be the only copy of a side, so none of them goes. A pass that could
+  // not read the union has not earned a deletion.
+  if (unresolved === null) return new Set(existing.map((meta) => meta.file_id));
+
+  const carried = new Set(records.map(revisionKey));
+  const spare = new Set();
+  for (const divergence of unresolved) {
+    for (const [side, fileId] of [
+      [divergence?.local, divergence?.local_file_id],
+      [divergence?.incoming, divergence?.incoming_file_id],
+    ]) {
+      if (!side || typeof fileId !== 'string') continue;
+      if (carried.has(revisionKey(side))) continue;
+      spare.add(fileId);
+    }
+  }
+  // Only our own files are ours to remove or to spare; the rest were never candidates.
+  return new Set(existing.map((meta) => meta.file_id).filter((id) => spare.has(id)));
 }
 
 /**
@@ -428,10 +587,16 @@ async function attempt(step, run, failures) {
  * @property {{step: string, code: string, message: string, retryable: boolean, needs_reauth: boolean}[]} failures
  *                                            Steps that could not reach the service. Loud and specific;
  *                                            `needs_reauth` is the one with a tap attached.
- * @property {{applied: number, kept: number, same: number, seen: number}} pulled
+ * @property {{applied: number, kept: number, same: number, reconciled: number,
+ *             refused_resurrection: number, refused: RefusedApply[], seen: number}} pulled
+ *                                            `refused` is every record this store would not take —
+ *                                            the fact that withholds the completion. `reconciled` is
+ *                                            how many of `applied` arrived under another identity.
  * @property {import('./divergence.js').Divergence[]} divergences Surfaced. Never resolved here.
  * @property {{notices_applied: string[], propagated: string[], still_present: any[], pending: number}} deletions
- * @property {{ran: boolean, records: number, replaced: number}} compaction
+ * @property {{ran: boolean, records: number, replaced: number, withheld_removals: number}} compaction
+ *                                            `withheld_removals` are earlier files left in place
+ *                                            because they carry a side of a clash nobody answered.
  * @property {any} snapshot
  * @property {{name: string, file_id: string, why: string, written_by_newer_version: boolean}[]} unreadable
  *                                            Files skipped because this engine could not DECODE them.
@@ -443,6 +608,10 @@ async function attempt(step, run, failures) {
  * @property {any[]} unrecognised             Files in the space this application did not write at
  *                                            all — the coach's own. Reported, and NOT a fault.
  * @property {any} outbox                     The figures the accountability surface is built on.
+ *
+ * There is deliberately NO `retention` field. A pass briefly reported what its tail housekeeping had
+ * done to the delivered set; the queue now bounds itself inside the delivery that grows it, so a pass
+ * has nothing to report and — more to the point — nothing to fail to do. See section 9 below.
  */
 
 /**
@@ -458,7 +627,7 @@ export async function syncNow(store, remote, options) {
   const trigger = options?.trigger;
   if (!SYNC_TRIGGER_VALUES.includes(trigger)) {
     throw new SyncBoundaryError(
-      `"${trigger}" is not a synchronisation opportunity. There are five, and none of them is a background one: ${SYNC_TRIGGER_VALUES.join(', ')}.`,
+      `"${trigger}" is not a synchronisation opportunity. There are six, and none of them is a background one: ${SYNC_TRIGGER_VALUES.join(', ')}.`,
       { trigger },
     );
   }
@@ -511,7 +680,10 @@ export async function syncNow(store, remote, options) {
 
   const pulled = union
     ? await applyUnion(store, union)
-    : { applied: 0, kept: 0, same: 0, refused_resurrection: 0, divergences: [] };
+    : {
+      applied: 0, kept: 0, same: 0, reconciled: 0, refused_resurrection: 0, refused: [],
+      divergences: [],
+    };
 
   // ── 5. compaction ───────────────────────────────────────────────────────────────────────────
   // Forced by a deletion that has to reach this device's area, and otherwise by growth alone.
@@ -521,13 +693,29 @@ export async function syncNow(store, remote, options) {
     failures);
   const mustCompact = own !== null && (carried.length > 0 || own.length >= COMPACTION_THRESHOLD);
 
-  let compaction = { ran: false, records: 0, replaced: 0 };
+  let compaction = { ran: false, records: 0, replaced: 0, withheld_removals: 0 };
   if (mustCompact) {
     const result = await attempt('compact', () => compactOwnArea(store, remote, {
-      space, now: options.now, timeoutMs: options.timeoutMs, purges: carried,
+      space,
+      now: options.now,
+      timeoutMs: options.timeoutMs,
+      purges: carried,
+      // The clashes nobody has answered, as this pass read them out of the SPACE. Null when the pull
+      // did not happen: compaction then removes nothing, because it cannot know what it would be
+      // destroying. `pulled.divergences` is the same list plus any this device found against its own
+      // store, and it is the one passed so a clash detected either way protects its file.
+      unresolved: union ? pulled.divergences : null,
     }), failures);
     if (result) {
-      compaction = { ran: true, records: result.records, replaced: result.replaced };
+      compaction = {
+        ran: true,
+        records: result.records,
+        replaced: result.replaced,
+        // Files this compaction left alone because removing them would have destroyed a side of a
+        // clash the coach has not been asked about. Reported rather than silent: an area that stops
+        // shrinking is a fact somebody will one day have to explain.
+        withheld_removals: result.withheld_removals,
+      };
       flush = await flushOnce();
     }
   }
@@ -564,7 +752,22 @@ export async function syncNow(store, remote, options) {
   // agree are two derivations that will not.
   const unreadable = union ? union.unreadable : [];
   const unplaceable = union ? union.unplaceable : [];
-  const withheld = completionWithheldBy({ failures, unreadable, unplaceable });
+  // The pull's own figures, composed BEFORE the verdict is asked for, because the verdict is asked
+  // of a report shape and a second shape assembled here for the question alone is a second shape that
+  // can drift from the one the accountability surface reads. Same object, same fields, one question.
+  const pulledFigures = {
+    applied: pulled.applied,
+    kept: pulled.kept,
+    same: pulled.same,
+    reconciled: pulled.reconciled,
+    refused_resurrection: pulled.refused_resurrection,
+    // Records this store would not take. The pass reports them; `withheld.js` reads THIS field.
+    refused: pulled.refused,
+    seen: union ? union.records.size : 0,
+  };
+  const withheld = completionWithheldBy({
+    failures, unreadable, unplaceable, pulled: pulledFigures,
+  });
   const completion = withheld ? null : syncCompletionMarker(flush);
   await recordEvent(store, {
     kind: completion ? JOURNAL_KINDS.SYNC_COMPLETED : JOURNAL_KINDS.SYNC_REFUSED,
@@ -579,6 +782,21 @@ export async function syncNow(store, remote, options) {
     // remote copy is the deletions manifest doing its job, and the log has to be able to say it did.
     affected_count: pushed.records + pulled.applied + pushed.purges + notices.applied.length,
   });
+
+  // ── 9. THERE IS NO HOUSEKEEPING STEP HERE, AND ITS ABSENCE IS THE POINT ─────────────────────
+  // A prune of the queue's delivery evidence used to run at this tail. It has been REMOVED rather
+  // than moved earlier, and the queue is not left unbounded by its removal: `core/outbox` now applies
+  // the bound inside `recordDelivered`, in the same transaction that makes an entry delivered.
+  //
+  // A tail is the wrong place for an invariant, and this build's own shape says why. This pass can
+  // end before reaching here — it can throw, the tab can be torn down mid-flight, and the departing
+  // `leave` trigger deliberately skipped the prune so the flush was not competing with housekeeping.
+  // Every one of those is an ordinary event, and after every one of them the bound would simply not
+  // have been applied, with nothing anywhere saying so. An invariant that holds only when a pass
+  // completes is not an invariant; it is a habit.
+  //
+  // NOTHING MAY REINSTATE A SECOND ENFORCER HERE. Two enforcers with two rules can disagree, and the
+  // one that disagrees quietly is worse than the single one this replaced.
 
   return {
     trigger,
@@ -599,10 +817,7 @@ export async function syncNow(store, remote, options) {
     // turns this into the coach's own words rather than deriving the condition a second time.
     completion_withheld: withheld,
     failures,
-    pulled: {
-      applied: pulled.applied, kept: pulled.kept, same: pulled.same,
-      refused_resurrection: pulled.refused_resurrection, seen: union ? union.records.size : 0,
-    },
+    pulled: pulledFigures,
     divergences: pulled.divergences,
     deletions: {
       notices_applied: notices.applied,
@@ -645,7 +860,9 @@ export async function recoverFromRemote(store, remote, options = {}) {
     for (const record of document.records) {
       // eslint-disable-next-line no-await-in-loop
       const result = await store.putRecord(record);
-      if (result.applied) applied += 1;
+      // Reconciled counts as recovered: the record arrived and this device now holds it. Only
+      // `kept-local` did not move anything.
+      if (result.outcome !== APPLY.KEPT_LOCAL) applied += 1;
     }
     return {
       source: 'snapshot', applied, records: document.records.length,
@@ -667,7 +884,7 @@ export async function recoverFromRemote(store, remote, options = {}) {
   for (const record of union.records.values()) {
     // eslint-disable-next-line no-await-in-loop
     const result = await store.putRecord(record);
-    if (result.applied) applied += 1;
+    if (result.outcome !== APPLY.KEPT_LOCAL) applied += 1;
   }
   return {
     source: 'areas', applied, records: union.records.size,

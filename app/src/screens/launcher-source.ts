@@ -56,8 +56,11 @@ import type { LocalStore } from '../../core/store/store.js';
 import { MINT_REFUSALS } from '../platform/google-meet';
 import type { MintOutcome, MintRequest } from '../platform/google-meet';
 import type {
-  ClientRecord, Glance, OpenOutcome, Page, RoutineRecord, SessionMode, SessionRecord,
+  ClientRecord, Glance, LaunchpadReadStage, OpenOutcome, Page, RoutineRecord, SessionMode,
+  SessionRecord,
 } from './launcher';
+import { failureFrom, inStage } from './read-failure';
+import type { ReadFailure } from './read-failure';
 import { handOver, heldSession } from './session-handover';
 
 /**
@@ -106,12 +109,18 @@ export interface Launchpad {
  * ACTIVE CLIENTS ONLY. An archived client is somebody he has put away, and offering them as a person
  * to train today would undo the archiving. Archived is reachable under Clients, which is where it
  * belongs; this screen is the ordinary path.
+ *
+ * EACH THIRD IS TAGGED WITH WHICH THIRD IT IS, so a rejection can say which one did not come back.
+ * The tag is the only thing about the failure that reaches the screen apart from the thrown value's
+ * class — see `screens/read-failure.ts` for why it is so little.
  */
 export async function readLaunchpad(store: LocalStore): Promise<Launchpad> {
   const [clients, routines, unfinished] = await Promise.all([
-    listClients(store, { limit: LAUNCHER_PAGE_LIMIT, includeArchived: false }),
-    libraryPage(store, 'routine', { limit: LAUNCHER_PAGE_LIMIT }),
-    unfinishedSessions(store, { limit: UNFINISHED_LIMIT }),
+    inStage('calendar', 'clients', listClients(store, {
+      limit: LAUNCHER_PAGE_LIMIT, includeArchived: false,
+    })),
+    inStage('calendar', 'routines', libraryPage(store, 'routine', { limit: LAUNCHER_PAGE_LIMIT })),
+    inStage('calendar', 'unfinished', unfinishedSessions(store, { limit: UNFINISHED_LIMIT })),
   ]);
 
   return {
@@ -122,27 +131,79 @@ export async function readLaunchpad(store: LocalStore): Promise<Launchpad> {
 }
 
 /**
- * Read the launchpad and publish it, dropping a read that arrives after the caller has gone.
+ * THE READ HAS NOT HAPPENED YET.
  *
- * A failure is reported to the console and NOTHING is published. That is deliberate, and it is the
- * same rule the register follows: an empty page says "nobody is on your register", and publishing it
- * after a failed read would tell a coach with forty clients that he has none — the reassuring
- * answer, arrived at by not having looked. The screen guards on the store's own state instead.
+ * A bounded window, and it is not the state this file was changed for. The screen draws its lists as
+ * blanks here rather than wording them, which is what makes a transient safe to have.
+ */
+export interface LaunchpadNotYetRead {
+  readonly status: 'not_yet';
+}
+
+/** The read happened, and this is what it found. */
+export interface LaunchpadWasRead {
+  readonly status: 'read';
+  readonly launchpad: Launchpad;
+}
+
+/**
+ * The read was attempted and did not come back.
+ *
+ * IT CARRIES NO LAUNCHPAD, and that is the protection rather than an omission. A shape that offered
+ * an empty roster here is precisely the shape that let a failed read be worded as an empty register.
+ */
+export interface LaunchpadReadFailed {
+  readonly status: 'failed';
+  readonly failure: ReadFailure<LaunchpadReadStage>;
+}
+
+/**
+ * Everything the calendar's first read can be — THREE mutually exclusive states, not two.
+ *
+ * ## WHY THIS TYPE EXISTS, AND IT IS THE MOST CONSEQUENTIAL INSTANCE IN THE APPLICATION
+ *
+ * {@link readLaunchpadInto} used to catch a rejected read, log it to the console and PUBLISH
+ * NOTHING. The screen's `pad` therefore stayed at `null` — and `CalendarScreen.tsx` words `null` and
+ * "nobody on the register" as the SAME THING, so it rendered {@link NO_CLIENTS}: *"Nobody is on your
+ * register yet. Add the people you train under Clients."* A coach with forty clients, on a read that
+ * failed, was told he has none — and told to go and add them.
+ *
+ * THE CALENDAR IS WHERE A COLD START LANDS. It is the first screen he sees, with a client standing
+ * in front of him, and "you have nobody and nothing is on today" is the single most consequential
+ * false sentence this application can say. The defect was found on the journal first (s17/r2) and
+ * measured here by s11/a3; the shape is identical because the construction was copied.
+ *
+ * The discriminant is what makes it impossible to reach the roster without first saying which of the
+ * three states you are looking at. A boolean beside the old value would not have: the next reader of
+ * `pad` is under no obligation to consult a flag, and `pad === null` is already spelled in six places.
+ */
+export type LaunchpadReading = LaunchpadNotYetRead | LaunchpadWasRead | LaunchpadReadFailed;
+
+/** What the seam carries before the first read lands. */
+export const LAUNCHPAD_NOT_READ_YET: LaunchpadNotYetRead = Object.freeze({ status: 'not_yet' });
+
+/**
+ * Read the launchpad and publish the OUTCOME, dropping a read that arrives after the caller has gone.
+ *
+ * A FAILURE PUBLISHES {@link LaunchpadReadFailed}, and that is this function's whole reason for
+ * having been changed. The console line is kept beside the publish — it is where a developer looks
+ * and it was never what the coach reads.
  *
  * @returns cancel
  */
 export function readLaunchpadInto(
   store: LocalStore,
-  publish: (launchpad: Launchpad) => void,
+  publish: (reading: LaunchpadReading) => void,
 ): () => void {
   let live = true;
 
   void readLaunchpad(store).then(
     (launchpad) => {
-      if (live) publish(launchpad);
+      if (live) publish({ status: 'read', launchpad });
     },
     (error: unknown) => {
       console.error('[calendar] the launcher could not be read from the local store', error);
+      if (live) publish({ status: 'failed', failure: failureFrom(error, 'clients') });
     },
   );
 

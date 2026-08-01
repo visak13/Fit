@@ -1,21 +1,24 @@
 {
   "note": "MEASURED test counts per core directory, used as FLOORS by tools/run-core-tests.mjs. A directory recorded here that stops being discovered, or that runs fewer tests than this, fails the gate loudly — a number that drops is a failure even when every test passes. Rewrite only with `node tools/run-core-tests.mjs --update-floors`, on a green tree, as a deliberate single act: this file must never be edited by parallel workers, because a concurrent read-modify-write on a shared list is the exact defect the discovering gate was built to end.",
-  "measuredAt": "2026-07-27",
+  "measuredAt": "2026-08-01",
   "measured": {
-    "crypto": 79,
+    "artefacts": 78,
+    "backup": 43,
+    "crypto": 90,
     "diet": 95,
-    "export": 66,
+    "export": 74,
     "integration": 17,
-    "intensity": 76,
-    "journal": 91,
+    "intensity": 82,
+    "journal": 104,
     "model": 116,
-    "outbox": 74,
+    "outbox": 86,
     "remote": 58,
+    "report": 83,
     "seed": 35,
     "session": 49,
     "status": 72,
-    "store": 96,
-    "sync": 139
+    "store": 107,
+    "sync": 178
   },
-  "total": 1063
+  "total": 1367
 }

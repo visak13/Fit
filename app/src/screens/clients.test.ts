@@ -44,11 +44,13 @@ import { DESTINATIONS } from '../shell/navigation.ts';
 import type { Destination } from '../shell/navigation.ts';
 import { ClientsScreen } from './ClientsScreen.tsx';
 import {
-  ADAPTATION_FLAG_LIMIT, CLINICAL_DETAIL_HINT, FIELD_LABELS, NOT_CONNECTED_YET_WORDS,
-  PROTECTED_FIELD_PURPOSE, PROTECTED_FIELD_TITLE, describeClient, describeClinicalField,
-  describeRefusal, describeRegister, fieldLabel, registeredWords, sessionWords,
+  ADAPTATION_FLAG_LIMIT, CLINICAL_DETAIL_HINT, FIELD_LABELS, NOTHING_HAS_BACKED_UP_HERE_YET,
+  PROTECTED_FIELD_PURPOSE, PROTECTED_FIELD_TITLE, WHERE_TO_CONNECT, describeClient,
+  describeClinicalField, describeRefusal, describeRegister, fieldLabel, registeredWords,
+  sessionWords,
 } from './clients';
-import type { ClinicalFieldState, RegisterEntry, RegisterReading } from './clients';
+import type { RegisterEntry, RegisterReading } from './clients';
+import { BACKUP_HISTORY } from './backup-history';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -316,7 +318,9 @@ describe('the words in front of a refused field', () => {
 });
 
 describe('the protected clinical field', () => {
-  const STATES: readonly ClinicalFieldState[] = ['unknown', 'never-connected', 'connected'];
+  // DERIVED from the state's own tuple rather than listed here: a hand-maintained list guards the
+  // list, and a state added without words would simply never be covered by the loops below.
+  const STATES = BACKUP_HISTORY;
 
   it('CANNOT ACCEPT TEXT IN ANY STATE, and this assertion is meant to fail one day', () => {
     for (const state of STATES) {
@@ -341,34 +345,81 @@ describe('the protected clinical field', () => {
     }
   });
 
-  it('uses the CORE\'S own refusal sentence for a device that has never connected', () => {
+  /**
+   * THE REFUSAL SAYS THE FACT THIS SCREEN MEASURED, AND KEEPS THE CORE'S REASONING.
+   *
+   * It used to be `new NotConnectedYet().userMessage` verbatim — one refusal, one author, which is a
+   * sound rule and is not what went wrong. The core's sentence opens with a claim about the PRESENT
+   * connection, and this screen reads whether a backup has ever COMPLETED. A sign-out separates the
+   * two, and the borrowed sentence was measured sitting under an indicator saying the opposite.
+   *
+   * A PAIR, for the reason s11/a29 named: an assertion re-aimed at the author's own new copy is
+   * indistinguishable in a diff from an assertion softened. The FORBIDDING half fires if a claim
+   * about the present connection returns; the REQUIRING half fires if the core's argument — which is
+   * why the refusal exists at all — is dropped, and it was TRUE OF THE BORROWED SENTENCE TOO, so the
+   * two cannot both go red on one probe.
+   */
+  it('states the fact it measured — never a claim about the connection it did not', () => {
+    const { whatHappened } = describeClinicalField('never-backed-up');
+
     assert.equal(
-      describeClinicalField('never-connected').whatHappened,
-      new NotConnectedYet().userMessage,
-      'the screen wrote its own version of a refusal the core already worded for the coach',
+      /\bconnected\b/iu.test(whatHappened),
+      false,
+      'the protected field answers the BACKUP HISTORY in the backup indicator\'s present-tense '
+        + `vocabulary again, which is the contradiction backup-history.ts exists to close: ${whatHappened}`,
     );
-    assert.equal(NOT_CONNECTED_YET_WORDS, new NotConnectedYet().userMessage);
+    // NON-VACUITY: the same matcher over the sentence that carried the defect. If this goes quiet the
+    // assertion above is proving nothing.
+    assert.equal(
+      /\bconnected\b/iu.test(new NotConnectedYet().userMessage),
+      true,
+      'the matcher no longer finds a present-connection claim in the core\'s own refusal sentence, '
+        + 'so it would not find one in this screen\'s either',
+    );
+    assert.equal(whatHappened, NOTHING_HAS_BACKED_UP_HERE_YET);
   });
 
-  it('tells him where to go, which is the half the core\'s sentence does not carry', () => {
-    const report = describeClinicalField('never-connected');
+  it('keeps the core\'s reason for the refusal: a second set of details nothing could read', () => {
+    const { whatHappened } = describeClinicalField('never-backed-up');
+    assert.match(
+      whatHappened,
+      /encryption details/iu,
+      `the refusal no longer says what it is protecting, only that it refuses: ${whatHappened}`,
+    );
+    assert.match(
+      whatHappened,
+      /two sets cannot read each other|second set/iu,
+      'the refusal dropped WHY a second set of encryption details is the thing being avoided, which '
+        + `is the half that makes it read as care rather than as an obstacle: ${whatHappened}`,
+    );
+  });
+
+  it('tells him where to go, which is the half the refusal itself does not carry', () => {
+    const report = describeClinicalField('never-backed-up');
     assert.ok(report.whatToDo !== null && report.whatToDo.includes('Admin'));
   });
 
-  it('says something DIFFERENT once the device HAS synchronised, rather than repeating itself', () => {
-    const never = describeClinicalField('never-connected');
-    const connected = describeClinicalField('connected');
+  it('says something DIFFERENT once the device HAS backed up, rather than repeating itself', () => {
+    const never = describeClinicalField('never-backed-up');
+    const backedUp = describeClinicalField('has-backed-up');
 
     assert.notEqual(
       never.whatHappened,
-      connected.whatHappened,
-      'a device that has connected would still be told to connect. Nothing errors, and the only '
-        + 'symptom is a sentence that quietly stopped being true.',
+      backedUp.whatHappened,
+      'a device that has backed up would still be told to go and connect. Nothing errors, and the '
+        + 'only symptom is a sentence that quietly stopped being true.',
     );
-    assert.ok(
-      !connected.whatHappened.includes('has not connected'),
-      'the connected state still says he has not connected, which sends him to fix something that '
-        + 'is not broken',
+    assert.equal(
+      /\bconnected\b/iu.test(backedUp.whatHappened),
+      false,
+      'the has-backed-up state makes a claim about the present connection off a fact about the past. '
+        + 'MEASURED: it said "This device is connected to your Google account" while the indicator '
+        + `six inches above it said Google was not connected: ${backedUp.whatHappened}`,
+    );
+    assert.match(
+      backedUp.whatHappened,
+      /has backed up/iu,
+      `the has-backed-up state no longer says the one thing it actually read: ${backedUp.whatHappened}`,
     );
   });
 
@@ -594,5 +645,56 @@ describe('the standing sentences', () => {
 
   it('confirm the saved client by name, because that is what he just did', () => {
     assert.match(registeredWords('Test Person One'), /^Test Person One/);
+  });
+});
+
+/**
+ * THE DIRECTION OUT OF THE REFUSAL NAMES ONLY CONTROLS THAT ARE REALLY THERE.
+ *
+ * ## Why this is a PAIR and not one assertion
+ *
+ * The wording below was CORRECTED ON PURPOSE by s11/a41: it used to end "and connect your Google
+ * account there" after naming Admin, and there is no connect act on the Admin screen — `AdminScreen`
+ * draws none and `shell/refusal-names-a-real-control.test.ts` FORBIDS it from carrying one. Changing
+ * a sentence and then aiming an assertion at the new sentence is INDISTINGUISHABLE IN A DIFF FROM
+ * SOFTENING THE ASSERTION, so there are two here and they fail in opposite directions:
+ *
+ *  - the FORBIDDING half fires if the old location claim comes back;
+ *  - the REQUIRING half fires if the direction is deleted or hollowed out instead of corrected.
+ *
+ * AND THE REQUIRING HALF IS WORDED TO SURVIVE THE OLD COPY — that is s11/a34's refinement, found the
+ * hard way. A requiring half that only the NEW sentence satisfies goes red on the same probe as the
+ * forbidding one, and then the pair is one assertion wearing two names rather than two opposed
+ * claims. Everything it asks for was true of the sentence BEFORE the correction as well.
+ */
+describe('the way out of the not-connected refusal', () => {
+  it('does not send him to press a connect control on the Admin screen, which has none', () => {
+    // THE FORBIDDING HALF. Deliberately shaped at the CLAIM rather than at the old string: "connect
+    // ... there" is the promise that the act is on the screen just named, whatever verb spells it.
+    assert.equal(
+      /connect[^.]*\bthere\b/iu.test(WHERE_TO_CONNECT),
+      false,
+      'the refusal again tells him to connect his Google account on the screen it just named, and '
+        + 'the Admin screen holds no connect act — refusal-names-a-real-control.test.ts forbids it '
+        + `from carrying one: ${WHERE_TO_CONNECT}`,
+    );
+  });
+
+  it('still tells him where to go and still promises the rest of the page saved', () => {
+    // THE REQUIRING HALF. Both of these were true of the sentence before the correction too, so this
+    // stays GREEN under a probe that restores the old copy and goes RED only if the direction is
+    // deleted — which is the whole point of the pair.
+    assert.match(
+      WHERE_TO_CONNECT,
+      /\bAdmin\b/u,
+      'the refusal no longer names the destination that leads to the connecting, so a coach who has '
+        + `just been refused is told nothing about what to do next: ${WHERE_TO_CONNECT}`,
+    );
+    assert.match(
+      WHERE_TO_CONNECT,
+      /saves on this device/u,
+      'the refusal no longer promises that the rest of the page saved anyway, which is the half that '
+        + `stops it reading as "nothing you typed was kept": ${WHERE_TO_CONNECT}`,
+    );
   });
 });

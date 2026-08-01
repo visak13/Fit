@@ -1,5 +1,11 @@
 /**
- * RESET TO DEFAULTS — restore exactly the shipped library.
+ * RESET TO DEFAULTS — return every SHIPPED record to its shipped state, and touch no coach-authored
+ * record, with no client or session data affected.
+ *
+ * That sentence replaces an older one-line summary, "restore exactly the shipped library", which read
+ * as though the library ENDED as the shipped set. It does not, and the difference is a user ruling
+ * rather than a nuance: a curve the coach authored himself is still there afterwards. The detail
+ * below always said so; the summary did not, and a summary is what a reader carries away.
  *
  * ## What reset does, decided by the content contract rather than inferred here
  *
@@ -180,7 +186,7 @@ export async function describeReset(store) {
  */
 
 /**
- * Restore exactly the shipped library.
+ * Return every shipped record to its shipped state, leaving anything the coach authored standing.
  *
  * @param {import('../store/store.js').LocalStore} store
  * @param {{backup?: (plan: ResetPlan) => Promise<any>|any, now?: number|string|Date}} [options]

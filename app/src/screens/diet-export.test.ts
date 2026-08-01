@@ -29,6 +29,21 @@ import {
   sendDietExport, toneOf,
 } from './diet-export.ts';
 import type { DietExportSurfaces } from './diet-export.ts';
+import type { ExportAudit, ExportEntryFields } from './export-audit.ts';
+
+/**
+ * THE REQUIRED SINK, in a suite that is not about the log.
+ *
+ * It KEEPS what was written rather than discarding it — a sink that threw its argument away would be
+ * a no-op wearing the shape of a recorder, and the next person to copy it into production source
+ * would have reinvented the optional sink the argument exists to forbid. What the entries actually
+ * say, on a real store, driven through these same entry points, is proven in `export-audit.test.ts`.
+ */
+function anAudit(): { audit: ExportAudit; written: ExportEntryFields[] } {
+  const written: ExportEntryFields[] = [];
+  return { audit: { journal: async (fields) => { written.push(fields); } }, written };
+}
+
 import type { PictureCanvas, PictureSurface } from '../platform/table-picture.ts';
 import type { Delivery, DownloadSurface, ShareRequest, SharingSurface } from '../platform/share-delivery.ts';
 
@@ -196,7 +211,7 @@ test('AN EMPTY PLAN IS NOT OFFERED FOR SENDING, because the seam would accept it
   // table. One heading and no rows is a valid table; only a caller knows it means "not written yet".
   const table = dietExportTable(chart, 'Priya');
   assert.deepEqual(table.rows, []);
-  const anyway = await sendDietExport('spreadsheet', table, aBrowser('accepts').surfaces);
+  const anyway = await sendDietExport(anAudit().audit, 'spreadsheet', table, aBrowser('accepts').surfaces);
   assert.equal(anyway.tone, 'delivered', 'the seam refused it after all, so this gate guards nothing');
 });
 
@@ -219,7 +234,7 @@ test('THE SPREADSHEET IS A REAL WORKBOOK and it reaches the share sheet, named f
   const browser = aBrowser('accepts');
   const table = dietExportTable(projectWeekChart(aPlan()), 'Priya');
 
-  const report = await sendDietExport('spreadsheet', table, browser.surfaces);
+  const report = await sendDietExport(anAudit().audit, 'spreadsheet', table, browser.surfaces);
 
   assert.equal(browser.shared.length, 1, 'the file never reached the share sheet');
   assert.equal(browser.downloaded.length, 0, 'it was downloaded as well as shared');
@@ -236,7 +251,7 @@ test('THE IMAGE IS A REAL IMAGE and it reaches the share sheet too', async () =>
   const browser = aBrowser('accepts');
   const table = dietExportTable(projectWeekChart(aPlan()), 'Priya');
 
-  const report = await sendDietExport('picture', table, browser.surfaces);
+  const report = await sendDietExport(anAudit().audit, 'picture', table, browser.surfaces);
 
   assert.equal(browser.shared.length, 1);
   const [file] = browser.shared[0].files;
@@ -251,7 +266,7 @@ test('A BROWSER WITH NO SHARE SHEET DOWNLOADS, and it is NOT worded as sent', as
   const browser = aBrowser(null);
   const table = dietExportTable(projectWeekChart(aPlan()), 'Priya');
 
-  const report = await sendDietExport('spreadsheet', table, browser.surfaces);
+  const report = await sendDietExport(anAudit().audit, 'spreadsheet', table, browser.surfaces);
 
   assert.equal(browser.downloaded.length, 1, 'the coach ended up holding nothing');
   assert.equal(browser.shared.length, 0);
@@ -266,7 +281,7 @@ test('a sheet that refuses this KIND of file downloads instead, and says which',
   const browser = aBrowser('refuses-files');
   const table = dietExportTable(projectWeekChart(aPlan()), 'Priya');
 
-  const report = await sendDietExport('spreadsheet', table, browser.surfaces);
+  const report = await sendDietExport(anAudit().audit, 'spreadsheet', table, browser.surfaces);
 
   assert.equal(browser.downloaded.length, 1);
   assert.equal(report.tone, 'kept');
@@ -277,7 +292,7 @@ test('DISMISSING THE SHEET IS A CANCELLATION, never an error and never a downloa
   const browser = aBrowser('dismissed');
   const table = dietExportTable(projectWeekChart(aPlan()), 'Priya');
 
-  const report = await sendDietExport('picture', table, browser.surfaces);
+  const report = await sendDietExport(anAudit().audit, 'picture', table, browser.surfaces);
 
   assert.equal(report.tone, 'stopped');
   assert.notEqual(report.tone, 'warning', 'the coach is shown an error for changing his own mind');
@@ -305,7 +320,7 @@ test('the four outcomes get four voices, and only ONE of them means the client h
 test('A TABLE THE SEAM WILL NOT WRITE comes back as its own sentence, not as a thrown error', async () => {
   const browser = aBrowser('accepts');
 
-  const report = await sendDietExport(
+  const report = await sendDietExport(anAudit().audit, 
     'spreadsheet',
     // A title the seam refuses. The refusal is the seam's and must reach the coach unreworded.
     { title: '   ', headings: ['Time'], rows: [['08:00']] },
@@ -327,7 +342,7 @@ test('a canvas that gives no image back is SAID, rather than becoming an empty f
     }),
   };
 
-  const report = await sendDietExport(
+  const report = await sendDietExport(anAudit().audit, 
     'picture',
     dietExportTable(projectWeekChart(aPlan()), 'Priya'),
     { ...browser.surfaces, picture: blind },
@@ -397,7 +412,7 @@ test('THE REAL BROWSER’S SHARE SHEET IS PASSED THROUGH, and a file list copy i
   );
 
   const table = dietExportTable(projectWeekChart(aPlan()), 'Priya');
-  const report = await sendDietExport('spreadsheet', table, surfaces);
+  const report = await sendDietExport(anAudit().audit, 'spreadsheet', table, surfaces);
 
   assert.equal(report.tone, 'delivered');
   assert.equal(asked.length, 1, 'the real share sheet was never reached');

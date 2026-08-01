@@ -48,6 +48,7 @@
  */
 export const WITHHELD = Object.freeze({
   STEP_FAILED: 'step_failed',
+  RECORDS_REFUSED: 'records_refused',
   FILES_SKIPPED: 'files_skipped',
 });
 
@@ -80,12 +81,37 @@ export function completionWithheldBy(report) {
   if (Array.isArray(report.failures) && report.failures.length > 0) {
     return Object.freeze({ code: WITHHELD.STEP_FAILED, skipped: 0, newer_version: 0 });
   }
+  // A record the local store would not take is the same class of fact as a file that could not be
+  // read, and it is reported ABOVE it because it is the more definite one: a skipped file may hold
+  // nothing this device is missing, whereas a refused record is a named record that arrived, was
+  // examined, and is not here.
+  if (refusedApplies(report).length > 0) {
+    return Object.freeze({ code: WITHHELD.RECORDS_REFUSED, skipped: 0, newer_version: 0 });
+  }
   if (skipped.length > 0) {
     return Object.freeze({
       code: WITHHELD.FILES_SKIPPED, skipped: skipped.length, newer_version: newerVersion,
     });
   }
   return null;
+}
+
+/**
+ * Every record the pull could not write, out of a report that has a pull in it.
+ *
+ * Read through a function of its own, exactly as `skippedFiles` is, so that the withholding and the
+ * accountability surface ask the same question of the same field rather than each reaching into the
+ * report's shape — which is how the two derivations drift, and this module exists because they do.
+ *
+ * A flush report has no pull, so it has nothing to refuse and answers with an empty list. That is the
+ * honest answer for it rather than a missing one.
+ *
+ * @param {any} report
+ * @returns {import('./engine.js').RefusedApply[]}
+ */
+export function refusedApplies(report) {
+  const refused = report?.pulled?.refused;
+  return Array.isArray(refused) ? refused : [];
 }
 
 /**

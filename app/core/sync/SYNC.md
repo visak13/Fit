@@ -325,8 +325,11 @@ load-bearing.
 
 ### When synchronisation happens
 
-Five opportunities, declared as data: **on opening, on returning to the foreground, on leaving, at
-intervals while open, and on demand.** `leave` is best-effort; the platform may kill it mid-flight,
+Six opportunities, declared as data: **on opening, on returning to the foreground, on the connection
+coming back while the window is on screen, on leaving, at intervals while open, and on demand.**
+`reconnect` has its own name rather than borrowing `foreground` because the trigger is persisted with
+the completion and read back to the coach in plain words, and he never left the screen.
+`leave` is best-effort; the platform may kill it mid-flight,
 which the durable queue makes harmless and which the outbox makes structurally impossible to report
 as a completed synchronisation.
 

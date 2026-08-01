@@ -32,7 +32,7 @@ import test from 'node:test';
 import { JOURNAL_KINDS, JOURNAL_STORES, readChainPage } from '../journal/journal.js';
 import { aClient, aReading, aSession } from '../model/fixtures.js';
 import { createEnvelope, reviseEnvelope } from '../model/model.js';
-import { openLocalStore } from './local-store.js';
+import { APPLY, openLocalStore } from './local-store.js';
 import { purgeClient } from './purge.js';
 import { createLaptop } from './testing/platform-double.js';
 
@@ -102,7 +102,7 @@ test('a record arriving from elsewhere is recorded as an import, not as a local 
   });
 
   const result = await store.putRecord(fromThePhone);
-  assert.equal(result.applied, true);
+  assert.equal(result.outcome, APPLY.APPLIED);
 
   const entries = await entriesOn(store);
   assert.deepEqual(entries.map((e) => e.kind), [JOURNAL_KINDS.RECORD_IMPORTED]);
@@ -147,7 +147,7 @@ test('a record that LOSES to the local copy writes no entry at all', async () =>
   });
 
   const result = await store.putRecord(stale);
-  assert.equal(result.applied, false, 'the local revision wins — nothing is written');
+  assert.equal(result.outcome, APPLY.KEPT_LOCAL, 'the local revision wins — nothing is written');
 
   assert.deepEqual(await kindsOn(store), before,
     'and so nothing is RECORDED. An entry here would assert that records arrived and were merged '

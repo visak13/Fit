@@ -144,8 +144,18 @@ export function levelForAge(ageMs) {
  * age ladder continues to climb underneath it exactly as it would otherwise. That is not the same as
  * treating it lightly: `reasons.js` reports it as a QUEUE-WIDE stop, because it is one.
  *
+ * **A record that has not reached the QUEUE yet is not backed up either, and that is the third
+ * figure.** The queue can only answer what was queued, and a record enters it during a pass's push
+ * step — so between the coach saving something and the next pass, the queue is empty, every figure
+ * above reads clean, and `up_to_date` was returned about work that is on one device and nowhere else.
+ * Measured on the real application, with the indicator still saying everything is backed up
+ * thirty-six seconds after the write, and the next automatic opportunity up to fifteen minutes away.
+ * `work_not_in_the_backup` is answered from the STORE (`on-this-device.js`), which is the only place
+ * that fact exists before a pass runs.
+ *
  * @param {{undelivered: number, needs_attention: number, oldest_undelivered_age_ms?: number|null,
- *          oldest_pending_age_ms?: number|null, never_synchronised: boolean}} figures
+ *          oldest_pending_age_ms?: number|null, never_synchronised: boolean,
+ *          work_not_in_the_backup?: boolean}} figures
  *   `oldest_undelivered_age_ms` spans everything not in the backup, stopped entries included, and is
  *   what the ladder climbs on. `oldest_pending_age_ms` is accepted as a fallback for a caller that has
  *   only the queue's own figure to hand.
@@ -155,16 +165,18 @@ export function deriveLevel(figures) {
   const {
     undelivered = 0, needs_attention: needsAttention = 0,
     oldest_pending_age_ms: oldestPendingAgeMs = null, never_synchronised: neverSynchronised = false,
+    work_not_in_the_backup: workNotInTheBackup = false,
   } = figures || {};
   const oldestAgeMs = figures?.oldest_undelivered_age_ms ?? oldestPendingAgeMs;
+  const outstanding = undelivered === 0 && needsAttention === 0 && !workNotInTheBackup;
 
   // Nothing is outstanding and a real synchronisation has happened. The only rung that may say so.
-  if (undelivered === 0 && needsAttention === 0 && !neverSynchronised) return LEVEL.UP_TO_DATE;
+  if (outstanding && !neverSynchronised) return LEVEL.UP_TO_DATE;
 
   // Nothing is outstanding, but this installation has never completed a synchronisation. Not a
   // fault and not up to date either: there is no backup yet, and saying "everything is backed up"
   // would be the single most dangerous sentence this surface could produce.
-  if (undelivered === 0 && needsAttention === 0) return LEVEL.NOT_BACKED_UP;
+  if (outstanding) return LEVEL.NOT_BACKED_UP;
 
   let level = levelForAge(oldestAgeMs);
   if (needsAttention > 0) level = worse(level, LEVEL.OVERDUE);

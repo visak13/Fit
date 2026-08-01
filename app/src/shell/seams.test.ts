@@ -1,17 +1,26 @@
 /**
- * ONE SEAM SHAPE, FIVE TIMES — asserted across all of them rather than described in five file headers.
+ * ONE SEAM SHAPE, SIX TIMES — asserted across all of them rather than described in six file headers.
  *
  * `Divergences.tsx` was the first screen in this application to need data from the core, and it wrote
  * down what a seam here is made of, saying outright that "two later screens will copy this seam, so what
- * it is made of matters more than that it works". There are now five, and every one of them was supposed
+ * it is made of matters more than that it works". There are now six, and every one of them was supposed
  * to be that same thing rather than a fresh idea about how a screen gets its data.
  *
- * "Supposed to be" is what this file replaces. Five headers each claiming to have copied the first is
- * five claims nothing checks — and a second seam of a different shape is exactly the sort of divergence
+ * "Supposed to be" is what this file replaces. Six headers each claiming to have copied the first is
+ * six claims nothing checks — and a second seam of a different shape is exactly the sort of divergence
  * that is invisible in review and expensive later, because the step that wires the store then has to
  * satisfy two contracts and will satisfy one of them badly.
  *
- * THE THREE PROPERTIES, held by all five:
+ * ## AND THE COUNT BELOW IS WHY THE SIXTH IS HERE AT ALL
+ *
+ * The list is maintained BY HAND, which is the one weakness in an otherwise derived guard: a seam added
+ * by an action that does not own this file is simply absent, and every assertion below goes on passing
+ * over the five it can see. That is not hypothetical — the journal seam shipped, `journal-seam.test.ts`
+ * asserted these properties on it PRIVATELY because it could not edit this file, and this suite was
+ * green throughout. The length assertion is what caught it. RAISE that number when a seam is added;
+ * deleting it to make the file pass would turn a guard that works into one that is permanently silent.
+ *
+ * THE THREE PROPERTIES, held by all six:
  *
  *  1. **The provider is REQUIRED.** Using the hook outside it THROWS, naming the seam. Not a default —
  *     because the state a default invents is always the reassuring one: "nothing to decide", "nothing is
@@ -33,13 +42,14 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 import { DivergenceProvider, NOTHING_TO_DECIDE, useDivergences } from './Divergences.tsx';
+import { JournalProvider, NOTHING_HAS_BEEN_READ, useJournal } from './Journal.tsx';
 import { KeyMaterialProvider, NO_KEY_MATERIAL_CONDITION, useKeyMaterial } from './KeyMaterial.tsx';
 import { NOTHING_AWAITING_REMOVAL, RemovalsProvider, useRemovals } from './Removals.tsx';
 import { NOTHING_STOPPED, StoppedChangesProvider, useStoppedChanges } from './StoppedChanges.tsx';
 import { NO_BACKUP_YET, SyncStatusProvider, useSyncStatus } from './SyncStatus.tsx';
 
 /**
- * The five seams, each named, with its hook, its provider and its empty reading.
+ * The six seams, each named, with its hook, its provider and its empty reading.
  *
  * `resolve` is the ONE declared callable in the whole set, and it is declared HERE rather than allowed
  * by a loose rule, so a second one cannot be added without editing this list and saying why.
@@ -80,6 +90,17 @@ const SEAMS = [
     empty: NOTHING_AWAITING_REMOVAL as unknown as Record<string, unknown>,
     allowedCallables: [],
   },
+  // THE SIXTH, and the one this file was written waiting for. `journal-seam.test.ts` asserted these
+  // same three properties on it privately, because the action that built the seam did not own this
+  // file — which is exactly the condition the count below exists to end. A seam checked only against a
+  // copy of the rules is a seam nobody compared to the other five.
+  {
+    what: 'the journal seam',
+    hook: useJournal,
+    provider: JournalProvider,
+    empty: NOTHING_HAS_BEEN_READ as unknown as Record<string, unknown>,
+    allowedCallables: [],
+  },
 ];
 
 /** Everything callable anywhere in a value, by path, however deeply nested. */
@@ -91,12 +112,45 @@ function callables(value: unknown, path = ''): string[] {
 }
 
 describe('every seam in the interface is the same seam', () => {
-  it('has five of them, so this file cannot quietly stop covering one', () => {
+  /**
+   * THE COUNT, AND THE NAMES BESIDE IT — and the second half was measured rather than assumed.
+   *
+   * The count alone was break-probed by deleting the journal entry from the list, and it did fail on
+   * the right assertion. But its message could only describe the too-MANY case — "a seventh seam was
+   * added and not listed" — while what had actually happened was a seam going MISSING, and the diff
+   * said `5` against `6` and named nothing. A guard whose red misdescribes the failure sends the next
+   * person looking for the wrong thing, on the one file whose job is to notice a seam nobody compared.
+   *
+   * So the NAMES are asserted too, which makes the diff name the seam that went. The count STAYS: it
+   * is what catches a seam added under a name nobody thought to expect, which a name list on its own
+   * would swallow by simply being wrong in two places at once. Both are RAISED when a seam is added.
+   * Neither is deleted to make this file pass — a guard removed to silence it is strictly worse than
+   * the gap it was reporting.
+   */
+  it('has six of them, by count and by name, so this file cannot quietly stop covering one', () => {
+    assert.deepEqual(
+      SEAMS.map((seam) => seam.what),
+      [
+        'the divergence seam',
+        'the synchronisation seam',
+        'the key-material seam',
+        'the stopped-changes seam',
+        'the pending-removal seam',
+        'the journal seam',
+      ],
+      'the seams listed here are not the seams this file expects. A NAME MISSING FROM THE LEFT is a '
+        + 'seam that stopped being compared to the others; a name missing from the RIGHT is a seam '
+        + 'added and never listed. Both are how a second seam shape gets in.',
+    );
+
     assert.equal(
       SEAMS.length,
-      5,
-      'a sixth seam was added and not listed here. Add it — a seam nobody compared to the others is how '
-        + 'a second shape gets in.',
+      6,
+      'the number of seams in the interface has changed. RAISE this and the list above together; '
+        + 'never delete either to make the file pass. This assertion is the only thing that made the '
+        + 'journal seam get listed at all — it shipped, was asserted privately in its own file '
+        + 'because the action that built it could not edit this one, and this suite was green '
+        + 'throughout.',
     );
   });
 

@@ -46,6 +46,7 @@ import { Link, NavLink, Outlet } from 'react-router-dom';
 
 import { Glyph } from '../design/Glyph.tsx';
 import { Tooltip } from '../design/Tooltip.tsx';
+import { NewVersionNotice } from './NewVersion.tsx';
 import { SyncIndicator } from './SyncStatus.tsx';
 import { TrailProvider, useContextualTrail } from './ContextualTrail.tsx';
 import type { Destination } from './navigation.ts';
@@ -230,6 +231,14 @@ export function AppFrame() {
               <h1 className="brand-name">{APPLICATION_NAME}</h1>
             </div>
             <ContextualLine />
+
+            {/*
+              A NEWER VERSION IS READY, WHEN ONE ACTUALLY IS. Absent otherwise, and absent while he is
+              running a session — `shell/new-version.ts` owns both conditions and the words. It is in
+              the header rather than on a screen because a newer build is a fact about the whole
+              application, and a coach who had to go looking for it would find out by accident.
+            */}
+            <NewVersionNotice />
           </header>
 
           <div className="content-body">

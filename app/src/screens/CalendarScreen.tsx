@@ -42,6 +42,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
 import { Glyph } from '../design/Glyph';
+import { useViewportWidth } from '../design/viewport-width';
 import { LibraryNotice, LocalStoreNotice, useLibrarySeeding, useLocalStore } from '../platform/LocalStore';
 import { librarySnag } from '../platform/library-seeding';
 import type { Destination } from '../shell/navigation';
@@ -56,18 +57,18 @@ import {
   LAUNCHER_INTRO, LINK_CHOICES, LINK_QUESTION, MODE_CHOICES, NO_CLIENTS, NO_ROUTINES,
   LINK_PASTED, PASTE_AFTERWARDS_BUTTON, PASTE_AFTERWARDS_LABEL,
   PASTED_LINK_HINT, PASTED_LINK_LABEL, SECTION_TITLES, UNFINISHED_INTRO, UNFINISHED_TITLE,
-  chooseLinkPlan, chooseMode, chooseRoutine, describeGlance, describeHistory, describeMint,
-  describeOutcome, describeStart, describeUnfinished, linkToStore, pasteLink, shouldMint,
-  toggleClient,
+  chooseLinkPlan, chooseMode, chooseRoutine, describeFailedLaunchpadRead, describeGlance,
+  describeHistory, describeMint, describeOutcome, describeStart, describeUnfinished, linkToStore,
+  pasteLink, shouldMint, toggleClient,
 } from './launcher';
 import type {
   GlanceReport, MintReport, OutcomeReport, RoutineRecord, Selection, SessionPerson, SessionRecord,
 } from './launcher';
 import {
-  attachTheLink, mintTheLink, pickUpTheSession, readGlancesInto, readHistoryInto, readLaunchpadInto,
-  startTheSession,
+  LAUNCHPAD_NOT_READ_YET, attachTheLink, mintTheLink, pickUpTheSession, readGlancesInto,
+  readHistoryInto, readLaunchpadInto, startTheSession,
 } from './launcher-source';
-import type { GlanceReading, Launchpad } from './launcher-source';
+import type { GlanceReading, LaunchpadReading } from './launcher-source';
 import {
   RUNNER_ADDRESS, RUNNER_WAY_IN_LABEL, RUNNER_WAY_IN_WORDS, sessionAddress,
 } from './runner';
@@ -228,7 +229,7 @@ export function CalendarScreen({ destination }: { destination: Destination }) {
   // changed what is open; a list that still showed the old answer would be the screen lying about
   // the one thing he pressed.
   const [reloads, setReloads] = useState(0);
-  const [launchpad, setLaunchpad] = useState<Read<Launchpad> | null>(null);
+  const [launchpad, setLaunchpad] = useState<Read<LaunchpadReading> | null>(null);
   const [glances, setGlances] = useState<Read<GlanceReading> | null>(null);
   const [history, setHistory] = useState<Read<readonly SessionRecord[]> | null>(null);
 
@@ -264,7 +265,23 @@ export function CalendarScreen({ destination }: { destination: Destination }) {
       setHistory({ from: store, what }));
   }, [store, chosenKey, reloads]);
 
-  const pad = launchpad !== null && launchpad.from === store ? launchpad.what : null;
+  /**
+   * THE FIRST READ, AS ONE OF THREE STATES — and `pad` is now reachable only from ONE of them.
+   *
+   * It used to be `Launchpad | null`, which merged two different facts into one value: the read has
+   * not landed, and the read FAILED. `null` is worded below as "nobody is on your register", so a
+   * failed read told a coach with forty clients that he had none. `launcher-source.ts` states the
+   * whole of it; what matters here is that the empty-register wording is now unreachable from the
+   * failed state, by the compiler rather than by everyone remembering.
+   */
+  const reading: LaunchpadReading = launchpad !== null && launchpad.from === store
+    ? launchpad.what
+    : LAUNCHPAD_NOT_READ_YET;
+  const pad = reading.status === 'read' ? reading.launchpad : null;
+  /** The report drawn INSTEAD of the two lists when the read failed. Null in the other two states. */
+  const couldNotRead = reading.status === 'failed'
+    ? describeFailedLaunchpadRead(reading.failure)
+    : null;
 
   /** Every person's name by identity, for reading a session's roster back. */
   const namesById = useMemo(() => {
@@ -299,7 +316,14 @@ export function CalendarScreen({ destination }: { destination: Destination }) {
   const routineName = selection.routineId === null
     ? null
     : routineNames.get(selection.routineId) ?? null;
-  const start = describeStart(selection, chosenNames, routineName);
+  /*
+    HOW WIDE THE WINDOW IS — measured here and judged in `launcher.ts`, which is the same split this
+    screen keeps everywhere else. It decides one thing: whether the second-window hint is said at
+    all. A phone cannot open a second window, so on a phone that sentence is advice he cannot
+    follow, and CSS cannot withhold it — `display: none` leaves the words in the markup.
+  */
+  const viewportWidth = useViewportWidth();
+  const start = describeStart(selection, chosenNames, routineName, viewportWidth);
 
   /**
    * The people in a session, by identity AND name.
@@ -534,10 +558,48 @@ export function CalendarScreen({ destination }: { destination: Destination }) {
               </div>
             )}
 
+            {/*
+              THE READ FAILED, AND IT SAYS SO ONCE, ABOVE BOTH LISTS.
+
+              Once rather than twice because ONE read produced both of them: two notices would read
+              as two faults. It sits ABOVE the sections rather than inside either, because what
+              failed is the reading of this screen and not the choosing of a person.
+
+              AND THE TWO EMPTY SENTENCES BELOW ARE SUPPRESSED IN THIS STATE. That is the fix and not
+              a decoration: a notice above words that still say "nobody is on your register" leaves
+              those words on the screen, and he reads the sentence, not the layout.
+            */}
+            {couldNotRead !== null && (
+              <div className="note read" role="status">
+                <Glyph name="nav-calendar" size="inline" decorative />
+                <div className="stack-tight">
+                  <span>{couldNotRead.headline}</span>
+                  <span>{couldNotRead.whatFailed}</span>
+                  <span>{couldNotRead.notAVerdict}</span>
+                  <span className="muted">{couldNotRead.whatToDo}</span>
+                  <span className="muted">{`${couldNotRead.stage} · ${couldNotRead.errorName}`}</span>
+                </div>
+              </div>
+            )}
+
             <h3 id="screen-calendar-who" className="title-section">{SECTION_TITLES.clients}</h3>
-            {pad === null || pad.clients.items.length === 0 ? (
-              <p className="muted read">{NO_CLIENTS}</p>
-            ) : (
+            {/*
+              NO_CLIENTS IS NOW REACHABLE ONLY FROM A READ THAT LANDED, and that is the fix rather
+              than the notice above it.
+
+              This branch used to be `pad === null || items.length === 0`, and `pad === null` was
+              THREE different facts wearing one value: the read has not landed, the read FAILED, and
+              there is genuinely nobody. It painted the third one's sentence for all three. So a
+              coach with forty clients was told "Nobody is on your register yet. Add the people you
+              train under Clients" — an instruction, on a failed read, on the screen a cold start
+              lands on.
+              `reading.status` is what separates them, and an unread register now draws a BLANK: an
+              empty value DRAWN AS A BLANK is honest, and the same value WORDED AS A FACT is not.
+            */}
+            {reading.status !== 'read' || pad === null ? null
+              : pad.clients.items.length === 0 ? (
+                <p className="muted read">{NO_CLIENTS}</p>
+              ) : (
               <>
                 <div className="rows rows-boxed" role="group" aria-labelledby="screen-calendar-who">
                   {pad.clients.items.map((client) => (
@@ -572,7 +634,14 @@ export function CalendarScreen({ destination }: { destination: Destination }) {
             {pad === null || pad.routines.items.length === 0 ? (
               <>
                 <LibraryNotice condition={snag} />
-                {snag === null && <p className="muted read">{NO_ROUTINES}</p>}
+                {/*
+                  NO_ROUTINES SAYS HE DELETED HIS ROUTINES — a statement about something HE DID, and
+                  the strongest false-fact on this screen after the register sentence. It is drawn
+                  only from a read that LANDED, for the reason given above the clients section: over
+                  an unread or failed read it accuses him of a deletion nothing measured.
+                */}
+                {snag === null && reading.status === 'read'
+                  && <p className="muted read">{NO_ROUTINES}</p>}
               </>
             ) : (
               <>

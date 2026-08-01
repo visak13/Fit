@@ -46,17 +46,190 @@
  */
 
 import { CODES, Collector } from './issues.js';
+import {
+  CLIENT_FIELDS, DIET_DAY_FIELDS, DIET_ENTRY_FIELDS, DIET_PLAN_FIELDS, EXERCISE_FIELDS,
+  INTENSITY_PATTERN_FIELDS, PERFORMED_RECORD_FIELDS, READING_FIELDS, ROUTINE_ENTRY_FIELDS,
+  ROUTINE_FIELDS, SCALING_POINT_FIELDS, SESSION_FIELDS, SESSION_NOTE_FIELDS, VALIDATORS,
+} from './entities/index.js';
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════════════════
+ * THE REFERENCE SET IS DERIVED FROM THE VALIDATORS. IT IS NOT A LIST ANYBODY MAINTAINS.
+ * ═══════════════════════════════════════════════════════════════════════════════════════
+ *
+ * It used to be three lines of prose sitting in {@link REFERENTIAL_DIRECTION}, and s11/a32
+ * measured what that was worth: it named ONE of the EIGHT references by record identity the
+ * validators actually declare, and a probe that added exactly the reference the guard above it
+ * promises to catch left that guard GREEN. A guard asserting over a hand-maintained list guards
+ * the list, not the code, and it drifts from the thing it guards the moment anybody adds a field.
+ *
+ * ## Why this derives BY EXECUTION rather than by reading the validators' source
+ *
+ * A reference is declared by a `checkRecordId` or `checkContentKey` call inside a validator, and
+ * a text scan for those calls MISSES `session.client_ids[]` — the one reference the old prose
+ * list did name — because `session.js` declares it through an `each:` callback that passes the
+ * path through as a variable rather than as a literal. A scan would therefore have been blind to
+ * the single reference everybody remembers, while looking straight at it.
+ *
+ * So each validator is RUN instead, one field at a time, against a value that is neither a record
+ * identity nor a content key. Whichever of the two formats a field demands, it says so in its own
+ * issue message, and that message is the declaration read back out of the code that makes it.
+ *
+ * The cost is paid once and only if somebody reads it: {@link REFERENTIAL_DIRECTION.enforced} is
+ * a getter, so an app that never asks never probes.
+ */
+
+/** Every record type's field list, from the validator package that owns it. */
+const RECORD_FIELDS = Object.freeze({
+  exercise: EXERCISE_FIELDS,
+  routine: ROUTINE_FIELDS,
+  'intensity-pattern': INTENSITY_PATTERN_FIELDS,
+  client: CLIENT_FIELDS,
+  session: SESSION_FIELDS,
+  'performed-record': PERFORMED_RECORD_FIELDS,
+  reading: READING_FIELDS,
+  'session-note': SESSION_NOTE_FIELDS,
+  'diet-plan': DIET_PLAN_FIELDS,
+});
+
+/**
+ * The field lists of the records that live INSIDE another record, so a nested reference is
+ * reached too — `routine.entries[].exercise_id` is one, and it is the reference the coach's
+ * whole week rests on.
+ */
+const NESTED_FIELDS = Object.freeze([
+  ROUTINE_ENTRY_FIELDS, DIET_DAY_FIELDS, DIET_ENTRY_FIELDS, SCALING_POINT_FIELDS,
+]);
+
+/** Neither a UUID nor a content key, so a field of either kind objects and names its format. */
+const PROBE = 'NOT a key';
+
+const IDENTITY_HINT = /Must be a record identity/u;
+const CONTENT_KEY_HINT = /lowercase letters, digits and single hyphens/u;
+
+/**
+ * The shapes one field is offered. A reference is a string, an array of strings, or a field
+ * inside a nested record; anything else the validator rejects on type and reports nothing here.
+ * @param {readonly string[][]} nested
+ * @returns {unknown[]}
+ */
+function probeShapes(nested) {
+  return [PROBE, [PROBE], ...nested.map((fields) => [Object.fromEntries(fields.map((f) => [f, PROBE]))])];
+}
+
+/** Whether an issue path is about `field` rather than about some other field of the same record. */
+function isAbout(path, field) {
+  return path === field || path.startsWith(`${field}[`) || path.startsWith(`${field}.`);
+}
+
+/**
+ * What a reference POINTS AT, read off the field that holds it: `client_ids[]` names a client,
+ * `exercise_id` names an exercise. A referent that is not a record type is a reference into a
+ * vocabulary rather than into the coach's data.
+ * @param {string} path
+ * @returns {string}
+ */
+function referentOf(path) {
+  const leaf = /** @type {string} */ (path.split('.').pop()).replace(/\[\]$/u, '');
+  return leaf.replace(/_ids?$/u, '');
+}
+
+/**
+ * @typedef {Object} Reference
+ * @property {string} from The record type that holds the reference.
+ * @property {string} path The path to the field inside it, arrays written `[]`.
+ * @property {string} to   What it names.
+ */
+
+/**
+ * Run every validator against every one of its fields and collect what each one demands.
+ * @returns {{identity: Reference[], contentKey: Reference[]}}
+ */
+function deriveReferences() {
+  /** @type {Map<string, Reference>} */ const identity = new Map();
+  /** @type {Map<string, Reference>} */ const contentKey = new Map();
+  for (const [type, fields] of Object.entries(RECORD_FIELDS)) {
+    const validate = VALIDATORS[type];
+    if (!validate) continue;
+    for (const field of fields) {
+      for (const shape of probeShapes(NESTED_FIELDS)) {
+        let issues;
+        try {
+          issues = validate({ [field]: shape }).issues;
+        } catch {
+          continue; // a shape this validator cannot even walk tells us nothing about the field
+        }
+        for (const issue of issues) {
+          if (!isAbout(issue.path, field)) continue;
+          const path = issue.path.replace(/\[\d+\]/gu, '[]');
+          const at = `${type}.${path}`;
+          if (IDENTITY_HINT.test(issue.message)) {
+            identity.set(at, { from: type, path, to: referentOf(path) });
+          } else if (CONTENT_KEY_HINT.test(issue.message) && path !== 'id') {
+            // `id` is the record's OWN content key, not a reference to anything.
+            contentKey.set(at, { from: type, path, to: referentOf(path) });
+          }
+        }
+      }
+    }
+  }
+  const byKey = (a, b) => `${a.from}.${a.path}`.localeCompare(`${b.from}.${b.path}`);
+  return { identity: [...identity.values()].sort(byKey), contentKey: [...contentKey.values()].sort(byKey) };
+}
+
+/** @type {{identity: Reference[], contentKey: Reference[]}|null} */
+let derived = null;
+
+function references() {
+  if (derived === null) derived = deriveReferences();
+  return derived;
+}
+
+/**
+ * Every reference the validators declare BY RECORD IDENTITY — the envelope's stable handle.
+ *
+ * This is the set anything that RETIRES a `record_id` has to reason about: identity
+ * reconciliation removes one side's row, and a reference by identity into a type it reconciles
+ * would be left pointing at nothing. `core/sync/independent-seeding.test.js` asserts on it.
+ *
+ * @returns {readonly Reference[]}
+ */
+export function referencesByRecordIdentity() {
+  return references().identity;
+}
+
+/**
+ * Every reference the validators declare BY CONTENT KEY — the coach-facing key, preserved
+ * across reconciliation because it is the thing both sides are matched on.
+ * @returns {readonly Reference[]}
+ */
+export function referencesByContentKey() {
+  return references().contentKey;
+}
+
+/** @type {readonly string[]|null} */
+let enforcedLines = null;
 
 /**
  * The direction of every reference check in this module, in one place a reader can quote.
+ *
+ * `enforced` is DERIVED (see the block above) and is prose rendered from the derivation, for a
+ * reader. Anything asserting on it should prefer {@link referencesByRecordIdentity} or
+ * {@link referencesByContentKey}, which carry the same facts without a matcher in the way.
+ *
  * @type {Readonly<{enforced: readonly string[], never_enforced: readonly string[], rule: string}>}
  */
 export const REFERENTIAL_DIRECTION = Object.freeze({
-  enforced: Object.freeze([
-    'routine.entries[].exercise_id  ->  exercise.id',
-    'session.routine_id             ->  routine.id',
-    'session.client_ids[]           ->  client record identity',
-  ]),
+  get enforced() {
+    if (enforcedLines === null) {
+      const { identity, contentKey } = references();
+      enforcedLines = Object.freeze([
+        ...contentKey.map((r) => `${r.from}.${r.path}  ->  ${r.to} content key`),
+        ...identity.map((r) => `${r.from}.${r.path}  ->  ${r.to} record identity`),
+      ]);
+    }
+    return enforcedLines;
+  },
   never_enforced: Object.freeze([
     'exercise.id  <-  some routine   (an unreferenced exercise is the substitution pool)',
     'routine.id   <-  some session   (a routine that has never been run is normal)',

@@ -153,7 +153,7 @@ could produce.
 Promise nothing the platform cannot do:
 
 - **Promises** — saves on this device instantly, with or without a connection; backs up when you open
-  the app, when you leave it, and whenever you tap Sync; work that cannot go through waits in a queue,
+  the app, when you leave it, and whenever you ask it to; work that cannot go through waits in a queue,
   so it is a delay and never a loss; the last backup time and the waiting count are always visible.
 - **Limits** — it cannot back up in the background; it cannot back up while the app is closed; **do
   not delete the app icon**, because removing it deletes everything stored on the device; Google
@@ -164,7 +164,8 @@ contains "background", "automatic", "while the app is closed" or "continuously" 
 perfectly allowed in the LIMITS, where they appear as denials. A single mixed paragraph is one editor
 away from losing its second half.
 
-The five backup opportunities are also cross-checked against `SYNC_TRIGGER_VALUES` in `core/sync`
+The backup opportunities — six of them, one plain-words moment each — are also cross-checked against
+`SYNC_TRIGGER_VALUES` in `core/sync`
 rather than restated here. Two lists that must agree are two lists that will not, and the one that
 drifts would be the one making the promise.
 

@@ -136,8 +136,8 @@ export const READING_PATTERNS = 'Reading your curves…';
  * reset, so the way out is a real one and it is named.
  */
 export const NO_PATTERNS =
-  'Your library holds no curves at the moment. Restoring the shipped library from the admin panel '
-  + 'brings them back, and you can write your own there too.';
+  'Your library holds no curves at the moment. Restoring the set the app came with from the Admin '
+  + 'screen on the navigation brings them back, and you can write your own on the Routines screen.';
 
 /** Said while a curve is being shaped, which reads the whole library and everybody's record. */
 export const SHAPING = 'Shaping this routine to that curve…';

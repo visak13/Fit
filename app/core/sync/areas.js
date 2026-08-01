@@ -94,9 +94,10 @@ export async function readUnion(remote, args) {
   };
 
   /**
-   * The first envelope met at each `record_id@rev`, so that a clash is found by structure rather
-   * than by whatever the fold happens to be holding. See the detection note in the loop below.
-   * @type {Map<string, any>}
+   * The first envelope met at each `record_id@rev`, AND THE FILE IT CAME OUT OF, so that a clash is
+   * found by structure rather than by whatever the fold happens to be holding. See the detection note
+   * in the loop below.
+   * @type {Map<string, {record: any, file_id: string}>}
    */
   const firstAtRevision = new Map();
 
@@ -158,9 +159,28 @@ export async function readUnion(remote, args) {
       // bounded by the records already being read.
       const at = `${incoming.record_id}@${incoming.rev}`;
       const first = firstAtRevision.get(at);
-      if (!first) firstAtRevision.set(at, incoming);
-      else if (first.device !== incoming.device) {
-        union.divergences.push(describeDivergence(first, incoming));
+      if (!first) firstAtRevision.set(at, { record: incoming, file_id: meta.file_id });
+      else if (first.record.device !== incoming.device) {
+        union.divergences.push({
+          ...describeDivergence(first.record, incoming),
+          // WHICH FILES THE TWO SIDES ARE IN. Recorded here because here is the only place it is
+          // known, and needed because compaction must not delete a file carrying a side of a clash
+          // nobody has answered — see `compactOwnArea`. Additive: nothing that reads a divergence for
+          // the coach reads these, and the shape is otherwise `describeDivergence`'s own.
+          //
+          // ⚠ `local_` AND `incoming_` HERE MEAN "THE FILE READ FIRST" AND "THE FILE READ SECOND",
+          // NOT "THIS DEVICE'S" AND "THE OTHER'S". `readUnion` is not told which device is running —
+          // every call site passes a space and a timeout and nothing else — so it CANNOT mean the
+          // other thing, and `describeDivergence` labels purely by argument order. s11/a10 measured
+          // the consequence on the sides themselves: `clash.local.device` reads `coach-laptop` on a
+          // pass running on `coach-phone`, in BOTH orderings, while `divergence-picker.ts` words
+          // `RESOLUTION.LOCAL` as "This device". That is an OPEN DEFECT in the unwired divergence
+          // seam and it is not fixed here; these two fields are named for consistency with the sides
+          // they sit beside, and are deliberately used symmetrically by `filesToSpare`, which spares
+          // both and cares which device wrote neither.
+          local_file_id: first.file_id,
+          incoming_file_id: meta.file_id,
+        });
       }
     }
   }

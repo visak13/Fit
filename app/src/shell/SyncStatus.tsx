@@ -37,7 +37,7 @@
  * - **The SOURCE is now `shell/SyncFromStore.tsx`**, and it was the seam's whole design that replacing
  *   it changed nothing else. It reads `accountabilityStatus(store, { in_progress, last_attempt,
  *   credential })` over the real local store and pushes each result in here unchanged; it re-reads
- *   after every attempt, on each of the five opportunities `SYNC_TRIGGERS` declares
+ *   after every attempt, on each of the six opportunities `SYNC_TRIGGERS` declares
  *   (`core/sync/engine.js`), and on a modest interval besides, because the ladder climbs with the
  *   clock even when nothing happens. `sync-runner.ts` holds the two periodicities and the reason they
  *   are not one timer.
@@ -67,10 +67,17 @@
  * ## What is drawn, and why it is three things rather than one
  *
  * `sync-indicator.ts` explains the model in full and it is worth reading before touching this file.
- * In short: the SILHOUETTE carries the rung and only the rung, and *working offline* and *something
- * is stopped* are marks beside it that can both be present with the rung still fully readable.
- * Colour is the last of four channels — outline, glyph, word, then fill — because the first three
- * are what survive greyscale, sunlight, a colour-blind reader and video-call compression.
+ * In short: the SILHOUETTE carries a rung, and *working offline* and *something is stopped* are marks
+ * beside it that can both be present with the rung still fully readable. Colour is the last of four
+ * channels — outline, glyph, word, then fill — because the first three are what survive greyscale,
+ * sunlight, a colour-blind reader and video-call compression.
+ *
+ * THE RUNG IT CARRIES IS `drawnRungOf`, NOT `rungOf`, AND THE DIFFERENCE IS ONE NAMED CASE. A pass
+ * that skipped files it could not read leaves the core honestly at `up_to_date` — his own work really
+ * had all gone — so the calm disc used to sit beside a sentence saying the backup does not hold
+ * everything from his other device. That one rung is escalated to the attention shape while the skip
+ * is outstanding, and the completion the disc used to stand for is stated in words instead
+ * (`lastCompleteBackup`). `sync-indicator.ts` holds the argument and both directions of it.
  *
  * In the collapsed rail the words fall away and **the filled shape and the number never do**. That
  * was measured rather than chosen: the widest silhouette is 44px, the count needs 20 beside it, and
@@ -89,20 +96,21 @@ import { useSyncActionsIfWired } from './sync-actions.tsx';
 import {
   RUNG_GLYPH,
   RUNG_SILHOUETTE,
+  describeFailedSyncRead,
+  drawnRungOf,
   isOffline,
   isStopped,
   needsAction,
-  rungOf,
   syncWording,
 } from './sync-indicator.ts';
-import type { SyncStatusReading } from './sync-indicator.ts';
+import type { SyncSeamReading, SyncStatusReading } from './sync-indicator.ts';
 
-export type { SyncStatusReading } from './sync-indicator.ts';
+export type { SyncSeamReading, SyncStatusReading } from './sync-indicator.ts';
 /** Re-exported so the seam is wired from ONE import at the application's start. Defined, and
  *  asserted, in `sync-indicator.ts`, which needs no browser to test. */
 export { NO_BACKUP_YET } from './sync-indicator.ts';
 
-const SyncStatusContext = createContext<SyncStatusReading | null>(null);
+const SyncStatusContext = createContext<SyncSeamReading | null>(null);
 
 /**
  * The seam. `reading` is required and is never null: the indicator has a state for every condition
@@ -114,7 +122,7 @@ export function SyncStatusProvider({
   reading,
   children,
 }: {
-  reading: SyncStatusReading;
+  reading: SyncSeamReading;
   children: ReactNode;
 }) {
   return <SyncStatusContext.Provider value={reading}>{children}</SyncStatusContext.Provider>;
@@ -127,7 +135,7 @@ export function SyncStatusProvider({
  * silently rendered a default would be the component inventing a state, which is the one thing this
  * design does not permit it to do.
  */
-export function useSyncStatus(): SyncStatusReading {
+export function useSyncStatus(): SyncSeamReading {
   const reading = useContext(SyncStatusContext);
   if (reading === null) {
     throw new Error('useSyncStatus was used outside SyncStatusProvider: the synchronisation seam is not wired');
@@ -194,7 +202,13 @@ function Mark({ kind, glyph }: { kind: 'offline' | 'stopped'; glyph: GlyphName }
 function SyncAct() {
   const status = useSyncStatus();
   const actions = useSyncActionsIfWired();
-  const performed = performedFor(status.reason?.action ?? null);
+  // A READ THAT FAILED NAMES NO ACT. The reason that would have chosen this control is the thing the
+  // failed read did not produce, and the honest answer to "what should he press" is the one the
+  // failed state's own words carry — reload — which is not one of the three acts this button
+  // performs. Offering "Back up now" here would be a control chosen from a reason nobody read.
+  const performed = status.status === 'failed'
+    ? null
+    : performedFor(status.reason?.action ?? null);
 
   if (actions === null || performed === null) return null;
 
@@ -218,9 +232,66 @@ function SyncAct() {
   );
 }
 
+/**
+ * THE INDICATOR WHEN THE READ ITSELF DID NOT COME BACK — a rendering of its own, not a rung.
+ *
+ * ## Why it is not drawn as one of the five
+ *
+ * Every rung is a statement about where his data is, and each carries a count. Nothing here was
+ * measured, so there is no rung to stand on and no number to show: this used to fall back to
+ * `not_backed_up` with a count of nought and the sentence "This device has never backed up. Nothing
+ * here is in your Google Drive yet." — a real condition, worded as a fact, over a queue nobody had
+ * looked at.
+ *
+ * IT BORROWS THE CEILING'S SILHOUETTE and nothing else. The widest hollow bar is the shape this
+ * design already uses for "unmissable, and it still does not block", which is exactly what an unread
+ * backup state is: he must not be able to mistake it for the calm rung, and it must not stop him
+ * training. The COUNT IS AN EM DASH rather than a nought — the slot is held so the collapsed chip
+ * keeps its shape, and a nought there would be the very number this state cannot know.
+ *
+ * `role="alert"` because it IS something he must act on: what to do is reload, and until he does
+ * this application cannot tell him whether his work has reached the backup.
+ */
+function CouldNotRead({ words }: { words: ReturnType<typeof describeFailedSyncRead> }) {
+  return (
+    <div
+      className="sync"
+      data-rung="could_not_read"
+      data-silhouette="wide-hollow-bar"
+      role="alert"
+      aria-atomic="true"
+    >
+      <span className="sync-shape" aria-hidden="true">
+        <Glyph name="sync-failed" size="dense" decorative />
+      </span>
+
+      {/* Never a nought. See the header: the slot is held, the number is not invented. */}
+      <span className="sync-count" aria-hidden="true">—</span>
+
+      <span className="sync-words" aria-hidden="true">
+        <strong>{words.headline}</strong>
+        <small>{`${words.whatFailed} ${words.whatToDo}`}</small>
+      </span>
+
+      <span className="visually-hidden">
+        {`Backup status: ${words.headline}. ${words.whatFailed} ${words.notAVerdict} ${words.whatToDo}`}
+      </span>
+    </div>
+  );
+}
+
 export function SyncIndicator() {
   const status = useSyncStatus();
-  const rung = rungOf(status);
+
+  // BEFORE ANY OF THE SEVEN DERIVATIONS BELOW. A failed read carries none of their fields, so this
+  // is the branch that keeps them honest rather than a courtesy — see `sync-indicator.ts`.
+  if (status.status === 'failed') return <CouldNotRead words={describeFailedSyncRead(status.failure)} />;
+
+  // THE DRAWN RUNG, WHICH IS NOT ALWAYS THE CORE'S RUNG. `sync-indicator.ts` holds the argument in
+  // full: a pass that skipped files leaves every rung figure honestly clean, so the core stays at
+  // `up_to_date` and the shape read at a glance would say his data is safe while the sentence under it
+  // says his other device's work is not on this device.
+  const rung = drawnRungOf(status);
   const words = syncWording(status);
 
   return (
@@ -238,9 +309,12 @@ export function SyncIndicator() {
       </span>
 
       {/* Never a bare dot: the number is what makes the collapsed chip information rather than
-          decoration, so it is painted at full size beside the shape at every width. */}
+          decoration, so it is painted at full size beside the shape at every width. It is
+          `countLabel` and never `count` — the figure can be a FLOOR, and this is the one slot that
+          survives the rail collapsing, so a bare number here would be an exactness claim made in the
+          only place he can still read. See `notInTheBackup` in `sync-indicator.ts`. */}
       <span className="sync-count" aria-hidden="true">
-        {words.count}
+        {words.countLabel}
       </span>
 
       <span className="sync-marks" aria-hidden="true">
@@ -251,6 +325,11 @@ export function SyncIndicator() {
       <span className="sync-words" aria-hidden="true">
         <strong>{words.headline}</strong>
         <small>{words.detail}</small>
+        {/* THE COMPLETION THE SILHOUETTE USED TO CARRY, now said in words. It is drawn only when the
+            headline is not already saying it, so the two never state the same fact twice. */}
+        {words.lastCompleteBackup !== null && (
+          <small className="sync-last-complete">{words.lastCompleteBackup}</small>
+        )}
       </span>
 
       <span className="visually-hidden">{words.announced}</span>

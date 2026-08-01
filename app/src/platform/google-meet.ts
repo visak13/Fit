@@ -440,6 +440,21 @@ export interface GoogleMeetDependencies {
   readonly maxPolls?: number;
   /** How the interval between polls is waited out. Injected so a suite is not a stopwatch. */
   readonly waitBetweenPolls?: (ms: number) => Promise<void>;
+  /**
+   * TELL SOMEBODY WHICH COACHING CALENDAR JUST CARRIED A MEETING LINK.
+   *
+   * A calendar id that is saved and has never carried an event is a calendar this application has
+   * never written to, and the first time it tries would otherwise be at the start of a session. There
+   * is no pre-flight that could answer it sooner — `calendarList.get` is 403 under the narrow scope,
+   * see the header — so the only proof available is a mint that actually landed, and this is where
+   * that is watched happening.
+   *
+   * NOT CALLED FOR HIS MAIN CALENDAR. {@link MAIN_CALENDAR_ID} is the service's own alias and the
+   * declared fallback; proving the alias works proves nothing about the setting, which is empty in
+   * exactly that case. Called ONLY on a mint that landed on the calendar HE supplied, and never on a
+   * refusal, because a failure is not a disproof.
+   */
+  readonly noteCalendarProven?: (calendarId: string) => void;
 }
 
 /** How long between polls of a conference that came back pending. */
@@ -481,10 +496,11 @@ export class GoogleMeetLinks {
   readonly #pollIntervalMs: number;
   readonly #maxPolls: number;
   readonly #wait: (ms: number) => Promise<void>;
+  readonly #noteCalendarProven: (calendarId: string) => void;
 
   constructor({
     token, coachingCalendarId, transport, clock, timeoutMs, pollIntervalMs, maxPolls,
-    waitBetweenPolls,
+    waitBetweenPolls, noteCalendarProven,
   }: GoogleMeetDependencies) {
     this.#token = token;
     this.#coachingCalendarId = coachingCalendarId;
@@ -494,6 +510,7 @@ export class GoogleMeetLinks {
     this.#pollIntervalMs = pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
     this.#maxPolls = maxPolls ?? MAX_POLLS;
     this.#wait = waitBetweenPolls ?? ((ms: number) => this.#clock.sleep(ms));
+    this.#noteCalendarProven = noteCalendarProven ?? (() => {});
   }
 
   /** Which calendar the next mint lands on, so a screen can say so before he taps. */
@@ -567,6 +584,20 @@ export class GoogleMeetLinks {
         sentence: NO_CONFERENCE,
         requestFailed: reading.status === CONFERENCE_STATUS.FAILURE,
       });
+    }
+
+    // A LINK HAS LANDED ON THE CALENDAR HE SUPPLIED, which is the only proof that setting is
+    // reachable. `calendarId` is the value THIS MINT USED, taken above when the request was formed —
+    // never a fresh read of the setting, because he can change it while a mint is in flight and a
+    // read here would credit the new calendar with the old one's success.
+    //
+    // Reported rather than allowed to escape: nothing here may cost him a link that already exists.
+    if (!onMainCalendar) {
+      try {
+        this.#noteCalendarProven(calendarId);
+      } catch (error) {
+        console.error('[meet] the calendar that worked could not be noted', error);
+      }
     }
 
     return Object.freeze({

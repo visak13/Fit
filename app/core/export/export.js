@@ -73,3 +73,5 @@ export {
 export { exportFileName } from './file-name.js';
 
 export { storeOnlyZip, crc32 } from './zip.js';
+
+export { readStoreOnlyZip, readStoreOnlyZipParts, STORED } from './unzip.js';

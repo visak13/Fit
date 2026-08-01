@@ -36,7 +36,9 @@ export const ENTRY_VERSION = 1;
  * The four states an entry can be in. Text, because a key must be.
  *
  * - `pending`   — not delivered, and the queue will attempt it again. The only non-terminal state.
- * - `delivered` — it landed. Kept as evidence rather than removed; see `pruneDelivered`.
+ * - `delivered` — it landed. Kept as evidence rather than removed, and the ONLY status that is
+ *                 bounded: `recordDelivered` holds the newest cap-many and discards the oldest beyond
+ *                 it, in the same transaction. See `retention.js`.
  * - `rejected`  — the remote refused it in a way retrying cannot fix. STOPPED, and visible.
  * - `ambiguous` — it may have landed, possibly more than once, and the queue refuses to guess.
  *                 STOPPED, and visible.

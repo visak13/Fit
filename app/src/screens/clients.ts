@@ -32,13 +32,17 @@
  * minutes of ordinary two-device use. But passes now run and complete, so THAT refusal no longer
  * applies to a device that has backed up: `client-register-source.test.ts` runs a real pass and then
  * saves a note the same path refused before it. What is missing now is the sealing itself — nothing
- * in the interface calls `establishKeyMaterial` or seals a field — and the `connected` wording below
- * is the one that says so. This file words BOTH states, and the state is read rather than assumed.
+ * in the interface calls `establishKeyMaterial` or seals a field — and the `has-backed-up` wording
+ * below is the one that says so. This file words BOTH states, and the state is read rather than assumed.
  *
- * The words for that refusal are NOT written here. `NotConnectedYet` in `core/crypto/errors.js`
- * already carries a `userMessage` written for the coach, and it is used verbatim — see
- * {@link NOT_CONNECTED_YET_WORDS}. One sentence, one author, and the day the core rewords it this
- * screen changes with it.
+ * ## AND THE STATE IS THE BACKUP HISTORY, SAID IN THE HISTORY'S OWN WORDS
+ *
+ * The fact read here is `hasEverSynchronised` — whether a backup has ever COMPLETED on this device.
+ * These sentences used to answer it in the vocabulary the PRESENT-tense backup indicator owns
+ * ("connected", "never connected"), one of them borrowed verbatim from `NotConnectedYet`, and the two
+ * surfaces were measured contradicting each other on one screen at one instant. `backup-history.ts`
+ * carries that transcription and owns the state; `one-question-one-vocabulary.test.ts` fails if either
+ * vocabulary crosses back into the other's question.
  *
  * ## WHY THE WAY TO ADMIN IS NAMED IN WORDS RATHER THAN LINKED
  *
@@ -48,7 +52,7 @@
  * it in his own words instead of drawing a second control that would collide with the first.
  */
 
-import { NotConnectedYet } from '../../core/crypto/errors.js';
+import type { BackupHistory } from './backup-history';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // What the core hands over
@@ -151,16 +155,27 @@ export const ADAPTATION_FLAG_HINT =
 export const ADAPTATION_FLAG_LIMIT = 120;
 
 /**
- * THE REFUSAL, IN THE CORE'S OWN WORDS.
+ * THE REFUSAL, IN THE WORDS OF THE FACT THIS SCREEN ACTUALLY MEASURED — and it is no longer the core's.
  *
- * Taken from `NotConnectedYet` rather than written again. The class exists precisely so that the
- * interface has one sentence to show for this condition, and a second version of it here would be
- * two sentences about one refusal, drifting apart from the moment either is edited.
+ * It used to be `new NotConnectedYet().userMessage` verbatim, on the sound principle that one refusal
+ * should have one author. **The borrowing is what carried the defect across the boundary.** The core's
+ * sentence opens "This device has not connected to your Google account yet", which is a claim about the
+ * PRESENT connection — a question this screen never asks and cannot answer. What it reads is
+ * `hasEverSynchronised`: whether a backup has ever COMPLETED here. Those come apart in both directions,
+ * and on the running application the borrowed sentence sat inches under the indicator saying the
+ * opposite. See `backup-history.ts` for the transcription.
  *
- * It is read from a constructed error because that is where the core keeps it — the class is the
- * single author of these words, and reaching for them costs one allocation once per render.
+ * So this says the measured fact and keeps the core's REASONING, which is the half worth having: the
+ * refusal exists because a device that has not been in the backup cannot tell whether encryption
+ * details already exist, and creating a second set would split the locked notes silently. That
+ * argument is `core/crypto/guard.js`'s and it is unchanged; only the opening claim — the one this
+ * screen has no measurement for — is now the one it does.
  */
-export const NOT_CONNECTED_YET_WORDS = new NotConnectedYet().userMessage;
+export const NOTHING_HAS_BACKED_UP_HERE_YET =
+  'This device has not backed anything up yet, so it cannot tell whether the encryption details for '
+  + 'these notes already exist on your other device. It will not make a second set: two sets cannot '
+  + 'read each other, and nothing would say so. Back up once from this device and this part opens up. '
+  + 'Everything else in the app works normally, and nothing you have already entered is affected.';
 
 /**
  * WHERE TO GO AND DO IT — the half the core's sentence deliberately does not carry.
@@ -169,10 +184,28 @@ export const NOT_CONNECTED_YET_WORDS = new NotConnectedYet().userMessage;
  * application's navigation is called. This adds that and nothing else: it is not a second version of
  * the refusal, it is the direction the refusal is missing. Admin is NAMED rather than linked — see
  * the note at the top of this file.
+ *
+ * IT NAMES TWO CONTROLS AND CLAIMS NO THIRD, and that is the whole correction s11/a41 made.
+ *
+ * It used to end "and connect your Google account there", which sent him to Admin to press something
+ * Admin does not have and is FORBIDDEN to have: `AdminScreen.tsx` draws no connect act, and
+ * `shell/refusal-names-a-real-control.test.ts` actively forbids it from naming the indicator's
+ * control words. The instruction and that guard were enforcing opposite things and both were green.
+ *
+ * SO IT POINTS AT THE SCREEN AND NOT AT A BUTTON, because MEASURED IN A LIVE BROWSER neither place
+ * that really holds the connect act can be promised to be on screen when he reads this. The frame
+ * indicator's control is `display: none` at rest at >= 840px — `design/console.css` collapses it with
+ * the rail, and at 1280 wide at rest it is absent from the ACCESSIBILITY TREE as well as from the
+ * paint, returning only on hover or focus. And Setup's own try-it is drawn only once a Google client
+ * id has been saved on this device (`SetupScreen.tsx`), which is exactly what a coach who has never
+ * connected does not have. BOTH controls are conditional; the two things this sentence names are not.
+ * "Admin" is on the rail and the bar at every width, and "Open Setup" is the Admin card's permanent
+ * link, both measured painted and in the accessibility tree at rest at 1280 and at 390.
  */
 export const WHERE_TO_CONNECT =
-  'Open Admin, on the navigation, and connect your Google account there. Everything else on this '
-  + 'page saves on this device straight away, with or without a connection.';
+  'Open Admin, on the navigation, then Open Setup — connecting your Google account is set up on that '
+  + 'screen. Everything else on this page saves on this device straight away, with or without a '
+  + 'connection.';
 
 /**
  * WHAT THE PROTECTED FIELD IS, said before he learns he cannot fill it in yet.
@@ -481,13 +514,18 @@ export function registeredWords(name: string): string {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * What is true about this device's ability to lock a clinical note.
+ * What is true about this device's ability to lock a clinical note IS THE BACKUP HISTORY, and it is
+ * now said in the history's own words — see `backup-history.ts` for the contradiction that forced it.
  *
- * `unknown` is not a hedge: on every cold start the local store has not answered yet, and a screen
- * that guessed either of the other two while it waited would be telling him something it had not
- * looked up.
+ * This surface used to answer in `'connected' | 'never-connected'`, which is the vocabulary the
+ * PRESENT-tense backup indicator owns, while deriving from a fact about the PAST. The two disagreed on
+ * the running application. The state is re-exported under this file's own name for the callers that
+ * read a clinical-field state; the words below are the history's, never the connection's.
+ *
+ * There is no second type here. A `ClinicalFieldState` of its own — even one with identical members —
+ * would be a second place for this question to be answered, which is the shape that produced the
+ * disagreement in the first place.
  */
-export type ClinicalFieldState = 'unknown' | 'never-connected' | 'connected';
 
 /** What the screen says about the protected field. */
 export interface ClinicalFieldReport {
@@ -525,7 +563,7 @@ export const PROTECTED_FIELD_TITLE = 'Protected medical note';
  * `client-register-source.ts` reads the one fact that answers it, and reads it from the persisted
  * completion rather than taking anybody's word for it.
  */
-export function describeClinicalField(state: ClinicalFieldState): ClinicalFieldReport {
+export function describeClinicalField(state: BackupHistory): ClinicalFieldReport {
   const common = {
     title: PROTECTED_FIELD_TITLE,
     purpose: PROTECTED_FIELD_PURPOSE,
@@ -543,23 +581,28 @@ export function describeClinicalField(state: ClinicalFieldState): ClinicalFieldR
         whatToDo: null,
       };
 
-    case 'never-connected':
+    case 'never-backed-up':
       return {
         ...common,
-        // The core's own sentence, verbatim. See NOT_CONNECTED_YET_WORDS.
-        whatHappened: NOT_CONNECTED_YET_WORDS,
+        // The measured fact, and the core's reasoning for the refusal. See NOTHING_HAS_BACKED_UP_HERE_YET.
+        whatHappened: NOTHING_HAS_BACKED_UP_HERE_YET,
         whatToDo: WHERE_TO_CONNECT,
       };
 
-    case 'connected':
+    case 'has-backed-up':
       return {
         ...common,
-        // This device HAS backed up, so "not connected yet" would be false. The honest answer is the
-        // uncomfortable one: the part that locks these notes is not built. Saying the wrong true-
-        // sounding thing here would send him to reconnect an account that is already connected.
+        // This device HAS backed up, so a sentence sending him to connect would be false. The honest
+        // answer is the uncomfortable one: the part that locks these notes is not built.
+        //
+        // AND IT SAYS "HAS BACKED UP", NOT "IS CONNECTED". That is the fact this screen read — the
+        // persisted completion — and it is a fact about the past. Whether Google is reachable now is
+        // the indicator's question, asked of the credential, and it answers `no` on this very device
+        // the moment he signs out while this sentence stays true. Saying "is connected" here put the
+        // two answers on one screen contradicting each other; see `backup-history.ts`.
         whatHappened:
-          'This device is connected to your Google account, and the part of the app that locks these '
-          + 'notes is not finished yet. It is the last piece of this to be built.',
+          'This device has backed up to your Google account before, and the part of the app that locks '
+          + 'these notes is not finished yet. It is the last piece of this to be built.',
         whatToDo: null,
       };
 

@@ -33,11 +33,16 @@
  *     npm run test:shell
  */
 
-import { connectGoogleAccount } from './google-account.ts';
+import {
+  browserErasure, connectGoogleAccount, EraseAcknowledgement, eraseReadiness, signOutAndEraseThisDevice,
+  signOutOfGoogle,
+} from './google-account.ts';
 import { ACQUIRE_REFUSALS, UserGesture } from './google-identity.ts';
 import { GoogleDriveRemoteStorage } from './google-drive-remote.ts';
 import { googleOnThisDevice } from './google-on-this-device.ts';
-import type { BackupAccess } from '../shell/SyncFromStore.tsx';
+import { browserSettings } from './google-settings.ts';
+import type { AccountActOutcome } from '../screens/admin-report.ts';
+import type { BackupAccess, DeliveryFiguresOutcome } from '../shell/SyncFromStore.tsx';
 import type { LocalStore } from '../../core/store/store.js';
 
 /**
@@ -95,8 +100,8 @@ export function backupOnThisDevice(global: typeof globalThis = globalThis): Back
         // explanation. The scopes are named because they are OUR strings, not the provider's words.
         if (outcome.scopesNotGranted.length > 0) {
           return 'Google connected, but some permissions were not granted, so parts of backing up '
-            + 'and creating meeting links will not work. Tap Connect again and leave every box '
-            + 'ticked.';
+            + 'and creating meeting links will not work. Tap "Connect Google" again and leave every '
+            + 'box ticked.';
         }
         return null;
       } catch (error) {
@@ -105,7 +110,118 @@ export function backupOnThisDevice(global: typeof globalThis = globalThis): Back
         return CONNECT_FAILED_LOCALLY;
       }
     },
+
+    ...accountOnThisDevice(global),
   };
+}
+
+/** The two ways out of this device, as the interface calls them. */
+export interface AccountOnThisDevice {
+  signOut(store: LocalStore): Promise<AccountActOutcome>;
+  eraseThisDevice(
+    store: LocalStore,
+    reading: DeliveryFiguresOutcome,
+    acknowledged: boolean,
+  ): Promise<AccountActOutcome>;
+}
+
+/**
+ * SIGNING OUT, AND THE SEPARATE ACT OF ERASING — over the one connection this tab has.
+ *
+ * A function of its own rather than two members written inside {@link backupOnThisDevice}, because
+ * the proof root supplies these two REAL and substitutes only the remote copy. Two roots calling one
+ * factory is the whole of why that page proves anything: what it observes is the production path.
+ *
+ * @param global reached inside, so importing this module outside a browser is safe
+ */
+export function accountOnThisDevice(global: typeof globalThis = globalThis): AccountOnThisDevice {
+  const google = googleOnThisDevice(global);
+
+  return {
+    /**
+     * SIGN OUT — the plain one, which drops Google and touches nothing else.
+     *
+     * The routine is `google-account.ts`'s and is not reimplemented here: this maps its outcome onto
+     * the plain fact the interface carries, and turns a throw into a state rather than letting one
+     * escape. What can throw is the log append, and it deliberately happens BEFORE the connection is
+     * dropped — so a failure leaves him exactly where he was, which is what the report then says.
+     */
+    async signOut(store: LocalStore): Promise<AccountActOutcome> {
+      try {
+        const outcome = await signOutOfGoogle({ connection: google.connection, store });
+        return outcome.outcome === 'not-connected'
+          ? { act: 'sign-out', result: 'not-connected' }
+          : { act: 'sign-out', result: 'signed-out', revokedAtGoogle: outcome.revokedAtGoogle };
+      } catch (error) {
+        // Logged, never shown, for the reason CONNECT_FAILED_LOCALLY gives: a platform error's own
+        // words can carry the account address. `verbatim` is what a person may read out, so it is
+        // this application's own summary of the exception and never the exception's text.
+        console.error('[google] signing out could not be completed', error);
+        return { act: 'sign-out', result: 'failed', verbatim: null };
+      }
+    },
+
+    /**
+     * SIGN OUT AND ERASE THIS DEVICE — the separate act, and the gate is the mechanism's.
+     *
+     * The acknowledgement is MINTED FROM THE READINESS rather than passed as a boolean, which is the
+     * whole reason `EraseAcknowledgement` is a class: it cannot be forged from a `true` and it
+     * cannot be carried over from a calmer reading of the queue. `forReadiness` returns null unless
+     * the verdict actually allows an override, so a `wait` cannot be overridden by anything this
+     * function does, and the mechanism refuses it again regardless.
+     */
+    async eraseThisDevice(
+      store: LocalStore,
+      reading: DeliveryFiguresOutcome,
+      acknowledged: boolean,
+    ): Promise<AccountActOutcome> {
+      try {
+        const readiness = eraseReadiness(reading);
+        const acknowledgement = acknowledged ? EraseAcknowledgement.forReadiness(readiness) : null;
+
+        const outcome = await signOutAndEraseThisDevice({
+          connection: google.connection,
+          store,
+          reading,
+          erasure: browserErasure(global, browserSettings(global)),
+          acknowledgement,
+        });
+
+        return outcome.outcome === 'erased'
+          ? { act: 'erase', result: 'erased' }
+          // WHY it was refused, read off the gate's own verdict rather than guessed here. The two
+          // refusals describe different worlds — the queue moved under him, or nothing was ever
+          // counted — and `admin-report.ts` has a sentence for each.
+          : {
+            act: 'erase',
+            result: 'refused',
+            because: readiness.verdict === 'unknown' ? 'not-read' : 'more-stopped',
+          };
+      } catch (error) {
+        // The realistic one is another window holding the database open, and `browserErasure` words
+        // that itself in a sentence written for a person. It is the ONE platform message this
+        // application shows, because it names the only thing he can do about it — close the other
+        // windows — and it carries no account address and no file identifier.
+        console.error('[google] this device could not be erased', error);
+        return { act: 'erase', result: 'failed', verbatim: blockedMessageOf(error) };
+      }
+    },
+  };
+}
+
+/**
+ * The one platform sentence this module lets through, and only when it is ours.
+ *
+ * `browserErasure` throws an Error whose message was WRITTEN HERE for the blocked case — another
+ * window still has the app open — and that is worth showing, because it is the only failure the
+ * coach can act on. Anything else is the platform's own words and is not shown; see
+ * {@link CONNECT_FAILED_LOCALLY} for why. Matching on our own sentence rather than on an error type
+ * keeps the test honest: a message reworded on one side and not the other stops matching, which is
+ * loud, instead of a type check quietly passing a string that has drifted.
+ */
+function blockedMessageOf(error: unknown): string | null {
+  const message = error instanceof Error ? error.message : '';
+  return message.includes('Close every other window of the app') ? message : null;
 }
 
 /**

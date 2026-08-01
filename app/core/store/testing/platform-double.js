@@ -13,6 +13,7 @@
 
 import { createFakeIndexedDB } from './fake-indexeddb.js';
 import { FakeBus, FakeLockManager } from './fake-locks.js';
+import { describeOutstandingWork, outstandingWork } from './pending-work.js';
 
 /**
  * @typedef {Object} World
@@ -86,10 +87,77 @@ export function createPhone() {
   return { world, platform: createContext(world, { formFactor: 'mobile' }) };
 }
 
-/** Let every scheduled task, delivery and commit settle. */
-export async function settle() {
-  for (let i = 0; i < 4; i += 1) {
+/**
+ * Turns the drain always runs, whatever the registry says.
+ *
+ * This is the drain it replaced, kept as a FLOOR so that no caller green today drains less than it
+ * did. It is deliberately conservative and it is NOT the mechanism: work owed beyond these turns is
+ * waited for, and `quiescentAt` in the report is what says whether the registry saw anything, so a
+ * detector that had silently stopped working could not hide behind this number.
+ */
+const MINIMUM_TURNS = 4;
+
+/**
+ * Turns after which the drain gives up and says so.
+ *
+ * Generous — a turn is a `setTimeout(0)`, so the whole ceiling is a fraction of a second — because
+ * its job is to catch work that never finishes, not to police work that is merely slow.
+ */
+const CEILING_TURNS = 200;
+
+/** @returns {Promise<void>} one event-loop turn, which also drains every microtask queued in it */
+const oneTurn = () => new Promise((resolve) => { setTimeout(resolve, 0); });
+
+/**
+ * Let every scheduled task, delivery and commit settle — DRAINING UNTIL QUIESCENT, not for a fixed
+ * number of turns.
+ *
+ * ## Why the fixed count had to go
+ *
+ * This drained exactly FOUR turns. Four was sufficient on a quiet machine, so work needing a fifth
+ * was left UNSETTLED and the test carried on regardless. That is a guard pinned to a snapshot, and
+ * the snapshot is a number of event-loop turns — the thing that shifts first under load. Worse, it
+ * was SILENT: a test proceeding on unsettled state produces a green whose meaning nobody can
+ * recover afterwards.
+ *
+ * ## What it does instead
+ *
+ * It runs turns until the doubles report no scheduled work outstanding (`pending-work.js`), then
+ * returns. If the ceiling arrives first it THROWS, naming what was still owed — a silent give-up
+ * would be strictly worse than the fixed count it replaced, because it would put the old defect back
+ * with a longer timeout in front of it.
+ *
+ * ## Reading the report
+ *
+ * `turnsDrained` is how long the drain ran; `quiescentAt` is the turn at which it first OBSERVED
+ * quiescence. They differ whenever the floor is doing the waiting, and a `quiescentAt` that never
+ * moves past 1 across a suite means the registry is seeing nothing and the drain is a fixed count
+ * again wearing a new name.
+ *
+ * @param {{ceiling?: number}} [options]
+ * @returns {Promise<{turnsDrained: number, quiescentAt: number}>}
+ */
+export async function settle({ ceiling = CEILING_TURNS } = {}) {
+  /** The first turn of the current unbroken run of quiescent observations; null while work is owed. */
+  let quiescentAt = null;
+
+  for (let turn = 1; turn <= ceiling; turn += 1) {
     // eslint-disable-next-line no-await-in-loop
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await oneTurn();
+
+    if (outstandingWork().length > 0) {
+      quiescentAt = null;
+      continue;
+    }
+
+    if (quiescentAt === null) quiescentAt = turn;
+    if (turn >= MINIMUM_TURNS) return { turnsDrained: turn, quiescentAt };
   }
+
+  throw new Error(
+    `settle() drained ${ceiling} event-loop turns and the test double still owes work: `
+    + `${describeOutstandingWork()}. Either the work under test never finishes, or it schedules `
+    + 'more work every turn. This is a diagnosis, not a timeout: the labels above name the tasks '
+    + 'that were scheduled and had not run when the drain gave up.',
+  );
 }

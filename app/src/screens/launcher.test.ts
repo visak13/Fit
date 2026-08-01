@@ -30,15 +30,27 @@ import { SESSION_MODES } from '../../core/model/vocabularies.js';
 import * as launcher from './launcher.ts';
 import {
   GLANCE_NOBODY_CHOSEN, HISTORY_TITLE, LINK_CHOICES, LINK_MADE, MODE_CHOICES, NOTHING_CHOSEN,
-  SECOND_INSTANCE_HINT, START_BUTTON, UNFINISHED_INTRO, canStart, chooseLinkPlan, chooseMode,
+  SECOND_INSTANCE_HINT, START_BUTTON, UNFINISHED_INTRO, canOpenASecondWindow, canStart,
+  chooseLinkPlan, chooseMode,
   chooseRoutine, describeGlance, describeHistory, describeMint, describeOutcome, describeStart,
   describeUnfinished, firstSessionWords, linkToStore, listWords, modeWords, pasteLink, shouldMint,
   statusWords, toggleClient,
 } from './launcher.ts';
+import { EXPANDED_VIEWPORT_MIN } from '../design/viewport.ts';
 import {
   GROUP_CALL_WARNING, MINT_REFUSALS, NO_CONFERENCE, PASTE_INSTEAD, STILL_PENDING,
 } from '../platform/google-meet.ts';
 import type { Glance, Selection, SessionRecord } from './launcher.ts';
+
+/**
+ * THE TWO WIDTHS EVERY `describeStart` CALL BELOW IS MADE AT.
+ *
+ * `LAPTOP` is the default for the tests that are not about the width, because it is the context in
+ * which every one of those sentences is unconditionally correct — a test asserting the group-call
+ * warning must not go green or red for a reason to do with the window.
+ */
+const PHONE = 390;
+const LAPTOP = 1280;
 
 /** A selection with everything answered. Built through the verbs, never by hand. */
 function everythingChosen(): Selection {
@@ -173,7 +185,7 @@ describe('whether he can start', () => {
   });
 
   it('says what is still needed, in the order the screen asks for it', () => {
-    const report = describeStart(NOTHING_CHOSEN, [], null);
+    const report = describeStart(NOTHING_CHOSEN, [], null, LAPTOP);
     assert.equal(report.canStart, false);
     assert.equal(report.missing.length, 3);
     assert.match(report.missing[0], /who is training/i);
@@ -182,20 +194,104 @@ describe('whether he can start', () => {
   });
 
   it('says nothing is missing once everything is chosen', () => {
-    assert.deepEqual(describeStart(everythingChosen(), ['Ana'], 'Push Day').missing, []);
+    assert.deepEqual(describeStart(everythingChosen(), ['Ana'], 'Push Day', LAPTOP).missing, []);
   });
 
   it('reads the choice back in one line as it is being made', () => {
-    const report = describeStart(everythingChosen(), ['Ana'], 'Push Day');
+    const report = describeStart(everythingChosen(), ['Ana'], 'Push Day', LAPTOP);
     assert.equal(report.summary, 'Ana, Push Day, in the room.');
     assert.equal(report.label, START_BUTTON);
   });
 
   it('mentions the second window only when more than one person is attending', () => {
-    assert.equal(describeStart(everythingChosen(), ['Ana'], 'Push Day').secondInstanceHint, null);
+    assert.equal(
+      describeStart(everythingChosen(), ['Ana'], 'Push Day', LAPTOP).secondInstanceHint,
+      null,
+    );
 
     const two = toggleClient(everythingChosen(), 'client-ben');
-    assert.equal(describeStart(two, ['Ana', 'Ben'], 'Push Day').secondInstanceHint, SECOND_INSTANCE_HINT);
+    assert.equal(
+      describeStart(two, ['Ana', 'Ben'], 'Push Day', LAPTOP).secondInstanceHint,
+      SECOND_INSTANCE_HINT,
+    );
+  });
+
+  /**
+   * ADVICE THE PHONE CANNOT FOLLOW, AND THE HALF OF THE FIX THAT IS EASY TO LOSE.
+   *
+   * The hint is CORRECT — on a laptop. Running two sessions side by side is a laptop capability,
+   * and an installed home-screen app has no second window to open. So the question this asks is
+   * REACHABILITY, never wording: with the precondition DRIVEN — two people actually chosen — is the
+   * sentence offered where it cannot be acted on?
+   *
+   * BOTH DIRECTIONS OR NEITHER. A gate that suppressed it everywhere would satisfy the phone half,
+   * remove a real feature the coach uses, and look exactly as green as the correct fix; so the same
+   * selection is asserted at both widths and the laptop assertion is also what stops the phone
+   * assertion passing vacuously — a `secondInstanceHint` hardcoded to null passes the first
+   * assertion perfectly and reds the second.
+   */
+  it('withholds the second-window hint on a phone and keeps it on a laptop, same selection', () => {
+    const two = toggleClient(everythingChosen(), 'client-ben');
+    assert.equal(two.clientIds.length, 2, 'the precondition has to be DRIVEN, not assumed');
+
+    assert.equal(
+      describeStart(two, ['Ana', 'Ben'], 'Push Day', PHONE).secondInstanceHint,
+      null,
+      'the phone was offered a second window, which an installed home-screen app cannot open — he '
+        + 'reads that as his own failure to find it, with two people in front of him',
+    );
+
+    assert.equal(
+      describeStart(two, ['Ana', 'Ben'], 'Push Day', LAPTOP).secondInstanceHint,
+      SECOND_INSTANCE_HINT,
+      'the gate suppressed the hint on a LAPTOP too, which removes a real capability the coach uses '
+        + 'and looks exactly as green as the correct fix',
+    );
+  });
+
+  /**
+   * THE BOUNDARY IS THE FRAME'S, READ FROM `viewport.ts` RATHER THAN WRITTEN OUT.
+   *
+   * A number copied here would go on passing the day the frame's boundary moved, and the hint would
+   * be offered on one side of a line nothing else in the application draws.
+   */
+  it('turns the hint on exactly where the interface stops being the phone\'s', () => {
+    const two = toggleClient(everythingChosen(), 'client-ben');
+
+    assert.equal(canOpenASecondWindow(EXPANDED_VIEWPORT_MIN - 1), false);
+    assert.equal(canOpenASecondWindow(EXPANDED_VIEWPORT_MIN), true);
+
+    assert.equal(
+      describeStart(two, ['Ana', 'Ben'], 'Push Day', EXPANDED_VIEWPORT_MIN - 1).secondInstanceHint,
+      null,
+    );
+    assert.equal(
+      describeStart(two, ['Ana', 'Ben'], 'Push Day', EXPANDED_VIEWPORT_MIN).secondInstanceHint,
+      SECOND_INSTANCE_HINT,
+    );
+  });
+
+  /**
+   * THE WIDTH GATES THAT SENTENCE AND NOTHING ELSE ON THIS REPORT.
+   *
+   * Everything else the start control says is about the SELECTION, and a width that changed any of
+   * it would be this screen quietly behaving differently on his phone. Asserted as a whole-report
+   * comparison rather than field by field, so a field added later is covered without being named.
+   */
+  it('changes nothing else about the start report between a phone and a laptop', () => {
+    let two = toggleClient(everythingChosen(), 'client-ben');
+    two = chooseMode(two, 'online');
+
+    const onThePhone = describeStart(two, ['Ana', 'Ben'], 'Push Day', PHONE);
+    const onTheLaptop = describeStart(two, ['Ana', 'Ben'], 'Push Day', LAPTOP);
+
+    assert.deepEqual(
+      { ...onThePhone, secondInstanceHint: null },
+      { ...onTheLaptop, secondInstanceHint: null },
+    );
+    assert.notEqual(onThePhone.secondInstanceHint, onTheLaptop.secondInstanceHint);
+    assert.equal(onThePhone.groupCallWarning, GROUP_CALL_WARNING,
+      'the sixty-minute cut is a fact about Google, not about his window, and it must survive the gate');
   });
 
   /**
@@ -207,17 +303,17 @@ describe('whether he can start', () => {
    */
   it('warns about the group-call limit from TWO clients up, because he is the third person', () => {
     const online = chooseMode(everythingChosen(), 'online');
-    assert.equal(describeStart(online, ['Ana'], 'Push Day').groupCallWarning, null,
+    assert.equal(describeStart(online, ['Ana'], 'Push Day', LAPTOP).groupCallWarning, null,
       'one client and him is a one-to-one call, which is not affected at all');
 
     const two = toggleClient(online, 'client-ben');
-    assert.equal(describeStart(two, ['Ana', 'Ben'], 'Push Day').groupCallWarning, GROUP_CALL_WARNING);
+    assert.equal(describeStart(two, ['Ana', 'Ben'], 'Push Day', LAPTOP).groupCallWarning, GROUP_CALL_WARNING);
   });
 
   it('says nothing about it for a session in the room, which has no call to be cut', () => {
     const two = toggleClient(everythingChosen(), 'client-ben');
     assert.equal(two.mode, 'in_person');
-    assert.equal(describeStart(two, ['Ana', 'Ben'], 'Push Day').groupCallWarning, null);
+    assert.equal(describeStart(two, ['Ana', 'Ben'], 'Push Day', LAPTOP).groupCallWarning, null);
   });
 });
 
@@ -567,8 +663,12 @@ describe('what this screen is deliberately NOT', () => {
     let two = toggleClient(everythingChosen(), 'client-ben');
     two = pasteLink(chooseMode(two, 'online'), 'https://meet.google.com/abc-defg-hij');
 
-    said.push(JSON.stringify(describeStart(NOTHING_CHOSEN, [], null)));
-    said.push(JSON.stringify(describeStart(two, ['Ana', 'Ben'], 'Push Day')));
+    said.push(JSON.stringify(describeStart(NOTHING_CHOSEN, [], null, LAPTOP)));
+    said.push(JSON.stringify(describeStart(two, ['Ana', 'Ben'], 'Push Day', LAPTOP)));
+    // The same selection on a phone, because a state that says something DIFFERENT is a state the
+    // sweep has to read too — a gate is a new branch, and an unswept branch is where the next
+    // forbidden sentence lands.
+    said.push(JSON.stringify(describeStart(two, ['Ana', 'Ben'], 'Push Day', PHONE)));
     said.push(JSON.stringify(describeGlance('client-ana', 'Ana', null, null)));
     said.push(JSON.stringify(describeOutcome({ ok: true, session_id: 'session-1' })));
     said.push(JSON.stringify(describeOutcome({ ok: false, reason: 'not_found' })));

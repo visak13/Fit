@@ -559,9 +559,25 @@ const MEMBERS: Readonly<Record<string, Member>> = Object.freeze({
       'The encryption details this device had saved for itself are gone. That happens if the app was '
       + 'removed from the home screen, or if the browser cleared out its storage on its own after the '
       + 'app had not been opened for a while. Nobody did anything wrong.',
+    /*
+     * NOT LOST, NEVER "SAFE" — and the difference is this build's whole crypto discipline in one
+     * word. This screen can stand behind NOT LOST: it is a fact about where the bytes are, read
+     * from its own state. It cannot stand behind SAFE, which is a claim about security that
+     * nothing in this application is entitled to make. The sentence said "the notes are safe"
+     * until the tree-wide gate in `src/proof/forbidden-claims.test.ts` found it, and the reason it
+     * mattered here more than anywhere is the setting: on the ENCRYPTION-FAILURE screen, beside
+     * key material and encryption detail, "safe" does not read as "not lost". It reads as a
+     * security assurance, made at the moment the coach is most frightened and least critical.
+     *
+     * The reassurance it was written for is untouched and is the point of the sentence: a screen
+     * saying a device can no longer open his client notes, WITHOUT saying the notes are still
+     * there, reads as data loss. `key-material-condition.test.ts` holds that MEANING rather than
+     * the word, so a future rewording is still caught.
+     */
     whatItMeans:
-      'This device cannot open your client medical notes by itself any more. The notes are safe and '
-      + 'are still in your Google account — it is this device\'s own way in that has gone.',
+      'This device cannot open your client medical notes by itself any more. Your notes have not '
+      + 'been lost and are still in your Google account — it is this device\'s own way in that '
+      + 'has gone.',
     moreDangerous: false,
     dangerNote: null,
     candidateNoun: null,
@@ -583,7 +599,12 @@ const MEMBERS: Readonly<Record<string, Member>> = Object.freeze({
     whoToAsk: WHO_TO_ASK,
     adminIntro:
       'This device has lost the encryption details it had saved for itself, so it cannot open your '
-      + 'client medical notes on its own. The notes themselves are safe.',
+      // The SAME claim d214 removed from `whatItMeans` above, left standing on this member's admin
+      // line — that fix reached one string and not its sibling four fields away, and the tree-wide
+      // gate missed it because "themselves" sits between the noun and the verb. NOT LOST is what
+      // this screen can stand behind; SAFE is the security claim it cannot.
+      + 'client medical notes on its own. The notes themselves have not been lost and are still in '
+      + 'your Google account.',
     adminChipWord: 'No way in',
   }),
 });
@@ -659,37 +680,58 @@ export interface ConditionReport {
   readonly asTheAppPutIt: string;
 }
 
-/** What the screen says when there is nothing wrong, which is almost every time it is opened. */
-export interface SettledReport {
+/**
+ * What the screen says when NOTHING HAS SURVEYED THE HIDDEN SPACE, which is every visit in this
+ * build.
+ *
+ * IT REPLACES A REPORT CALLED `SettledReport`, and the rename is half of the fix rather than tidying:
+ * the old one carried `count: 1` and `settled: true` as CONSTANTS, reached through a branch on
+ * `condition === null` that is taken on every device, and said "One set of encryption details, which
+ * is how it should be. Your devices agree on how your client medical notes are locked." No part of
+ * this application had ever counted a set of keys or compared two devices. Honest words arriving
+ * through a branch named `settled` would be the same defect wearing new ones, so the state, the
+ * branch and the type say the same thing now.
+ *
+ * There is NO figure. Not a nought — a nought is a count, and nobody counted.
+ */
+export interface NotCheckedReport {
   readonly title: string;
-  readonly count: number;
-  readonly countMeans: string;
+  /** The one line under the title. It may say that the app has not checked, and nothing else. */
   readonly intro: string;
-  readonly settled: true;
+  /** Always false. Present so the drawing cannot render this report as anything else. */
+  readonly checked: false;
 }
 
 /**
- * The normal state, worded as one.
+ * The unchecked state, worded as one and worded NARROWLY.
  *
- * This screen is permanently reachable from Admin and will be empty on every visit but the one that
- * matters, so an empty state that read as a fault would teach him to stop opening it — which would
- * cost him exactly the visit it exists for.
+ * It says the app has not checked. It does not say "not yet a problem", "this will be checked soon"
+ * or "nothing to worry about" — those are reassurances about a condition nobody measured, which is
+ * the exact defect this screen was corrected for, and a softer one is not a smaller one.
  */
-export function describeSettled(): SettledReport {
+export function describeNotChecked(): NotCheckedReport {
   return {
     title: KEY_MATERIAL_TITLE,
-    count: 1,
-    countMeans:
-      'One set of encryption details, which is how it should be. Your devices agree on how your '
-      + 'client medical notes are locked.',
-    intro:
-      'There is nothing to sort out. If this app ever finds more than one set, it will not choose '
-      + 'between them or delete anything — it will show you both here and tell you who to ask.',
-    settled: true,
+    intro: 'Not checked yet. This app has not looked at how your client medical notes are locked.',
+    checked: false,
   };
 }
 
 /** What the Admin screen says about this condition, and the words on the way in. */
+/**
+ * THE WORD ON AN ADMIN CHIP WHERE NOTHING HAS BEEN CHECKED, AND IT LIVES IN ONE PLACE.
+ *
+ * Three admin cards say it — key material, divergences and stopped changes — and it was written
+ * three times, once here as a value and twice as literal markup in `AdminScreen.tsx`. Three copies
+ * of one word is the shape this build keeps paying for: a correction applied to a string is not a
+ * correction applied to the subject, and the two copies nobody remembered would have gone on saying
+ * the old thing beside the one that changed.
+ *
+ * It is exported rather than inlined so the two cards that carry no `chip` of their own read the
+ * same value instead of repeating it.
+ */
+export const NOT_CHECKED_CHIP = 'Not checked';
+
 export interface AdminEntry {
   readonly title: string;
   /**
@@ -708,6 +750,14 @@ export interface AdminEntry {
   /** The words on the link. Never "fix" or "resolve": the link leads to a screen that does neither. */
   readonly linkLabel: string;
   readonly settled: boolean;
+  /**
+   * False where nothing surveyed anything.
+   *
+   * The card's tone is chosen from this rather than from {@link settled}: a success chip is a claim
+   * that something was found to be in order, and on an unsurveyed device there is nothing to be in
+   * order or out of it.
+   */
+  readonly checked: boolean;
 }
 
 /**
@@ -718,18 +768,42 @@ export interface AdminEntry {
  * leads to unreachable for the whole of the time it is empty — which is almost always. The count is
  * on the chip, so an empty state is answered without leaving Admin.
  */
-export function describeAdminEntry(condition: KeyMaterialCondition | null): AdminEntry {
-  if (condition === null) {
+export function describeAdminEntry(
+  condition: KeyMaterialCondition | null,
+  checked: boolean,
+): AdminEntry {
+  // THE SECOND SITE FOR THE SAME CLAIM, and it is the one a worried person reaches first. The screen
+  // behind this card said his devices agreed; this card said it too, one screen earlier, out of the
+  // same constant 1. A correction applied to one of them is a correction applied to a string rather
+  // than to the subject, so both moved together.
+  if (!checked) {
     return {
       title: KEY_MATERIAL_TITLE,
-      count: 1,
-      chip: '1',
+      // No figure: see the screen's report. A "1" here was never counted.
+      count: null,
+      chip: NOT_CHECKED_CHIP,
       intro:
-        'One set of encryption details, which is how it should be. If this app ever finds more than '
-        + 'one, it will show you both here rather than choosing between them.',
-      linkLabel: 'Check for yourself',
-      settled: true,
+        'Not checked yet. This app has not looked at how your client medical notes are locked.',
+      // NOT "Check for yourself": the screen behind this link has not checked either, and a link
+      // promising more than the screen delivers is the reassurance this ruling forbids.
+      linkLabel: 'Read what this means',
+      settled: false,
+      checked: false,
     };
+  }
+
+  // A SURVEY THAT RAN AND FOUND NOTHING WRONG HAS NO WORDS HERE, and this is the same refusal
+  // {@link describeCondition} makes for a condition no member words, for the same reason. The
+  // sentence that used to stand here was written for that state and was being shown for the
+  // unsurveyed one; the user removed it on 2026-07-31. The step that wires `establishKeyMaterial`
+  // brings the state and its sentence together — reaching for a removed reassurance because it is
+  // the nearest thing to hand is exactly what this refusal exists to prevent. The seam's own type
+  // makes this unreachable from the application; this catches a reading built by hand.
+  if (condition === null) {
+    throw new Error(
+      'describeAdminEntry: checked with no condition is not worded. A survey that found nothing '
+      + 'wrong needs its own sentence, added with the step that performs the survey.',
+    );
   }
 
   // The same lookup and the same refusal as the screen's, on purpose: a condition the family cannot
@@ -741,6 +815,7 @@ export function describeAdminEntry(condition: KeyMaterialCondition | null): Admi
   return {
     title: KEY_MATERIAL_TITLE,
     count,
+    checked: true,
     chip: count === null ? (member.adminChipWord ?? '') : String(count),
     intro: member.adminIntro,
     // Deliberately not "Fix this" or "Sort it out": the screen behind this link does neither, and a

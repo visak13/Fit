@@ -78,7 +78,7 @@ import {
   WHO_TO_ASK,
   describeAdminEntry,
   describeCondition,
-  describeSettled,
+  describeNotChecked,
 } from './key-material-condition.ts';
 import type { ConditionReport, KeyMaterialCondition, RemoteFileMeta } from './key-material-condition.ts';
 
@@ -593,7 +593,7 @@ describe('extending the family left the two conditions it was built for untouche
 
   it('leaves the Admin way in worded as it was for the duplicates', async () => {
     const { condition } = await duplicateEnvelopeCondition();
-    const entry = describeAdminEntry(condition);
+    const entry = describeAdminEntry(condition, true);
 
     assert.equal(entry.count, 2);
     assert.equal(entry.chip, '2', 'the chip no longer carries the figure for a condition that has one');
@@ -797,13 +797,64 @@ describe('the device with no usable slot, driven through the core', () => {
         'device that will not open something and is the one that removes the last way back');
   });
 
-  it('says the notes themselves are safe, because they are and he will assume otherwise', async () => {
+  /**
+   * THE REASSURANCE IS HELD BY ITS MEANING, NOT BY THE WORD IT USED TO BE WRITTEN WITH.
+   *
+   * This asserted that the copy contained the word "safe". It was protecting a string rather than
+   * the reassurance: the copy could keep the word and lose the meaning, and it would still pass.
+   * Worse, the word was the wrong one. "Safe" on the ENCRYPTION-FAILURE screen reads as a security
+   * assurance, which is the claim `src/proof/forbidden-claims.test.ts` forbids across this whole
+   * repository and which this application is not entitled to make anywhere. NOT LOST is a fact
+   * about storage this screen can stand behind; SAFE is not.
+   *
+   * So the reassurance is asserted as what it has to achieve — his notes are still there, and they
+   * are in his Google account — and the wording is free to change without this going quiet.
+   */
+  it('says the notes are NOT LOST and are still in his account, or it reads as data loss', async () => {
     const { condition } = await noUsableSlotCondition();
     const report = describeCondition(condition);
+    const said = report.whatItMeans.toLowerCase();
 
-    assert.ok(report.whatItMeans.toLowerCase().includes('safe'),
-      'a screen saying a device can no longer open his client notes, without saying the notes are ' +
-        'safe, is a screen that reads as data loss');
+    assert.ok(
+      /not (?:been )?lost|have not been lost|still (?:there|here)/u.test(said),
+      'a screen saying a device can no longer open his client notes, without saying the notes are '
+      + `not lost, is a screen that reads as data loss: ${report.whatItMeans}`,
+    );
+    assert.ok(
+      said.includes('still in your google account'),
+      'the reassurance does not say WHERE the notes still are, so it is a bare denial he has no '
+      + `reason to believe: ${report.whatItMeans}`,
+    );
+    assert.ok(
+      !/\bsafe\b|\bsecure\b/u.test(said),
+      'the reassurance reaches for a security word. This screen may say the notes are not lost; it '
+      + `may not say they are safe or secure: ${report.whatItMeans}`,
+    );
+  });
+
+  /**
+   * THE SAME REASSURANCE IS SAID TWICE ON THIS MEMBER, AND THE SECOND ONE WAS MISSED.
+   *
+   * The check above holds `whatItMeans`. This member says the reassurance a SECOND time on its
+   * admin line, four fields away, and that copy still read "The notes themselves are safe" after
+   * the first was corrected — shipped, and present in the published bundle. A fix applied to one
+   * string is not applied to a subject; every field of the member that carries the reassurance is
+   * held to the same rule, so the next rewording cannot leave one behind either.
+   */
+  it('and says it the same way on the admin line, which is the copy the first fix missed', async () => {
+    const { condition } = await noUsableSlotCondition();
+    const said = describeAdminEntry(condition, true).intro.toLowerCase();
+
+    assert.ok(
+      /not (?:been )?lost|still (?:there|here)/u.test(said),
+      'the admin line says this device cannot open his notes without saying they are not lost: '
+      + `${describeAdminEntry(condition, true).intro}`,
+    );
+    assert.ok(
+      !/\bsafe\b|\bsecure\b/u.test(said),
+      'the admin line reaches for a security word on the encryption-failure member. It may say the '
+      + `notes are not lost; it may not say they are safe or secure: ${describeAdminEntry(condition, true).intro}`,
+    );
   });
 });
 
@@ -964,10 +1015,9 @@ describe('what the screen tells a non-technical person', () => {
     const strings = [
       ...STANDING_SENTENCES,
       ...(await allReports()).map(everythingSaid),
-      describeSettled().intro,
-      describeSettled().countMeans,
-      describeAdminEntry(null).intro,
-      ...(await everyCondition()).map((condition) => describeAdminEntry(condition).intro),
+      describeNotChecked().intro,
+      describeAdminEntry(null, false).intro,
+      ...(await everyCondition()).map((condition) => describeAdminEntry(condition, true).intro),
     ];
     for (const text of strings) {
       for (const point of [...text]) {
@@ -1016,10 +1066,15 @@ describe('this path writes nothing, deletes nothing, and chooses nothing', () =>
 
   it('offers nothing callable on the reading either, so a later step cannot supply one quietly', () => {
     const reading: KeyMaterialReading = NO_KEY_MATERIAL_CONDITION;
-    assert.deepEqual(Object.keys(reading), ['condition'],
-      'the key-material reading has grown a second field. The divergence seam carries a `resolve` ' +
-        'because a divergence is a question the coach answers; this one carries no way back AT ALL, ' +
-        'deliberately, and a new field here is the read-only ruling being reopened');
+    // `checked` was added on 2026-07-31 and is the ONE field allowed beside the condition. It says
+    // whether anything surveyed the hidden space, which is what stopped this screen telling him his
+    // devices agreed about keys nobody had ever looked at. It is a fact, not a way back: the
+    // read-only ruling is untouched, and the callable walk below is what actually holds it.
+    assert.deepEqual(Object.keys(reading), ['checked', 'condition'],
+      'the key-material reading has grown a field beyond the condition and the discriminant that ' +
+        'says whether anything looked. The divergence seam carries a `resolve` because a divergence ' +
+        'is a question the coach answers; this one carries no way back AT ALL, deliberately, and a ' +
+        'new field here is the read-only ruling being reopened');
     for (const leaf of leaves(reading)) {
       assert.notEqual(typeof leaf, 'function', 'the reading carries something callable');
     }
@@ -1030,8 +1085,8 @@ describe('this path writes nothing, deletes nothing, and chooses nothing', () =>
     const before = await hiddenSpace(remote);
 
     describeCondition(condition);
-    describeAdminEntry(condition);
-    describeSettled();
+    describeAdminEntry(condition, true);
+    describeNotChecked();
 
     assert.deepEqual(await hiddenSpace(remote), before,
       'building the screen changed the coach\'s Google account. Nothing on this path may write, ' +
@@ -1163,7 +1218,7 @@ describe('the condition family', () => {
 
   it('gives every condition a way in from Admin that says something true about it', async () => {
     for (const condition of await everyCondition()) {
-      const entry = describeAdminEntry(condition);
+      const entry = describeAdminEntry(condition, true);
       assert.equal(entry.settled, false);
       assert.ok(entry.chip.length > 0,
         `${memberKeyOf(condition)} leaves the Admin chip empty. An empty chip reads as a card that ` +
@@ -1219,7 +1274,7 @@ describe('the condition family', () => {
       userMessage: 'A ready-made message the core wrote, which is not the same as a screen.',
     };
 
-    assert.throws(() => describeAdminEntry(unworded), /MEMBERS/u,
+    assert.throws(() => describeAdminEntry(unworded, true), /MEMBERS/u,
       'the Admin entry worded a condition the screen behind it cannot word');
   });
 });
@@ -1251,7 +1306,10 @@ function rendered(condition: KeyMaterialCondition): string {
   const markup = renderToStaticMarkup(
     createElement(
       KeyMaterialProvider,
-      { reading: { condition }, children: createElement(KeyMaterialConditionScreen) },
+      {
+        reading: { checked: true, condition },
+        children: createElement(KeyMaterialConditionScreen),
+      },
     ),
   );
   // The renderer escapes; the sentences carry apostrophes and dashes. Read the text back as text
@@ -1356,30 +1414,57 @@ describe('the screen itself, rendered, for every condition in the family', () =>
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// The state it is in on every visit but one
+// The state it is in on EVERY visit, because nothing has ever surveyed anything
 // ═══════════════════════════════════════════════════════════════════════════════
 
-describe('the settled state', () => {
-  it('reads as the good news it is rather than as an empty screen', () => {
-    const settled = describeSettled();
-    assert.equal(settled.settled, true);
-    assert.equal(settled.count, 1);
-    assert.ok(settled.intro.toLowerCase().includes('nothing to sort out'));
+describe('the unchecked state', () => {
+  it('says the app has not checked, and does not reach for a softer reassurance instead', () => {
+    const report = describeNotChecked();
+    assert.equal(report.checked, false);
+    assert.ok(report.intro.includes('Not checked yet'));
+
+    const said = report.intro.toLowerCase();
+    // The replacement may say ONE thing: that the app has not checked. These are the ways a
+    // reassurance comes back wearing different clothes, and each of them would be this defect again.
+    for (const drift of [
+      'which is how it should be',
+      'nothing to sort out',
+      'devices agree',
+      'will be checked',
+      'nothing to worry',
+      'looks fine',
+      'all good',
+      'so far',
+    ]) {
+      assert.ok(
+        !said.includes(drift),
+        `the unchecked state says "${drift}". It is allowed to say that the app has not checked and `
+          + 'nothing else: a reassurance nobody measured is the defect, and a gentler one is the '
+          + 'same defect in a new costume.',
+      );
+    }
     assert.ok(
-      settled.intro.toLowerCase().includes('will not choose'),
-      'the settled state is the only moment he reads this screen calmly, so it is where the promise ' +
-        'that the app will never choose between them is worth making',
+      !('count' in report),
+      'the unchecked report carries a figure. The "1" it used to carry was a constant in this file '
+        + 'and never a count of anything the application had seen.',
     );
   });
 
   it('offers the way in from Admin permanently, worded for both states and promising neither a fix', async () => {
-    const quiet = describeAdminEntry(null);
-    assert.equal(quiet.settled, true);
-    assert.equal(quiet.count, 1);
+    const quiet = describeAdminEntry(null, false);
+    assert.equal(quiet.checked, false);
+    assert.equal(quiet.settled, false, 'settled is a measured state and nothing measured this one');
+    assert.equal(quiet.count, null, 'a figure on the admin card is a claim, and nobody counted');
+    assert.ok(quiet.intro.includes('Not checked yet'), 'the admin card still asserts a condition');
+    assert.ok(quiet.chip.length > 0, 'an empty chip reads as a card that failed to load');
     assert.ok(quiet.linkLabel.length > 0, 'the way in has no words on it, so nothing says where it goes');
+    assert.ok(
+      !quiet.linkLabel.toLowerCase().includes('check for yourself'),
+      'the card invites him to check for himself, and the screen behind it has not checked either',
+    );
 
     const { condition } = await duplicateEnvelopeCondition();
-    const loud = describeAdminEntry(condition);
+    const loud = describeAdminEntry(condition, true);
     assert.equal(loud.settled, false);
     assert.equal(loud.count, 2, 'the chip does not carry how many were found');
 

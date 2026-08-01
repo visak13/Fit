@@ -1,7 +1,7 @@
 /**
  * A GLYPH FROM THE FAMILY — the only way one is drawn in this application.
  *
- * Forty-nine SVGs live in `design/icons/`, `tools/make-glyphs.mjs` turns them into
+ * The family's SVGs live in `design/icons/`, `tools/make-glyphs.mjs` turns them into
  * `glyphs.generated.ts`, and this component draws one. Nothing else inlines an `<svg>`: the family's
  * whole value is that it looks like one family, and a hand-inlined glyph is how one of them quietly
  * acquires its own stroke, its own colour or its own canvas.

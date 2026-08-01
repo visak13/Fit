@@ -62,6 +62,7 @@ import { createRoot } from 'react-dom/client';
 
 import { Application } from '../App';
 import { OpeningLocalStore } from '../platform/LocalStore';
+import { accountOnThisDevice } from '../platform/drive-on-this-device';
 import type { BackupAccess } from '../shell/SyncFromStore';
 
 import { createEnvelope } from '../../core/model/model.js';
@@ -104,6 +105,25 @@ const THE_DOUBLE: BackupAccess = {
   remote: remote as unknown as BackupAccess['remote'],
   credential: () => ({ present: true, expired: false }),
   connect: async () => null,
+
+  /*
+    THE TWO WAYS OUT, AND THEY ARE THE REAL ROUTINES OVER THE REAL CONNECTION.
+
+    Nothing is substituted here beyond what this root already substitutes. `googleOnThisDevice` is
+    the same single connection the application builds, and on this page it is genuinely NOT
+    CONNECTED — no client id is configured and no consent has ever been given — so `signOutOfGoogle`
+    answers `not-connected`, which is the TRUE answer about this page rather than a stubbed one.
+
+    That is exactly what makes the erase gate observable here. The gate does not read the connection;
+    it reads the DELIVERY FIGURES, and this root is the one place in the tree where a real queue can
+    be filled with work that genuinely cannot be delivered — `breakTheService` above — so the
+    refusal, its count, its named oldest entry and its still-retrying-or-stopped sentence can all be
+    caused for real and read off the screen. Substituting a connection would have proved nothing the
+    unit tests do not; substituting the SERVICE is what makes the refusal real.
+  */
+  signOut: (store) => accountOnThisDevice(window).signOut(store),
+  eraseThisDevice: (store, reading, acknowledged) =>
+    accountOnThisDevice(window).eraseThisDevice(store, reading, acknowledged),
 };
 
 /**
@@ -146,6 +166,7 @@ interface ProofHooks {
   expireTheCredential(): void;
   calmTheService(): void;
   plantAFileFromANewerVersion(): Promise<string>;
+  takeAPlantedFileBackOut(fileId: string): Promise<void>;
   persistedCompletion(): Promise<string | null>;
   filesInTheSpace(): Promise<number>;
 }
@@ -227,6 +248,23 @@ const proofOfTheJoin: ProofHooks = {
       content: document,
     });
     return meta.file_id;
+  },
+
+  /**
+   * TAKE A PLANTED FILE BACK OUT — which is how the RETURN out of the skipped state is caused for real.
+   *
+   * `readUnion` re-lists and re-reads the whole space on every pass; there is no cursor and nothing is
+   * remembered between passes. So while an undecodable file sits in the space every pass skips it again,
+   * and no amount of running one produces a clean report. That is correct behaviour and it is exactly
+   * why this hook exists: the state the coach actually returns through is the one where the file is no
+   * longer there to skip — the other device rewrote it, or this build was updated to understand it.
+   *
+   * It removes the file and nothing else. The pass that follows is a REAL pass over a real space that
+   * genuinely has nothing unreadable in it, so the indicator coming home is the engine's own doing
+   * rather than a state the driver painted.
+   */
+  async takeAPlantedFileBackOut(fileId: string): Promise<void> {
+    await remote.remove(fileId);
   },
 
   /**

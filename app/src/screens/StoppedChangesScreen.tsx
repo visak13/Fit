@@ -170,15 +170,25 @@ export function StoppedChangesScreen() {
         <h2 id="screen-stopped-changes" className="title-screen">
           {review.title}
         </h2>
-        <p className="value-display">{review.count}</p>
+        {/* THE FIGURE IS A CLAIM and it is drawn only where the queue was read. Nothing reads it in
+            this build, and a nought under this title is the reassuring answer arrived at by never
+            having looked — the rule the admin screen already states about the removals count. */}
+        {review.count !== null && <p className="value-display">{review.count}</p>}
         <p className="screen-intro read">{review.intro}</p>
-        <p className="note read">
-          <Glyph name="note" size="inline" decorative />
-          <span>{review.nothingHappensByItself}</span>
-        </p>
+        {review.nothingHappensByItself !== null && (
+          <p className="note read">
+            <Glyph name="note" size="inline" decorative />
+            <span>{review.nothingHappensByItself}</span>
+          </p>
+        )}
       </section>
 
-      {review.groups.map((group) => (
+      {/* THE GROUPS ARE DRAWN ONLY WHERE THE QUEUE WAS READ. Each carries its own settled sentence —
+          "Google has not refused anything." and "Everything that was sent was confirmed one way or
+          the other." — and both are the same unmeasured claim as the intro above, in smaller type
+          and two cards further down where a correction to the headline would never have reached
+          them. */}
+      {review.checked && review.groups.map((group) => (
         <Group key={group.status} group={group} />
       ))}
     </div>

@@ -18,6 +18,17 @@
  * A harder intensity point therefore means MORE WORK and LESS REST, never more load, and
  * `R6` below enforces exactly that relationship.
  *
+ * ## `R6` DETECTS THE SAME THING FOR EVERYONE; WHAT IT COSTS DEPENDS ON WHOSE RECORD IT IS
+ *
+ * Settled by the user on 2026-07-31. On SHIPPED content `R6` refuses, because a shipped ladder that
+ * gets easier as it rises is a defect in what we published. On an exercise the COACH authored or
+ * edited it is a NOTICE naming the offending point, and his save commits: he is the certified
+ * professional and the app is a supporting role, so a slip is caught while a deliberate choice is
+ * respected. `withContractAsNotice` is where that single difference lives, and it is the ONLY
+ * difference — nothing about the detection is weakened, narrowed or skipped, and the finding is
+ * still available to the screen through `scalingContractFindings`. Dropping the finding instead of
+ * showing it would be worse than refusing, because silence reads as approval.
+ *
  * Load is not banned everywhere: any load the coach records is a per-client, in-session
  * OBSERVATION, and it lives on `entities/performed-record.js`.
  */
@@ -29,7 +40,7 @@ import {
 } from '../primitives.js';
 import {
   EQUIPMENT, FORBIDDEN_LOAD_TOKENS, INTENSITY_LEVELS, matchToken, MEASUREMENTS,
-  MOVEMENT_PATTERNS, MUSCLE_GROUPS, PROVENANCE,
+  MOVEMENT_PATTERNS, MUSCLE_GROUPS, PROVENANCE, SEED_PROVENANCE,
 } from '../vocabularies.js';
 
 /** @type {readonly string[]} */
@@ -128,7 +139,8 @@ export function validateExercise(exercise) {
   checkPrescription(c.at('default_prescription'), x.default_prescription, measurement, false);
   checkScaling(c, x.scaling, measurement);
 
-  return c.result();
+  // The detection above is unconditional. Only what it COSTS depends on whose record this is.
+  return withContractAsNotice(c.result(), x.provenance);
 }
 
 /**
@@ -224,12 +236,15 @@ export function checkScaling(c, scaling, measurement) {
 
   const work = (pt) => (pt.repetitions !== undefined && pt.repetitions !== null
     ? pt.repetitions : pt.duration_seconds);
-  const [low, medium, high] = INTENSITY_LEVELS.map((l) => rec[l]);
+  const [low, , high] = INTENSITY_LEVELS.map((l) => rec[l]);
 
   let good = true;
-  if (!(work(low) <= work(medium) && work(medium) <= work(high))) {
-    s.add('', CODES.ORDERING,
-      'Work must not fall as intensity rises: low, then medium, then high.');
+  // EACH FINDING IS RAISED AT THE LEVEL IT BREAKS AT, not at the ladder as a whole. What is
+  // DETECTED is unchanged — the same three relations over the same three points, in the same
+  // words. What changed is that the finding now says WHICH point offends, because the coach is
+  // now shown these as a notice on a record that SAVES, and a notice that cannot name the point
+  // is the "check your values" sentence this rule exists instead of.
+  if (!risesWith(c, rec, work, 'Work must not fall as intensity rises: low, then medium, then high.')) {
     good = false;
   }
   if (!(work(high) > work(low))) {
@@ -237,14 +252,132 @@ export function checkScaling(c, scaling, measurement) {
       'The high point must ask for strictly more work than the low point, or the three points are not genuinely different.');
     good = false;
   }
-  if (!(low.sets <= medium.sets && medium.sets <= high.sets)) {
-    s.add('', CODES.ORDERING, 'Sets must not fall as intensity rises.');
-    good = false;
-  }
-  if (!(low.rest_seconds >= medium.rest_seconds && medium.rest_seconds >= high.rest_seconds)) {
-    s.add('', CODES.ORDERING,
-      'Rest must not rise as intensity rises — a harder point means less rest, never more.');
+  if (!risesWith(c, rec, (pt) => pt.sets, 'Sets must not fall as intensity rises.')) good = false;
+  // NAMES ITS POINT, in the shape the work rule above already uses. The finding was ALWAYS raised at
+  // the level that breaks it — `fallsWith` reports at `INTENSITY_LEVELS[level]` and always has — but
+  // the SENTENCE the coach reads stated the rule and left him to work out which point offends. This
+  // contract WARNS AND STILL SAVES, so that sentence is the whole of what he has to decide on, and a
+  // warning he must diagnose is one he will dismiss.
+  if (!fallsWith(c, rec, (pt) => pt.rest_seconds,
+    (level, softer) =>
+      `The ${level} point must not ask for more rest than the ${softer} point — a harder point `
+      + 'means less rest, never more.')) {
     good = false;
   }
   return good;
+}
+
+/**
+ * A value that must NOT FALL as the ladder rises, reported at the first level it falls at.
+ * @param {Collector} c @param {Record<string, any>} rec
+ * @param {(point: Record<string, any>) => number} valueOf @param {string} message @returns {boolean}
+ */
+function risesWith(c, rec, valueOf, message) {
+  const s = c.at('scaling');
+  for (let level = 1; level < INTENSITY_LEVELS.length; level += 1) {
+    if (valueOf(rec[INTENSITY_LEVELS[level]]) < valueOf(rec[INTENSITY_LEVELS[level - 1]])) {
+      s.add(INTENSITY_LEVELS[level], CODES.ORDERING, message);
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * A value that must NOT RISE as the ladder rises, reported at the first level it rises at.
+ *
+ * The message is BUILT FROM the two levels rather than being a fixed string, so the sentence can
+ * name the offending point and the softer point it is being compared against. The level names come
+ * from `INTENSITY_LEVELS` itself, so a sentence cannot drift from the point it was raised at.
+ *
+ * @param {Collector} c @param {Record<string, any>} rec
+ * @param {(point: Record<string, any>) => number} valueOf
+ * @param {(level: string, softer: string) => string} message @returns {boolean}
+ */
+function fallsWith(c, rec, valueOf, message) {
+  const s = c.at('scaling');
+  for (let level = 1; level < INTENSITY_LEVELS.length; level += 1) {
+    if (valueOf(rec[INTENSITY_LEVELS[level]]) > valueOf(rec[INTENSITY_LEVELS[level - 1]])) {
+      s.add(INTENSITY_LEVELS[level], CODES.ORDERING,
+        message(INTENSITY_LEVELS[level], INTENSITY_LEVELS[level - 1]));
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * THE CONTRACT'S FINDINGS ON ONE EXERCISE, WITHOUT DECIDING WHAT THEY COST.
+ *
+ * The same detector as {@link checkScaling} — literally that function, run into a collector of its
+ * own — filtered to `R6`. Nothing here re-implements a comparison: a second copy of the rule would
+ * drift from the one the record enforces, and the two versions would come apart the first time
+ * either was edited.
+ *
+ * It exists because the ruling of 2026-07-31 moved the CONSEQUENCE of these findings without moving
+ * the finding: on an exercise the COACH authored or edited, a ladder that gets easier as it rises is
+ * a NOTICE naming the point that offends, and the save commits. The screen shows him these while he
+ * is typing, when he saves and when he comes back to it, and it must show the record's OWN sentence
+ * rather than a paraphrase of a rule it does not own.
+ *
+ * @param {Record<string, any>|null|undefined} content One exercise's content.
+ * @returns {readonly {level: string|null, code: string, message: string}[]} Frozen.
+ */
+export function scalingContractFindings(content) {
+  const c = new Collector();
+  checkScaling(c, content?.scaling, typeof content?.measurement === 'string' ? content.measurement : null);
+  return Object.freeze(c.result().issues
+    .filter((issue) => issue.code === CODES.ORDERING)
+    .map((issue) => {
+      const tail = issue.path.split('.').at(-1);
+      return Object.freeze({
+        level: INTENSITY_LEVELS.includes(tail) ? tail : null,
+        code: issue.code,
+        message: issue.message,
+      });
+    }));
+}
+
+/**
+ * DID THE COACH AUTHOR THIS RECORD, or did it ship?
+ *
+ * Anything that is not a recognised coach-authored value is treated as SHIPPED, so an absent,
+ * misspelt or corrupted provenance keeps the strict refusal. The failure to avoid is the other
+ * default: a record whose provenance could not be read being waved through as though it were his.
+ *
+ * @param {unknown} provenance
+ * @returns {boolean}
+ */
+function isCoachAuthored(provenance) {
+  return typeof provenance === 'string'
+    && provenance !== SEED_PROVENANCE
+    && PROVENANCE.includes(provenance);
+}
+
+/**
+ * `R6`'S CONSEQUENCE, AND ONLY ITS CONSEQUENCE — settled by the user on 2026-07-31.
+ *
+ * On an exercise the coach authored or edited, a ladder that breaks the more-work-less-rest contract
+ * is NOT refused: he is the certified professional, the app is a supporting role, and a deliberate
+ * choice is respected while a slip is caught. The finding is not dropped — `scalingContractFindings`
+ * hands the screen the record's own sentence, and the editor shows it as a notice naming the point.
+ * Dropping it silently would be worse than refusing, because it would look like approval.
+ *
+ * **Both coach-authored classes behave identically.** A shipped exercise he has edited and one he
+ * wrote himself get the same treatment; the user was offered the split — reset recovers the first
+ * and cannot recover the second — and declined it. Provenance is not a severity dial here.
+ *
+ * **A SHIPPED record still refuses absolutely.** A shipped ladder that fails `R6` is a defect in the
+ * seed content, not a judgement call, and the import path must go on refusing it.
+ *
+ * @param {import('../issues.js').ValidationResult} result
+ * @param {unknown} provenance
+ * @returns {import('../issues.js').ValidationResult}
+ */
+function withContractAsNotice(result, provenance) {
+  if (!isCoachAuthored(provenance)) return result;
+  const issues = result.issues.filter(
+    (issue) => !(issue.code === CODES.ORDERING && issue.path.startsWith('scaling')),
+  );
+  return { ok: issues.length === 0, issues };
 }

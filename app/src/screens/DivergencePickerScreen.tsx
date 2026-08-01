@@ -185,8 +185,8 @@ function ChoiceCard({ choice }: { choice: Choice }) {
 }
 
 export function DivergencePickerScreen() {
-  const { pending, resolve } = useDivergences();
-  const queue = describeQueue(pending);
+  const { checked, pending, resolve } = useDivergences();
+  const queue = describeQueue(pending, checked);
   const choices = describeChoices(pending, resolve);
 
   return (
@@ -195,7 +195,11 @@ export function DivergencePickerScreen() {
         <h2 id="screen-divergences" className="title-screen">
           {queue.title}
         </h2>
-        <p className="value-display">{queue.count}</p>
+        {/* THE FIGURE IS A CLAIM, so it is drawn only where it was counted. Nothing compared the
+            devices in this build, and a nought under this title would be the reassuring answer
+            arrived at by never having looked — the same rule the admin screen states about the
+            removals count, and the reason this branch exists at all. */}
+        {queue.count !== null && <p className="value-display">{queue.count}</p>}
         <p className="screen-intro read">{queue.intro}</p>
       </section>
 

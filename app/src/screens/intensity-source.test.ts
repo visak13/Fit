@@ -377,6 +377,15 @@ describe('shaping a curve across the session', () => {
     assert.equal(person.calibrated, false);
     assert.match(person.baselineWords, /nothing recorded for this client yet/);
     assert.match(person.baselineWords, /not as a measurement/);
+    // TWO OPPOSED FAILURES on the wording that reaches the screen, changed to match an INTENTIONAL
+    // COPY CORRECTION in `core/intensity/baseline.js`: it called the client "he" beneath the client's
+    // own name. REQUIRING is worded to stay green if the pronoun is put back, so what it guards is
+    // that the CLAIM survives; FORBIDDING is the pronoun.
+    assert.match(person.baselineWords,
+      /every number here comes from your own exercise library and this routine/);
+    assert.ok(!/\b(he|him|his)\b/i.test(person.baselineWords),
+      'the client record cannot carry gender, so a sentence about the client may not assume one: '
+        + person.baselineWords);
     for (const effort of person.efforts) {
       assert.equal(effort.referenceSource, 'library-scaling-point');
       assert.match(effort.referenceWords, /your library's own/);
@@ -405,7 +414,12 @@ describe('shaping a curve across the session', () => {
 
     const squat = proposal!.rows.findIndex((row) => row.lineExerciseId === SQUAT);
     assert.equal(person.efforts[squat].referenceSource, 'measured-performance');
-    assert.match(person.efforts[squat].referenceWords, /Built from what he did on/);
+    // TWO OPPOSED FAILURES, for the same intentional copy correction: the claim (built from a
+    // recorded day) must survive, and it must not be made by gendering the client.
+    assert.match(person.efforts[squat].referenceWords, /Built from what .*did on/);
+    assert.ok(!/\b(he|him|his)\b/i.test(person.efforts[squat].referenceWords),
+      'the client record cannot carry gender, so a sentence about the client may not assume one: '
+        + person.efforts[squat].referenceWords);
     assert.equal(
       person.efforts[squat].repetitions,
       7,
@@ -706,6 +720,12 @@ describe('the no-ratchet guarantee, across two real sessions', () => {
     assert.match(shaped.baselineWords, /which point of a curve it was worked at/);
     assert.match(shaped.baselineWords, /starting point, not as a measurement/);
     assert.doesNotMatch(shaped.baselineWords, /nothing recorded for this client yet/);
+    // And the opposed pair on the near-neighbour sentence, same intentional copy correction.
+    assert.match(shaped.baselineWords,
+      /every number here comes from your own exercise library and this routine/);
+    assert.ok(!/\b(he|him|his)\b/i.test(shaped.baselineWords),
+      'the client record cannot carry gender, so a sentence about the client may not assume one: '
+        + shaped.baselineWords);
   });
 });
 

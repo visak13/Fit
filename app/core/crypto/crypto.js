@@ -53,6 +53,16 @@ export {
   withSlot,
 } from './envelope.js';
 
+// The portable archive - a file that opens on a passphrase ALONE. Read portable.js before assuming
+// the note above about newEnvelope is stale: that door is still shut for the STORE's key, and this
+// one mints a key for a single file that no record is ever encrypted with.
+export {
+  openPortableArchive,
+  PORTABLE_DOCUMENT,
+  PORTABLE_VERSION,
+  sealPortableArchive,
+} from './portable.js';
+
 // Sealing record fields.
 export {
   additionalDataFor,

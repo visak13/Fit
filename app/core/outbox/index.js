@@ -29,3 +29,4 @@ import './idempotency.test.js';
 import './scrub.test.js';
 import './flush.test.js';
 import './status.test.js';
+import './retention.test.js';

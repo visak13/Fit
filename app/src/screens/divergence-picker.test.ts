@@ -158,14 +158,16 @@ function wiredTo(store: any, pending: readonly Divergence[], now: string): Diver
   const resolve: Resolve = async (divergence, side) => {
     await resolveDivergence(store, divergence, { side, now });
   };
-  return { pending, resolve };
+  // `checked: true` because this reading stands for one a real comparison produced — which is what
+  // every test using it has actually run. The unwired constant is the other world and says so.
+  return { checked: true, pending, resolve };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════════
 
 describe('divergence-picker — the queue, whose usual state is empty and is not a fault', () => {
   it('words nothing-to-decide as the good state it is, and counts it', () => {
-    const queue = describeQueue([]);
+    const queue = describeQueue([], true);
     assert.equal(queue.count, 0);
     assert.equal(queue.settled, true);
     assert.equal(queue.title, PICKER_TITLE);
@@ -181,7 +183,7 @@ describe('divergence-picker — the queue, whose usual state is empty and is not
     after(() => world.close());
     const { divergence } = await anInducedDivergence(world);
 
-    const queue = describeQueue([divergence]);
+    const queue = describeQueue([divergence], true);
     assert.equal(queue.count, 1);
     assert.equal(queue.settled, false);
     assert.ok(!queue.intro.includes('conflict'), 'not "a conflict was detected in the sync layer"');
@@ -393,7 +395,7 @@ describe('divergence-picker — the screen, rendered', () => {
     after(() => world.close());
     const { laptop, phone, divergence } = await anInducedDivergence(world);
 
-    const html = render({ pending: [divergence], resolve: null });
+    const html = render({ checked: true, pending: [divergence], resolve: null });
 
     // Both devices are named, so he can tell which version is which.
     assert.ok(html.includes(laptop.tag), 'the local device is never named on screen');
@@ -419,7 +421,7 @@ describe('divergence-picker — the screen, rendered', () => {
     const { divergence } = await anInducedDivergence(world);
     const choice = describeChoice(divergence);
 
-    const html = render({ pending: [divergence], resolve: null });
+    const html = render({ checked: true, pending: [divergence], resolve: null });
     assert.ok(html.includes('The same on both versions'), 'the identical fields are not folded away');
     assert.ok(
       html.includes(`<span class="count">${choice.identical.length}</span>`),
@@ -433,7 +435,7 @@ describe('divergence-picker — the screen, rendered', () => {
     const { divergence } = await anInducedDivergence(world, { deleteOnPhone: true });
     const choice = describeChoice(divergence);
 
-    const html = render({ pending: [divergence], resolve: null });
+    const html = render({ checked: true, pending: [divergence], resolve: null });
     assert.ok(html.includes('chip chip-warning'), 'the deletion case is drawn as an ordinary change');
     assert.ok(html.includes('note-warning'), 'the warning is not on the screen at all');
     assert.ok(
@@ -447,7 +449,7 @@ describe('divergence-picker — the screen, rendered', () => {
     after(() => world.close());
     const { divergence } = await anInducedDivergence(world);
 
-    const html = render({ pending: [divergence], resolve: null });
+    const html = render({ checked: true, pending: [divergence], resolve: null });
     for (const secret of [LAPTOP_NOTE.ct, PHONE_NOTE.ct, LAPTOP_NOTE.iv]) {
       assert.ok(!html.includes(secret), 'a sealed value reached the markup');
     }
@@ -458,7 +460,7 @@ describe('divergence-picker — the screen, rendered', () => {
     after(() => world.close());
     const { laptop, divergence } = await anInducedDivergence(world);
 
-    const unwired = render({ pending: [divergence], resolve: null });
+    const unwired = render({ checked: true, pending: [divergence], resolve: null });
     assert.ok(!unwired.includes('<button'), 'a control that cannot act was offered anyway');
 
     const wired = render(wiredTo(laptop.store, [divergence], world.now()));
@@ -467,10 +469,78 @@ describe('divergence-picker — the screen, rendered', () => {
     }
   });
 
-  it('says nothing needs deciding, calmly, when nothing does', () => {
-    const html = render(NOTHING_TO_DECIDE);
+  it('says nothing needs deciding, calmly, when a real comparison found nothing', () => {
+    const html = render({ checked: true, pending: [], resolve: null });
     assert.ok(html.includes('Nothing needs your decision'));
     assert.ok(!html.includes('<button'), 'nothing to answer, nothing to press');
+    assert.ok(html.includes('id="screen-divergences"'), 'the screen still renders itself');
+  });
+
+  /**
+   * THIS ASSERTION GUARDS TWO OPPOSED FAILURES, AND EACH IS PROVEN RED ALONE.
+   *
+   * The sentence it replaced said "This app has not compared your two devices". That was true of a
+   * build in which a seeding collision threw out of the whole pass so nothing ever merged. s11/a27
+   * made reconciliation work, and s11/a10 had already watched the other device's record arrive here
+   * on a pass — which cannot happen without the areas being compared. So the claim became FALSE, and
+   * a real clash the coach has no surface for became REACHABLE, in the same hour.
+   *
+   * The two failures point in OPPOSITE directions and one assertion cannot stand for both:
+   *
+   *   - the false disclaimer coming back — the screen telling him nothing has looked, when the
+   *     engine does; and
+   *   - the reassurance being deleted — the screen telling a non-technical man his devices may
+   *     silently disagree and leaving him with nothing, when it is TRUE that nothing is lost.
+   *
+   * Re-aiming one assertion at the new wording would be indistinguishable in the diff from softening
+   * it, so both are separate and both were broken separately.
+   */
+  it('SAYS WHAT IS ACTUALLY TRUE on the reading this build ships, in both directions', () => {
+    const html = render(NOTHING_TO_DECIDE);
+
+    // ONE: it does not disclaim a comparison the engine performs.
+    assert.ok(
+      !/has not compared|not checked yet/iu.test(html),
+      'THE SCREEN SAYS THIS APP HAS NOT COMPARED HIS DEVICES, AND IT DOES. A synchronisation pass '
+        + 'reads the two areas against each other — a10 watched the other device\'s record arrive '
+        + 'here on one. What is missing is the SURFACE that brings a clash to this screen, not the '
+        + 'comparison. Since a27 a genuine clash is reachable, so this is the app disclaiming a '
+        + 'capability it exercises: ' + html,
+    );
+
+    // TWO: and it does not leave him alarmed with nothing. The reassurance is TRUE — a27's
+    // compaction gate refuses to delete either side of an unanswered clash — and dropping it is the
+    // opposite failure, which the rule above would pass straight through.
+    assert.ok(
+      /nothing is lost/iu.test(html),
+      'THE SCREEN NO LONGER SAYS NOTHING IS LOST WHILE HE WAITS. It has told him his two devices can '
+        + 'disagree and that this app cannot help him choose, and then left him there. That half is '
+        + 'not a softener, it is a measured fact: both versions are kept and compaction will not '
+        + 'tidy either side away: ' + html,
+    );
+
+    assert.ok(
+      /can end up disagreeing/iu.test(html),
+      'the screen no longer says plainly that his two devices CAN disagree, which is the fact the '
+        + 'other two sentences are about',
+    );
+
+    assert.ok(
+      !html.includes('Your devices agree'),
+      'THE SCREEN STILL TELLS HIM HIS DEVICES AGREE. Nothing in this application compares them: '
+        + 'there is no divergence source, no read, and this reading is a frozen literal. A sentence '
+        + 'that is right or wrong by accident, permanently, with no failure anywhere able to '
+        + 'disturb it, is the defect this branch exists to end.',
+    );
+    assert.ok(
+      !html.includes('Nothing needs your decision'),
+      'the settled wording is reachable from a reading nobody measured',
+    );
+    assert.ok(
+      !html.includes('class="value-display"'),
+      'a figure is a claim and nothing counted. A nought here is the reassuring answer arrived at '
+        + 'by never having looked.',
+    );
     assert.ok(html.includes('id="screen-divergences"'), 'the screen still renders itself');
   });
 
@@ -479,7 +549,7 @@ describe('divergence-picker — the screen, rendered', () => {
     after(() => world.close());
     const { divergence } = await anInducedDivergence(world, { deleteOnPhone: true });
 
-    const html = render({ pending: [divergence], resolve: null });
+    const html = render({ checked: true, pending: [divergence], resolve: null });
     for (const character of html) {
       const point = character.codePointAt(0) ?? 0;
       assert.ok(
@@ -566,7 +636,7 @@ describe('divergence-picker — the answer reaches the core seam, and the questi
           + 'application goes on putting the same already-answered question to him on every pass, '
           + 'which is how a surface teaches the person reading it to stop reading it.',
       );
-      assert.equal(describeQueue(report.divergences).settled, true);
+      assert.equal(describeQueue(report.divergences, true).settled, true);
     }
 
     assert.ok(

@@ -28,6 +28,14 @@
  * the entry is still pending, the next flush picks it up, and the recognition step is what stops the
  * replay from duplicating. Losing nothing across an interruption is the ABSENCE of a mechanism here,
  * not the presence of one.
+ *
+ * ## The delivered set is bounded HERE, by the one function that can grow it
+ *
+ * `recordDelivered` is the only function in this application that can put an entry into `delivered`,
+ * so the retention bound is applied inside it, in the same transaction. There is no exported prune and
+ * no sweep: the bound holds after every delivery rather than after every synchronisation pass, so a
+ * pass that never ran, was skipped, or crashed before its tail cannot strand anything. `retention.js`
+ * beside this file is the decision and states why it is counted rather than dated.
  */
 
 import { timestamp } from '../model/model.js';
@@ -39,6 +47,7 @@ import {
   HOLD, STATUS, UNDELIVERED_STATUSES, isDue, newEntry, validateEntry,
 } from './entry.js';
 import { OutboxEntryInvalid, OutboxEntryMissing } from './errors.js';
+import { DELIVERED_RETENTION, deliveredRetentionPlan } from './retention.js';
 
 /** Where the sequence counter lives in the store's small-values store. */
 export const SEQ_META_KEY = 'outbox.seq';
@@ -207,8 +216,8 @@ export async function oldestInStatus(store, status = STATUS.PENDING) {
  * @param {(entry: import('./entry.js').OutboxEntry) => import('./entry.js').OutboxEntry} produce
  * @returns {Promise<import('./entry.js').OutboxEntry>}
  */
-async function reviseEntry(store, entryId, produce) {
-  const stored = await runWrite(store.handle, OUTBOX_STORE, async (scope) => {
+async function reviseEntry(store, entryId, produce, afterPut) {
+  const { stored, pruned } = await runWrite(store.handle, OUTBOX_STORE, async (scope) => {
     const current = await scope.get(OUTBOX_STORE, entryId);
     if (!current) throw new OutboxEntryMissing(entryId);
 
@@ -220,26 +229,87 @@ async function reviseEntry(store, entryId, produce) {
       });
     }
     await scope.put(OUTBOX_STORE, next);
-    return next;
+    // Runs INSIDE this transaction, deliberately. Whatever an outcome hands to the store alongside
+    // the entry has to land with it or not at all — an invariant applied in a second transaction is
+    // one an interruption can leave unapplied, which is the whole failure this arrangement ends.
+    return { stored: next, pruned: afterPut ? await afterPut(scope, next) : 0 };
   });
 
   store.coordinator.announce({
     kind: 'put', type: 'outbox', record_id: stored.entry_id, rev: stored.attempts, device: store.device,
   });
+  if (pruned > 0) store.coordinator.announce({ kind: 'delete', type: 'outbox', device: store.device });
   return stored;
 }
 
 /**
- * It landed. Kept rather than removed — see `pruneDelivered` for why.
+ * ENFORCE THE BOUND ON DELIVERY EVIDENCE — module-private, and that is a design decision rather than
+ * an accident of where it sits.
+ *
+ * Nothing exports this and nothing may. The compiled security specialist's amendment L3 asks for the
+ * pruning function to be module-private *"as part of the same decision"* as making its caller
+ * structural, with a stated reason: *"a test then CANNOT report that 'prune works when invoked', so
+ * the only observable retention behaviour is what the real growth path causes."* A prune that a caller
+ * can invoke is a prune a caller can decline to invoke, and this queue has already shipped that defect
+ * once — delivered entries carrying a purged client's name in plain text, indefinitely, because the
+ * only prune in the build had no caller outside a test.
+ *
+ * The bound is a function of the COUNT and of nothing else. See `retention.js` §2 for why it may not
+ * be a function of the device's idea of the time, and for why the authority for that is L3 rather than
+ * L4.
+ *
+ * The walk is over the `delivered` prefix of `by_status_seq`, ascending, so it takes the OLDEST first
+ * and can reach nothing in any other status. That is what spares the entry `scrub.js` deliberately
+ * cannot clean.
+ *
+ * @param {any} scope The open write transaction's scope. It is NOT given the store, so it cannot open
+ *   a transaction of its own — the bound rides the delivery's transaction or it does not run.
+ * @param {{max: number, batch: number, ceiling: number}} policy
+ * @returns {Promise<number>} How many were discarded.
+ */
+async function boundDeliveredEvidence(scope, policy) {
+  const range = prefixRange(scope.KeyRange, [STATUS.DELIVERED]);
+  const plan = deliveredRetentionPlan(
+    await scope.countByIndex(OUTBOX_STORE, 'by_status_seq', range),
+    policy,
+  );
+  if (!plan.prune) return 0;
+
+  const page = await scope.page({
+    store: OUTBOX_STORE, index: 'by_status_seq', range, limit: plan.discard,
+  });
+  for (const entry of page.items) await scope.delete(OUTBOX_STORE, entry.entry_id);
+  return page.items.length;
+}
+
+/**
+ * It landed. Kept as the evidence a delivery happened — and this is the ONE function in the
+ * application that can put an entry into `delivered`, so it is where the bound on that evidence is.
+ *
+ * Delivered entries are kept rather than removed because they are what makes "it is in the backup"
+ * checkable rather than merely intended, and because they are the local half of the duplicate defence:
+ * a re-enqueue of a key that has already been delivered finds it and does not queue again.
+ *
+ * They are also, unavoidably, a SECOND COPY of every record they carry, so keeping them is bounded.
+ * The bound is applied HERE, in the transaction that makes the entry delivered, rather than by a sweep
+ * somebody schedules — so it holds after every delivery, and a synchronisation pass that never ran,
+ * was skipped as a departing flush, or crashed before its tail cannot leave the set over the cap.
+ * `retention.js` beside this file is the decision; `boundDeliveredEvidence` above is the mechanism and
+ * is module-private on purpose.
  *
  * @param {import('../store/local-store.js').LocalStore} store
  * @param {string} entryId
  * @param {{meta?: import('../remote/port.js').RemoteFileMeta|null, how?: string, now?: number|string|Date,
- *          countsAsAttempt?: boolean}} [options]
+ *          countsAsAttempt?: boolean,
+ *          retention?: {max: number, batch: number, ceiling: number}}} [options]
+ *   `retention` overrides the policy for this delivery. It is the only knob this package offers, and
+ *   deliberately not a prune: a caller can make the bound TIGHTER and then observe what the real
+ *   growth path does with it. There is no way to ask for a prune.
  * @returns {Promise<import('./entry.js').OutboxEntry>}
  */
 export async function recordDelivered(store, entryId, options = {}) {
   const at = timestamp(options.now);
+  const policy = options.retention ?? DELIVERED_RETENTION;
   return reviseEntry(store, entryId, (entry) => ({
     ...entry,
     status: STATUS.DELIVERED,
@@ -250,7 +320,7 @@ export async function recordDelivered(store, entryId, options = {}) {
     result_meta: options.meta ?? entry.result_meta ?? null,
     last_error: null,
     delivery_note: options.how ?? null,
-  }));
+  }), (scope) => boundDeliveredEvidence(scope, policy));
 }
 
 /**
@@ -429,40 +499,23 @@ export async function releaseCredentialHolds(store, options = {}) {
 }
 
 /**
- * Remove delivered entries older than an instant.
+ * THERE IS DELIBERATELY NO `pruneDelivered` HERE ANY MORE, AND THIS PARAGRAPH IS THE REASON.
  *
- * Delivered entries are KEPT until this is called, and that is deliberate: they are the evidence a
- * delivery happened, which is what makes "it is in the backup" checkable rather than merely intended,
- * and they are also the local half of the duplicate defence — a re-enqueue of a key that has already
- * been delivered finds it and does not queue again. Pruning is therefore a decision about how long
- * that protection lasts, and it belongs to a caller who knows, not to a default that quietly forgets.
+ * This file used to export an age-based `pruneDelivered(store, {before, limit})` that any caller could
+ * invoke and any caller could forget. It was forgotten: it shipped with no production caller outside a
+ * test, and the measured consequence was three delivered entries carrying a purged client's name,
+ * general notes and readings in plain text, indefinitely, after the coach had been told that client
+ * was deleted.
  *
- * Nothing else is ever removed. A rejected or ambiguous entry is not pruned by age, because the
- * problem it records does not stop mattering because time passed.
+ * It has been replaced, not relocated. The bound is a COUNT, it is applied by
+ * `boundDeliveredEvidence` inside `recordDelivered`'s own transaction, and neither the policy nor the
+ * mechanism is reachable from outside this module. Restoring an exported prune would restore the
+ * defect, because an exported prune is one a caller can decline to call and a test can report as
+ * working when nothing invokes it in production.
  *
- * @param {import('../store/local-store.js').LocalStore} store
- * @param {{before: number|string|Date, limit?: number}} options
- * @returns {Promise<number>} How many were removed.
+ * NOTHING ELSE IS EVER REMOVED. A rejected or ambiguous entry is not bounded at all: the problem it
+ * records does not stop mattering because more entries arrived.
  */
-export async function pruneDelivered(store, options) {
-  const cutoff = timestamp(options.before);
-  const { limit = 200 } = options;
-
-  const removed = await runWrite(store.handle, OUTBOX_STORE, async (scope) => {
-    const page = await scope.page({
-      store: OUTBOX_STORE,
-      index: 'by_status_seq',
-      range: prefixRange(scope.KeyRange, [STATUS.DELIVERED]),
-      limit,
-      where: (entry) => (entry.settled_at || entry.enqueued_at) < cutoff,
-    });
-    for (const entry of page.items) await scope.delete(OUTBOX_STORE, entry.entry_id);
-    return page.items.length;
-  });
-
-  if (removed > 0) store.coordinator.announce({ kind: 'delete', type: 'outbox', device: store.device });
-  return removed;
-}
 
 /**
  * Every status that means the coach's data is not yet where it belongs, as a list a caller can walk.

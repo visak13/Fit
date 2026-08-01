@@ -135,7 +135,14 @@ export async function openSession(store, sessionId, options = {}) {
       ok: false,
       reason: 'already_finished',
       session_id: sessionId,
-      message: 'That session has already finished. Its record is kept — open it to read or add to it.',
+      // IT STATES WHAT IS KEPT AND INSTRUCTS NOTHING. It used to send him to the record to look at
+      // it or write into it, and he can do neither: `openSession` is the only door and it is this
+      // refusal, reading one back in full is not built (`screens/launcher.ts` says so in its own
+      // words), and `appendNoteAfterwards` is called by no screen. An unbuilt capability the app is
+      // silent about is a disclosure; one it INSTRUCTS him to use is a defect. The wording matches
+      // `screens/runner.ts` STATE_WORDS for a finished session deliberately, so the same fact reads
+      // the same way whether he arrives at it from the calendar or from the session screen.
+      message: 'That session has already finished. Everything recorded in it is kept.',
     };
   }
 

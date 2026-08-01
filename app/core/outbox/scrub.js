@@ -6,10 +6,16 @@
  * A per-client purge removes the client's rows from every record store and leaves a manifest so the
  * removal reaches the remote copies and their backups. It swept every store except the one that
  * accumulates by design: **the outbox**. A delivered entry is KEPT deliberately — it is the evidence
- * a delivery happened, and it is the local half of the duplicate defence — and `pruneDelivered` is
- * caller-owned so that decision belongs to somebody who knows. Both of those are right. Between them
+ * a delivery happened, and it is the local half of the duplicate defence — and the only prune in the
+ * build was caller-owned with no caller. Both halves were right about their own concern. Between them
  * sat a queue holding, for ever, the departed client's name, general notes and readings in plain
  * text, in a store nothing swept.
+ *
+ * The retention half has since been rebuilt: the bound is a COUNT applied inside `recordDelivered`'s
+ * own transaction (`retention.js`), so it can no longer be declined. That does NOT make this scrub
+ * redundant and must never be read as doing so — a bound removes the OLDEST evidence when new
+ * deliveries arrive, and a departed client's data has to leave when the coach deletes them, not when
+ * two hundred more deliveries happen to push it out.
  *
  * Measured, not theorised: a client created, synchronised, purged and synchronised three more times
  * left the stores and the remote copies clean while three delivered entries still carried the name

@@ -19,16 +19,19 @@
  */
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { after, describe, it } from 'node:test';
 
 import { aClient, anExercise, aRoutine } from '../../core/model/fixtures.js';
+import { assertAttending } from '../../core/session/journal.js';
 import { openSession, startSession } from '../../core/session/live-session.js';
 import { clientViewOf } from '../../core/session/projection.js';
 import { openLocalStore } from '../../core/store/store.js';
 import { createTwoWindowLaptop } from '../../core/store/testing/platform-double.js';
+import { ARRIVAL_TITLE } from './modular-control';
 import {
-  amendTheAttempt, readTheSessionBack, readTheSubstitutionPool, recordTheLine, skipTheLine,
-  substituteTheLine,
+  addTheLateArrival, amendTheAttempt, readTheArrivalRegister, readTheSessionBack,
+  readTheSubstitutionPool, recordTheLine, skipTheLine, substituteTheLine,
 } from './modular-control-source';
 import type { MoveResult } from './modular-control-source';
 import { handOver, heldSession } from './session-handover';
@@ -566,3 +569,261 @@ describe('when a move cannot be made', () => {
     await leaveTheSession(windowA, sessionId);
   });
 });
+
+/**
+ * THE LATE ARRIVAL — the wire, and the refusal that sends him to it.
+ *
+ * ## BOTH HALVES, PROVEN SEPARATELY, BECAUSE ONLY ONE OF THEM IS EASY TO DEMONSTRATE
+ *
+ * Wiring `addClient` is a call that either lands on the record or does not. The half worth more is
+ * the sentence: `core/session/journal.js` refused a fact against a non-attendee and told the coach to
+ * add them first, while NO FILE UNDER `src/` CALLED `addClient` AT ALL. The instruction had nothing
+ * to perform it, which reads to him as his own mistake rather than as the application's gap.
+ *
+ * So the two are asserted apart, in opposite directions:
+ *
+ *   1. THE REFUSAL STILL APPEARS for somebody who is not attending. The guard was SATISFIED, not
+ *      deleted — a wire that worked by removing the check would pass every "he can record against
+ *      them now" test ever written, and would let a fact be recorded against a person not in the room.
+ *   2. THE COACH CAN THEN ACTUALLY DO WHAT IT SAYS: the same person, added through the same control
+ *      the sentence names, then recorded against and read back off the record.
+ *
+ * Neither implies the other, and a change breaking either one leaves the other green.
+ */
+describe('somebody arrived after the session started', () => {
+  /**
+   * HALF ONE: THE REFUSAL IS STILL THERE.
+   *
+   * Reds if the guard is ever satisfied by deletion rather than by adding the person.
+   */
+  it('REFUSES a fact against somebody who is not in the session, and writes nothing', async () => {
+    const { windowA, sessionId } = await aLaptop();
+    const outsider = await windowA.create('client', aClient({ name: 'Late Arrival A' }));
+
+    const result = await recordTheLine(
+      windowA, sessionId, outsider.record_id, PRESS, { repetitions: 12 },
+    );
+
+    assert.equal(result.ok, false, 'a fact was recorded against somebody who is not in the session');
+    assert.match(result.refusal?.headline ?? '', /not in this session/);
+    // A REFUSAL CHANGES NOTHING, and a sentence about a failure claims something checkable about the
+    // state it left behind.
+    const view = landed(await readTheSessionBack(windowA, sessionId)).view as never;
+    assert.equal(clientViewOf(view, outsider.record_id), null,
+      'the refused person is in the session anyway, so the refusal did not describe what happened');
+
+    await leaveTheSession(windowA, sessionId);
+  });
+
+  /**
+   * HALF TWO: HE CAN NOW DO WHAT THE SENTENCE TELLS HIM TO DO.
+   *
+   * Refused FIRST, so what follows is proven to be the same move that could not be made a moment ago
+   * rather than one that was always going to work.
+   */
+  it('ADDS them through the control, and the fact that was refused then lands', async () => {
+    const { windowA, sessionId } = await aLaptop();
+    const outsider = await windowA.create('client', aClient({ name: 'Late Arrival B' }));
+
+    const before = await recordTheLine(
+      windowA, sessionId, outsider.record_id, PRESS, { repetitions: 12 },
+    );
+    assert.equal(before.ok, false, 'the fixture never reached the state this test is about');
+
+    const arrival = await addTheLateArrival(windowA, sessionId, outsider.record_id);
+    const room = landed(arrival).view as never;
+    assert.notEqual(clientViewOf(room, outsider.record_id), null,
+      'the arrival was reported as landed but the session it handed back does not hold them');
+
+    const after = mine(
+      await recordTheLine(windowA, sessionId, outsider.record_id, PRESS, { repetitions: 12 }),
+      outsider.record_id,
+    );
+    assert.equal(after.counts.performed, 1);
+
+    await leaveTheSession(windowA, sessionId);
+  });
+
+  /**
+   * NOBODY ALREADY IN THE ROOM IS DISTURBED, and what they had recorded is untouched.
+   *
+   * The one thing a coach cannot afford from a control pressed mid-session, with a group in front of
+   * him, is for it to cost him what is already written down.
+   */
+  it('leaves everybody already in the session, and their records, exactly as they were', async () => {
+    const { windowA, sessionId, clientIds } = await aLaptop(['Test Client A', 'Test Client B']);
+    const outsider = await windowA.create('client', aClient({ name: 'Late Arrival C' }));
+
+    await recordTheLine(windowA, sessionId, clientIds[0], PRESS, { repetitions: 12 });
+    await addTheLateArrival(windowA, sessionId, outsider.record_id);
+
+    const view = landed(await readTheSessionBack(windowA, sessionId)).view as never;
+    assert.equal(clientViewOf(view, clientIds[0])?.counts.performed, 1,
+      'the arrival cost somebody already in the room what they had recorded');
+    assert.notEqual(clientViewOf(view, clientIds[1]), null);
+    assert.notEqual(clientViewOf(view, outsider.record_id), null);
+
+    await leaveTheSession(windowA, sessionId);
+  });
+
+  /** Adding somebody already in the room is the core's own idempotence, not a duplicate. */
+  it('adds somebody already in the session once, not twice', async () => {
+    const { windowA, sessionId, clientIds } = await aLaptop();
+
+    const view = landed(await addTheLateArrival(windowA, sessionId, clientIds[0])).view as never;
+
+    assert.deepEqual([...(view as { client_ids: readonly string[] }).client_ids], clientIds);
+
+    await leaveTheSession(windowA, sessionId);
+  });
+
+  /**
+   * A REFUSAL IS A VALUE HERE TOO, through the same taxonomy and with NO NEW MACHINERY.
+   *
+   * `COACH_FACING_FAILURES` already carried every error this path can throw before the wire existed,
+   * which is why the second half of this action needed no new failure shape either.
+   */
+  it('reports an arrival into a session this window has let go of as a sentence, not a throw', async () => {
+    const { windowA, sessionId } = await aLaptop();
+    const outsider = await windowA.create('client', aClient({ name: 'Late Arrival D' }));
+    await leaveTheSession(windowA, sessionId);
+
+    const result = await addTheLateArrival(windowA, sessionId, outsider.record_id);
+
+    assert.equal(result.ok, false);
+    assert.ok((result.refusal?.headline ?? '').length > 0,
+      'the arrival was refused with no sentence, so the control would silently do nothing');
+  });
+
+  /**
+   * THE ONE READ THE RUNNER DID NOT ALREADY DO: the people who could be added.
+   *
+   * Read off the REGISTER and not off the session, because a late arrival is by definition somebody
+   * the session has never mentioned — the same reason the substitution pool is read off the catalogue.
+   */
+  it('reads the register, including people the session has never mentioned', async () => {
+    const { windowA, clientIds } = await aLaptop();
+    const outsider = await windowA.create('client', aClient({ name: 'Late Arrival E' }));
+
+    const register = await readTheArrivalRegister(windowA);
+    const ids = register.choices.map((choice) => choice.clientId);
+
+    assert.ok(ids.includes(outsider.record_id), 'somebody in the register was not offered');
+    assert.ok(ids.includes(clientIds[0]), 'this read filtered by the session, which is the screen\'s '
+      + 'job and not this read\'s — see readTheArrivalRegister');
+    // BY NAME, because a record id on the screen is a machine talking to a coach mid-session.
+    const offered = register.choices.find((choice) => choice.clientId === outsider.record_id);
+    assert.equal(offered?.name, 'Late Arrival E');
+  });
+
+  /**
+   * SOMEBODY HE HAS STOPPED TRAINING IS NOT OFFERED, and that is the REGISTER's own convention
+   * rather than a rule invented at this seam.
+   *
+   * `listClients` leaves archived people out unless they are asked for, which is what the register
+   * screen shows him. The picker offering somebody his register does not would be two answers to
+   * "who do you train", and he would have no way to tell which one was right.
+   *
+   * WORTH ASSERTING RATHER THAN ASSUMING: the first version of this read used `libraryPage`, the
+   * substitution pool's query, which cannot read clients at all — there is no `by_content_key` index
+   * on them. The query had to be chosen, so what it excludes is a decision and gets a test.
+   */
+  it('does not offer somebody the coach has archived', async () => {
+    const { windowA } = await aLaptop();
+    const archived = await windowA.create('client', aClient({ name: 'Archived Person', active: false }));
+    const active = await windowA.create('client', aClient({ name: 'Active Person' }));
+
+    const ids = (await readTheArrivalRegister(windowA)).choices.map((choice) => choice.clientId);
+
+    assert.ok(!ids.includes(archived.record_id), 'an archived person was offered as a late arrival');
+    // THE COMPANION ASSERTION, so the one above cannot pass by the read returning nothing at all.
+    assert.ok(ids.includes(active.record_id), 'the read excluded everybody, so the exclusion above '
+      + 'proves nothing about archiving');
+  });
+});
+
+/**
+ * THE SENTENCE AND THE CONTROL, HELD AGAINST EACH OTHER — the guard with two opposed failures.
+ *
+ * ## WHY THIS SHAPE, STATED SO THE DIFF CANNOT BE MISREAD
+ *
+ * This action REWORDED a refusal and then wrote a guard over the new wording. RE-AIMING AN ASSERTION
+ * AT WORDING ITS OWN AUTHOR WROTE IS INDISTINGUISHABLE IN A DIFF FROM SOFTENING IT, so the guard is
+ * built to red in TWO OPPOSITE DIRECTIONS, and no single edit satisfies both:
+ *
+ *   - IF THE REFUSAL IS DELETED ALTOGETHER — removed, or softened into a pass — the first test reds,
+ *     because there is no throw and no sentence.
+ *   - IF THE OLD DEAD INSTRUCTION RETURNS — "Add them to the session first", an act with no control
+ *     to perform it — the second test reds, because the sentence no longer names a real label.
+ *
+ * The name is DERIVED from `ARRIVAL_TITLE` rather than typed here, so renaming the control reds this
+ * until the sentence is renamed with it. A hand-typed copy of the label would guard the copy.
+ *
+ * `src/shell/refusal-names-a-real-control.test.ts` sweeps the same sentence from the OTHER side, over
+ * a universe walked from the filesystem that reaches `core/`: it asks whether the quoted name exists
+ * anywhere in the application's inventory of labels. This asks whether it is THIS control. Both are
+ * source-and-behaviour instruments; whether the words are PAINTED is a third question, and it is
+ * answered by driving the real application rather than by either of them.
+ */
+describe('the refusal for a non-attendee names the control that now exists', () => {
+  /** DIRECTION ONE: it still refuses, and still says what is wrong. */
+  it('STILL REFUSES somebody who is not attending, with a sentence saying so', () => {
+    assert.throws(
+      () => assertAttending(aSessionWithNobodyIn(), 'nobody'),
+      (error: Error) => {
+        assert.match(error.message, /not in this session/);
+        assert.match(error.message, /nothing can be recorded against them here/);
+        return true;
+      },
+    );
+  });
+
+  /** DIRECTION TWO: it names the real control, quoted, not an act with nothing to perform it. */
+  it('NAMES the control by the label the application really draws, rather than instructing an act', () => {
+    const refusal = refusalForANonAttendee();
+
+    assert.ok(refusal.includes(`"${ARRIVAL_TITLE}"`),
+      `the refusal does not name the arrival control by its own label: ${refusal}`);
+    assert.ok(!/Add them to the session first/u.test(refusal),
+      'the refusal is back to instructing an act with no control to perform it');
+  });
+
+  /**
+   * AND THE LABEL IT NAMES IS ONE THE DRAWING REALLY PUTS ON A CONTROL.
+   *
+   * Without this, both assertions above stay green over a constant that no component draws — the
+   * sentence would name a real string and still point at nothing on the screen.
+   *
+   * ON A WORD BOUNDARY, AND THAT IS PAID FOR IN A PROBE THAT MISSED. Written first as a plain
+   * `includes('ARRIVAL_TITLE')`, this test stayed GREEN while the component's every reference was
+   * renamed to `ARRIVAL_TITLE_PROBE` — the identifier CONTAINS the one being searched for, so a
+   * substring check cannot see a rename that keeps the prefix. The break was real and the guard was
+   * blind to it. `\b` is what makes the probe land.
+   *
+   * IT IS STILL A SOURCE SWEEP: it says the component references the constant, never that the words
+   * reach the screen. Painted output is a third instrument, and this action answers it by driving the
+   * real application rather than by widening this.
+   */
+  it('is naming a label the arrival control actually draws', () => {
+    const drawn = readFileSync(new URL('./SessionArrival.tsx', import.meta.url), 'utf8');
+
+    assert.match(drawn, /\bARRIVAL_TITLE\b/u,
+      'the arrival control does not draw the label the refusal names');
+    assert.ok(refusalForANonAttendee().includes(`"${ARRIVAL_TITLE}"`));
+  });
+});
+
+/** A session envelope with nobody in it, in the shape `participantsOf` reads. */
+function aSessionWithNobodyIn() {
+  return { record_id: 'test-arrival-session', content: { client_ids: [] } };
+}
+
+/** The sentence the coach would really be shown, taken from the THROW rather than from the source. */
+function refusalForANonAttendee(): string {
+  try {
+    assertAttending(aSessionWithNobodyIn(), 'nobody');
+  } catch (error) {
+    return (error as Error).message;
+  }
+  return assert.fail('assertAttending did not refuse a non-attendee at all');
+}

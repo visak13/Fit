@@ -88,6 +88,7 @@ import {
   dietExportTable, exportOffer, sendDietExport,
 } from './diet-export';
 import type { DietExportKind, DietExportReport, ExportTone } from './diet-export';
+import { exportJournal } from './export-audit';
 import { verbatimOf } from './clients';
 import { planIdOf } from '../../core/diet/plan.js';
 import type { LocalStore } from '../../core/store/store.js';
@@ -271,12 +272,20 @@ export function DietScreen({ destination }: { destination: Destination }) {
    * wrong" with a client waiting for their chart.
    */
   async function sendWeek(kind: DietExportKind): Promise<void> {
-    if (report.chart === null) return;
+    // The store is what the log is written to, so an export cannot proceed without one. It is never
+    // null when a chart is on screen — the chart is read THROUGH the store — and asking is how that
+    // stays true rather than assumed.
+    if (report.chart === null || store === null || report.drawingPlanId === null) return;
     setSending(kind);
     setExported(null);
     try {
       const table = dietExportTable(report.chart, reading.clientName);
-      const done = await sendDietExport(kind, table, browserExportSurfaces(
+      const done = await sendDietExport({
+        journal: exportJournal(store),
+        // WHICH plan left the application. The client's name is on the file; the log holds the plan
+        // identity and not one word of what is in it.
+        about: { type: 'diet-plan', record_id: report.drawingPlanId },
+      }, kind, table, browserExportSurfaces(
         document,
         window,
         { create: (file) => URL.createObjectURL(file), revoke: (url) => { URL.revokeObjectURL(url); } },

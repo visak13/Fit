@@ -31,13 +31,29 @@ transaction is the only correct shape; where there is no second write, there is 
 entry to be inconsistent with and standing alone is the whole of it. Reaching for `recordEvent`
 because it takes fewer arguments is how the hole this file argues against comes back.
 
-Three domains write today, and they were wired at their choke points rather than at their callers:
+Four domains write today, and they were wired at their choke points rather than at their callers:
 
 | domain | written from | door |
 | --- | --- | --- |
 | record changes | `core/store/local-store.js`, `core/store/purge.js` | `recordChange` |
 | synchronisation | `core/sync/engine.js` | `recordEvent` |
 | keys and recovery | `core/crypto/guard.js` | `recordEvent`, via an injected sink |
+| exports | `src/screens/export-audit.ts` | `recordEvent`, via an injected sink |
+
+**Exports use `recordEvent`, and the test above is what decides it rather than the feeling that an
+export is a big event.** An export writes no record: nothing is created, revised, tombstoned or
+imported, the practice is read and bytes leave. So there is no second write for the entry to be
+inconsistent with. The one write anywhere near one is the archive stamping `last_backup_archive_at`
+through `setMeta`, and `setMeta` is already outside the record-change domain here — it writes cursors
+and stamps rather than records.
+
+**And they are written from the SHELL, for the same reason the account kinds are.** `core/export/` is
+byte machinery handed a table and a title: it cannot know whose data it is, why, or whether the file
+reached anybody, so an entry from there would fire when bytes were assembled rather than when
+something was disclosed — an audit trail that records assembly is worse than none, because it looks
+complete. It is also a leaf that imports nothing outside itself. `src/screens/export-audit.ts` is the
+one seam all five export paths run through, and `unwritten-kinds.test.js` holds it to being the only
+writer: five paths each recording their own start would be five chances to record one with no end.
 
 `local-store.js` is the application's only way to change a record on this device, so wiring its five
 mutating methods is what makes the record-change domain complete; wiring the screens instead would
@@ -69,10 +85,19 @@ asserts a partition over the whole vocabulary in **both** directions — every w
 site in the file that owns it, and every unwritten kind has none — so a kind can neither quietly stop
 being written nor quietly acquire a stub.
 
-- **Authentication** (five kinds) — owned by the step that builds the unlock screen. Not built.
-- **Exports** (three kinds) — owned by the reports and admin step. Not built.
+- **Authentication** — the LOCAL unlock, three kinds, owned by the step that builds the unlock
+  screen. Not built. The account half is built and wired.
 - **`key.slot_removed`** — nothing withdraws a way into the data key. The one place a slot disappears
   is adoption replacing this device's own dead slot as it adds a live one, which is part of adding.
+
+**The export kinds used to be on this list and are not any more**, and how that entry expired is
+worth more than the entry was. Its stated reason was *"exports are owned by the reports and admin
+step; nothing exports anything yet"* — true when written, and made false by the very step it named.
+The partition went on passing while asserting that the work belonged to somebody's future, because
+an absence is exactly what it was still looking for. **A reason naming a future owner is a dated
+claim, and the step that arrives to own it is the one least able to see it.** So the rule for anyone
+adding a kind here: write the reason as a fact about TODAY'S code, and a step that builds something a
+reason names corrects the reason as part of the work.
 
 ## Why the vocabulary is defined here, before anything writes to it
 
@@ -86,10 +111,16 @@ cannot answer a question: "every authentication event" becomes a search over str
 different steps spelled four different ways, and the answer is silently incomplete — which is worse
 than no answer, because it looks like one.
 
-**Authentication and export kinds are defined here and have no call sites.** The steps that own them
-have not been built. Defining them now is not premature; it is the entire reason this step comes
-first. Nothing here stubs a fake call site to make a kind look used. See *The kinds nothing writes*
-above for the full list, which is asserted rather than described.
+**Deciding a kind before anything writes it is the entire reason this step came first, and it has now
+been seen to work twice.** The Google integration arrived needing to record an authorised account and
+found `auth.account_connected` already named and typed rather than getting to choose; the reports and
+admin step arrived needing to record a disclosure and found all three export kinds waiting, with
+`export.refused` already saying that a refusal is recorded too — which is the half a wiring step
+drops when it is inventing its own vocabulary that afternoon.
+
+**What remains defined with no call site is the LOCAL unlock and `key.slot_removed`**, and nothing
+here stubs a fake call site to make a kind look used. See *The kinds nothing writes* above for the
+full list, which is asserted rather than described.
 
 The vocabulary is **closed, not frozen**. The wiring step added three kinds to the key-and-recovery
 domain — `key.establish_refused` and the two duplicate detections — because that activity is real,
@@ -552,12 +583,21 @@ caveat softening a claim, and none should be summarised away.
 - **A purged client leaves a residual, and it is stated rather than denied.** After a purge the log
   still shows that records with those identifiers existed and were removed. It holds nothing else of
   them.
-- **Two domains are defined and unwritten, and each has an owner.** Authentication's five kinds
-  belong to the step that builds the unlock screen; the three export kinds belong to the reports and
-  admin step; and `key.slot_removed` has no path that produces it today. **No call site is stubbed to make the
-  vocabulary look exercised**, and a test asserts the partition in both directions. See *The kinds
-  nothing writes*. Until those steps land, an empty result for those kinds means **not built** — it
-  does not mean it never happened.
+- **Part of one domain is still defined and unwritten, and it has an owner.** The LOCAL unlock —
+  `auth.unlocked`, `auth.unlock_refused`, `auth.locked` — belongs to the step that builds the unlock
+  screen, and `key.slot_removed` has no path that produces it today. **No call site is stubbed to
+  make the vocabulary look exercised**, and a test asserts the partition in both directions. See *The
+  kinds nothing writes*. Until that step lands, an empty result for those kinds means **not built** —
+  it does not mean it never happened.
+- **An export entry says a file was made and handed over; it cannot say what reached the client.**
+  Delivery is the platform's answer — the share sheet took it, or it fell back to a download — and
+  what somebody then did with the file is outside this device entirely. `export.completed` means the
+  data left the application, which is the disclosure worth recording, and not that anybody read it.
+- **The log cannot say WHICH artefact a whole-practice export was.** The full export, the library
+  backup and the encrypted archive each record `export.started` with no subject, because no single
+  record is their subject and an identifier field is not somewhere to park a description. They are
+  told apart by their count and by nothing else. Saying more would need a field the entry shape does
+  not have, and adding one changes every digest — a migration, not an edit. See the section below.
 
 ## Changing the entry shape is a migration, not an edit
 

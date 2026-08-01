@@ -51,6 +51,18 @@ import type { Divergence, Resolve } from '../screens/divergence-picker';
 export type { Divergence, Resolve } from '../screens/divergence-picker';
 
 export interface DivergenceReading {
+  /**
+   * WHETHER ANYTHING COMPARED THE TWO DEVICES AT ALL, and it is the field that stops this seam
+   * lying.
+   *
+   * An empty `pending` has two completely different meanings — a comparison ran and found the
+   * devices in agreement, and NOBODY EVER COMPARED THEM — and the words the picker used to say for
+   * the empty case ("Your devices agree on everything they have both been used for") are only true
+   * of the first. Nothing in this build compares anything, so the second is what the coach was
+   * reading, worded as the first. The count cannot carry that difference and a sentence chosen from
+   * the count therefore cannot either: the discriminant is this field.
+   */
+  readonly checked: boolean;
   /** Clashes the core surfaced and applied neither side of, exactly as it described them. */
   readonly pending: readonly Divergence[];
   /** How an answer reaches the core, or null when no source is wired and nothing can be answered. */
@@ -61,8 +73,13 @@ export interface DivergenceReading {
  * What is true in this build: no local store is wired, so nothing has been compared and nothing can
  * be answered. It is not a placeholder standing in for a real value — it is the real value for a
  * device that has never synchronised, which is every device until the synchronisation step lands.
+ *
+ * `checked: false` is the whole of the difference between saying so and inventing good news. The
+ * name of this constant is the older, weaker claim and is left alone deliberately: it is imported by
+ * `App.tsx`, which another action owns while this one runs.
  */
 export const NOTHING_TO_DECIDE: DivergenceReading = Object.freeze({
+  checked: false,
   pending: Object.freeze([]) as readonly Divergence[],
   resolve: null,
 });

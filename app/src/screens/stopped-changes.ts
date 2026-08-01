@@ -96,6 +96,15 @@ export interface StoppedPage {
 
 /** The two readings this surface is built from, which are the core's own two pages. */
 export interface StoppedReading {
+  /**
+   * WHETHER ANYTHING READ THE QUEUE AT ALL.
+   *
+   * Two empty pages are two different states — a read that found nothing stopped, and NOBODY HAVING
+   * READ — and only the first of them is "Nothing has stopped. Everything you have done has either
+   * gone into your backup or is on its way there." Nothing in this build reads the queue, so that
+   * sentence was the second state wearing the first one's words.
+   */
+  readonly checked: boolean;
   readonly rejected: StoppedPage;
   readonly ambiguous: StoppedPage;
 }
@@ -158,11 +167,17 @@ export interface StoppedGroup {
 /** What the screen says as a whole. */
 export interface StoppedReview {
   readonly title: string;
-  /** The one figure the screen is for: how many changes are stopped, both groups together. */
-  readonly count: number;
+  /**
+   * The one figure the screen is for: how many changes are stopped, both groups together — or NULL
+   * WHERE NOTHING READ THE QUEUE. A figure is a claim, and a nought nobody counted is the most
+   * reassuring claim this screen can make out of nothing at all.
+   */
+  readonly count: number | null;
   readonly intro: string;
-  /** True when nothing at all has stopped. */
+  /** True when nothing at all has stopped. Meaningless unless {@link checked}. */
   readonly settled: boolean;
+  /** False where nothing read the queue. The screen then draws the intro and nothing else. */
+  readonly checked: boolean;
   /** The two groups, in a fixed order. A tuple, so a merged list cannot be returned from here. */
   readonly groups: readonly [StoppedGroup, StoppedGroup];
   /**
@@ -171,8 +186,12 @@ export interface StoppedReview {
    * The queue will NOT move these on its own — `OUTBOX.md` §4.3, "never attempted again in silence".
    * He has to do something, and a screen that listed stopped work without saying so would read as a
    * log of things being handled.
+   *
+   * NULL WHERE NOTHING READ THE QUEUE. Its settled wording promised that if something ever stopped
+   * "the number in the corner of every screen will say so" — a promise about machinery that does not
+   * run in this build, which makes it a second claim standing on the same missing read.
    */
-  readonly nothingHappensByItself: string;
+  readonly nothingHappensByItself: string | null;
 }
 
 /** How many, in words rather than as a bare number beside a noun that does not agree with it. */
@@ -303,6 +322,25 @@ function unconfirmedGroup(page: StoppedPage): StoppedGroup {
  * rather than by a comment asking for it.
  */
 export function describeStoppedChanges(reading: StoppedReading): StoppedReview {
+  // NOTHING READ THE QUEUE, so there is nothing to group, nothing to count and nothing to promise.
+  // The two groups are still built — the tuple is the shape of this surface — and the screen draws
+  // neither, because each of them has its own settled sentence ("Google has not refused anything.",
+  // "Everything that was sent was confirmed one way or the other.") that is the same false claim in
+  // smaller type.
+  if (!reading.checked) {
+    return {
+      title: STOPPED_TITLE,
+      count: null,
+      intro:
+        'Not checked yet. This app has not looked at what is waiting to go into your backup, so it '
+        + 'cannot tell you whether anything has stopped.',
+      settled: false,
+      checked: false,
+      groups: [refusedGroup(reading.rejected), unconfirmedGroup(reading.ambiguous)],
+      nothingHappensByItself: null,
+    };
+  }
+
   const refused = refusedGroup(reading.rejected);
   const unconfirmed = unconfirmedGroup(reading.ambiguous);
   const count = refused.count + unconfirmed.count;
@@ -317,6 +355,7 @@ export function describeStoppedChanges(reading: StoppedReading): StoppedReview {
         : `${changeCount(count)} stopped on the way to your backup. They are safe on this device. `
           + 'Each one below says what it was and what happened to it.',
     settled: count === 0,
+    checked: true,
     groups: [refused, unconfirmed],
     nothingHappensByItself:
       count === 0
@@ -331,10 +370,13 @@ export function describeStoppedChanges(reading: StoppedReading): StoppedReview {
 /** What the Admin screen says about this, and the words on the way in. */
 export interface StoppedAdminEntry {
   readonly title: string;
-  readonly count: number;
+  /** Null where nothing read the queue: see {@link StoppedReview.count} for why a nought is a claim. */
+  readonly count: number | null;
   readonly intro: string;
   readonly linkLabel: string;
   readonly settled: boolean;
+  /** False where nothing read the queue. The card's tone is chosen from this, not from settled. */
+  readonly checked: boolean;
 }
 
 /**
@@ -349,6 +391,22 @@ export interface StoppedAdminEntry {
 export function describeStoppedAdminEntry(reading: StoppedReading): StoppedAdminEntry {
   const review = describeStoppedChanges(reading);
 
+  // THE SECOND SITE FOR THE SAME CLAIM. This card and the screen behind it said the same false thing
+  // out of the same missing read, and the card is the one a person already worried reaches first — so
+  // correcting the screen alone would have left the sentence standing exactly where it does the most
+  // work.
+  if (!review.checked) {
+    return {
+      title: STOPPED_TITLE,
+      count: null,
+      intro: 'Not checked yet. This app has not looked at what is waiting to go into your backup.',
+      // NOT "Check for yourself": the screen behind this link has not checked either.
+      linkLabel: 'Read what this means',
+      settled: false,
+      checked: false,
+    };
+  }
+
   if (review.settled) {
     return {
       title: STOPPED_TITLE,
@@ -358,18 +416,24 @@ export function describeStoppedAdminEntry(reading: StoppedReading): StoppedAdmin
         + 'with what happened to it.',
       linkLabel: 'Check for yourself',
       settled: true,
+      checked: true,
     };
   }
 
+  // Past both branches above, the queue was read and something is in it, so the figure exists. The
+  // review's count is nullable only for the unread case, which returned already.
+  const counted = review.count ?? 0;
+
   return {
     title: STOPPED_TITLE,
-    count: review.count,
+    count: counted,
     intro:
-      `${changeCount(review.count)} stopped and will not back up without you. They are saved on this `
+      `${changeCount(counted)} stopped and will not back up without you. They are saved on this `
       + 'device.',
     // Deliberately not "Fix these": nothing behind this link retries or discards anything, and a link
     // promising more than the screen delivers is the reassurance this application does not offer.
     linkLabel: 'See what stopped',
     settled: false,
+    checked: true,
   };
 }

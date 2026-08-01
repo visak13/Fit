@@ -40,9 +40,18 @@
  */
 
 import { compareKeys, extractKey, isValidKey, sameKey } from '../keys.js';
+import { trackedTask } from './pending-work.js';
 
-/** Queue work on a fresh task, as the platform does between a request and its callback. */
-const nextTask = (fn) => setTimeout(fn, 0);
+/**
+ * Queue work on a fresh task, as the platform does between a request and its callback.
+ *
+ * The label is carried so that `settle()` giving up can say WHICH task never ran; see
+ * `pending-work.js` for why a turn count would not be a diagnosis.
+ *
+ * @param {() => void} fn
+ * @param {string} label
+ */
+const nextTask = (fn, label) => trackedTask(label, fn);
 
 /** Errors carry the platform's own names, because the store's messages quote them. */
 class FakeDOMException extends Error {
@@ -441,7 +450,7 @@ class FakeTransaction {
       if (this.state !== 'active') return;
       if (this.pending.length > 0) return;
       this._commit();
-    });
+    }, 'a transaction commit check');
   }
 
   _commit() {
@@ -829,7 +838,7 @@ export class FakeIndexedDB {
             if (request.onerror) request.onerror({ target: request });
             return;
           }
-          nextTask(attempt);
+          nextTask(attempt, 'a database upgrade waiting for another window to close');
           return;
         }
       }
@@ -873,7 +882,7 @@ export class FakeIndexedDB {
       if (request.onsuccess) request.onsuccess({ target: request });
     };
 
-    nextTask(attempt);
+    nextTask(attempt, 'a database open');
     return request;
   }
 
@@ -883,7 +892,7 @@ export class FakeIndexedDB {
     nextTask(() => {
       this._databases.delete(name);
       if (request.onsuccess) request.onsuccess({ target: request });
-    });
+    }, 'a database delete');
     return request;
   }
 }

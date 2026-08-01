@@ -30,7 +30,7 @@ import {
   describeActionFailure, describeBackupOffer, describeRegisterRemovals, describeRemovalConfirmation,
   describeRowActions, removedWords, restoredWords,
 } from './client-removal';
-import type { BackupOfferState } from './client-removal';
+import { BACKUP_HISTORY } from './backup-history';
 import { NOT_CONFIRMED_IS_NOT_STILL_THERE, NO_NAME_IS_DELIBERATE } from './removals';
 import { NO_PASS_HAS_REPORTED } from './removals';
 import type { DeletionManifest, RemovalsReading } from './removals';
@@ -39,8 +39,11 @@ import type { ClientSummary } from './clients';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const applicationRoot = path.join(here, '..', '..');
 
-/** Every state the backup offer can be asked about, so no test can quietly cover only one. */
-const STATES: readonly BackupOfferState[] = ['unknown', 'never-connected', 'connected'];
+/**
+ * Every state the backup offer can be asked about, so no test can quietly cover only one — DERIVED
+ * from the state's own tuple, because a hand-maintained list guards the list rather than the code.
+ */
+const STATES = BACKUP_HISTORY;
 
 /** Names invented and deliberately unmistakable: this repository is public by an explicit decision. */
 const person = (over: Partial<ClientSummary> = {}): ClientSummary => ({
@@ -160,7 +163,7 @@ describe('what the screen says after a reversible act', () => {
 
 describe('the confirmation in front of a removal', () => {
   it('says what will happen, that it cannot be undone, and offers the reversible path instead', () => {
-    const report = describeRemovalConfirmation('Test Person One', 'never-connected');
+    const report = describeRemovalConfirmation('Test Person One', 'never-backed-up');
 
     assert.ok(report.title.includes('Test Person One'));
     assert.ok(
@@ -184,7 +187,7 @@ describe('the confirmation in front of a removal', () => {
    * removal had failed.
    */
   it('does NOT promise that a shared session goes with them', () => {
-    const said = describeRemovalConfirmation('Test Person One', 'connected').whatWillHappen;
+    const said = describeRemovalConfirmation('Test Person One', 'has-backed-up').whatWillHappen;
 
     assert.ok(
       said.includes('shared'),
@@ -244,12 +247,20 @@ describe('the offer to back up first', () => {
     }
   });
 
-  it('explains WHY on a device that has never connected, and gives him something he can do', () => {
-    const offer = describeBackupOffer('never-connected');
+  it('explains WHY on a device that has never backed up, and gives him something he can do', () => {
+    const offer = describeBackupOffer('never-backed-up');
 
     assert.ok(
-      /google account has not been connected/i.test(offer.whatHappened),
+      /never backed anything up/i.test(offer.whatHappened),
       `the reason the offer cannot run is not stated: "${offer.whatHappened}"`,
+    );
+    // AND IT STATES IT AS THE FACT IT READ. It used to open "because your Google account has not been
+    // connected here yet" — a claim about the PRESENT connection, which this offer never measures and
+    // the backup indicator does. See `backup-history.ts`.
+    assert.equal(
+      /\bconnected\b/iu.test(offer.whatHappened),
+      false,
+      `the offer answers the backup history with a claim about the connection: "${offer.whatHappened}"`,
     );
     assert.ok(offer.whatToDo !== null, 'he was told it cannot run and given nothing he can cause');
     assert.ok(
@@ -263,14 +274,27 @@ describe('the offer to back up first', () => {
     );
   });
 
-  it('does NOT tell a connected device to go and connect', () => {
-    const offer = describeBackupOffer('connected');
+  it('does NOT tell a device that has backed up to go and connect', () => {
+    const offer = describeBackupOffer('has-backed-up');
 
     assert.ok(
       !/connect your google account/i.test(offer.whatHappened + (offer.whatToDo ?? '')),
       'a device that has already backed up was sent to reconnect an account that is connected — a '
         + 'sentence that quietly stopped being true, which is the failure shape this build keeps '
         + 'meeting',
+    );
+    // AND IT DOES NOT CLAIM THE OPPOSITE EITHER. It used to open "This device is connected to your
+    // Google account and has backed up before"; only the second half was ever read, and the first was
+    // measured contradicting the backup indicator on the same screen after a sign-out.
+    assert.equal(
+      /\bconnected\b/iu.test(offer.whatHappened),
+      false,
+      `the offer claims a present connection off a fact about the past: "${offer.whatHappened}"`,
+    );
+    assert.match(
+      offer.whatHappened,
+      /has backed up/iu,
+      `the offer no longer says the one thing it actually read: "${offer.whatHappened}"`,
     );
     assert.ok(
       /not finished yet/i.test(offer.whatHappened),
@@ -397,6 +421,46 @@ describe('the removal gap that is reported rather than filled', () => {
       'a screen now marks a removal failed or gives up on one. That is a judgement about a delivery '
         + 'attempt made by something that cannot see the delivery — the gap was reported on purpose '
         + 'and belongs to the step that owns the credential.',
+    );
+  });
+});
+
+/**
+ * THE BACKUP OFFER'S DIRECTION NAMES ONLY CONTROLS THAT ARE REALLY THERE.
+ *
+ * The `never-connected` branch is the twin of `clients.ts`'s {@link WHERE_TO_CONNECT} and carried the
+ * identical false claim until s11/a41: it named Admin and then told him to connect his Google account
+ * there, and the Admin screen holds no connect act — `shell/refusal-names-a-real-control.test.ts`
+ * forbids it from carrying one. The wording was CORRECTED, which is why this is a PAIR: an assertion
+ * re-aimed at the author's own new copy is indistinguishable in a diff from an assertion softened.
+ *
+ * The FORBIDDING half fires if the old location claim returns. The REQUIRING half fires if the offer
+ * is deleted or hollowed out — and it is worded to be TRUE OF THE OLD COPY AS WELL, so the two cannot
+ * both go red on one probe, which is the failure s11/a34 measured.
+ */
+describe('the never-backed-up backup offer', () => {
+  it('does not send him to press a connect control on the Admin screen, which has none', () => {
+    const { whatToDo } = describeBackupOffer('never-backed-up');
+    assert.equal(
+      /connect[^.]*\bthere\b/iu.test(whatToDo ?? ''),
+      false,
+      'the offer again tells him to connect his Google account on the screen it just named, and the '
+        + `Admin screen holds no connect act: ${String(whatToDo)}`,
+    );
+  });
+
+  it('still names where the connecting is set up and still leaves the decision with him', () => {
+    const { whatToDo } = describeBackupOffer('never-backed-up');
+    assert.match(
+      whatToDo ?? '',
+      /\bAdmin\b/u,
+      `the offer no longer names the destination that leads to the connecting: ${String(whatToDo)}`,
+    );
+    assert.match(
+      whatToDo ?? '',
+      /go ahead without one/u,
+      'the offer no longer says he may remove somebody without a backup, which turns a statement of '
+        + `where he stands into a condition he has to satisfy first: ${String(whatToDo)}`,
     );
   });
 });

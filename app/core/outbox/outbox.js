@@ -40,12 +40,17 @@
  *     three different things.
  *  5. **A best-effort flush can never report a completed synchronisation.** Structurally: see
  *     `claimsCompletedSync`.
+ *  6. **Delivery evidence is bounded by this module and by nothing else.** There is no exported
+ *     prune and no sweep to schedule: `recordDelivered` is the only way an entry becomes delivered, so
+ *     it applies the bound in the same transaction. The bound is a COUNT and never an age — see
+ *     `retention.js` for why, and for which amendment that rests on.
  */
 
 export * from './errors.js';
 export * from './entry.js';
 export * from './classify.js';
 export * from './recognition.js';
+export * from './retention.js';
 export * from './queue.js';
 export * from './flush.js';
 export * from './status.js';

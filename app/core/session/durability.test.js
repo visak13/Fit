@@ -205,7 +205,21 @@ test('a finished session is not reopened as live, and says so plainly', async ()
   const again = await openSession(store, opened.session.sessionId, { routine });
   assert.equal(again.ok, false);
   assert.equal(again.reason, 'already_finished');
-  assert.match(again.message, /record is kept/, 'the coach is told the record survives');
+  // TWO ASSERTIONS, AND THEY GUARD OPPOSITE THINGS. The first is the fact he is owed: the record
+  // survives finishing. The second is the defect this sentence used to carry — it told him to open
+  // the record, read it or add to it, and THERE IS NO SURFACE FOR ANY OF THE THREE. Keeping only
+  // the first would let the instruction come back; keeping only the second would let the
+  // reassurance be dropped altogether. Each has been proven to red on its own.
+  assert.match(
+    again.message,
+    /Everything recorded in it is kept/,
+    'the coach is told the record survives',
+  );
+  assert.doesNotMatch(
+    again.message,
+    /open it|read it|add to it|read or add/i,
+    'the refusal must not instruct him to open, read or add to a record he has no surface for',
+  );
 
   // And its record is still fully readable.
   const view = await readSession(store, opened.session.sessionId, { routine });

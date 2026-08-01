@@ -60,14 +60,18 @@ import type { IntensityState } from './intensity';
 import { readGroundInto, shapeTheCurve } from './intensity-source';
 import type { IntensityGround } from './intensity-source';
 import type { ExerciseDefaults } from './effective-prescription';
-import { lineOnTheRecord, noControls } from './modular-control';
-import type { ControlState, ProjectedSession } from './modular-control';
-import { readSubstitutionPoolInto } from './modular-control-source';
-import type { SessionReadBack, SubstitutionPool } from './modular-control-source';
+import { lineOnTheRecord, noArrival, noControls } from './modular-control';
+import type { ArrivalState, ControlState, ProjectedSession } from './modular-control';
+import { readArrivalRegisterInto, readSubstitutionPoolInto } from './modular-control-source';
+import type { ArrivalRegister, SessionReadBack, SubstitutionPool } from './modular-control-source';
+import { SessionArrival } from './SessionArrival';
 import { noCaptures } from './session-readings';
 import type { CaptureState, ProjectedForCapture } from './session-readings';
 import { readGlancesInto } from './session-readings-source';
 import type { RunnerGlances } from './session-readings-source';
+import { SessionEnding } from './SessionEnding';
+import { noEnding } from './session-ending';
+import type { EndingState } from './session-ending';
 import { LineTimer, SoundOffer } from './SessionTimer';
 import { noTimers } from './exercise-timer';
 import type { TimerState } from './exercise-timer';
@@ -385,6 +389,17 @@ export function RunnerScreen() {
    */
   const [intensity, setIntensity] = useState<IntensityState>(noIntensity);
 
+  /**
+   * THE FINISH CONTROL'S OWN SMALL LIFE — whether a confirmation is open, and what the ending said.
+   *
+   * This screen's own transient state exactly as the four above are, and for the same reason:
+   * `SESSION.md` §2, anything describing where a session has got to is DERIVED, never persisted. It
+   * is passed to no writer. WHETHER THE CONTROL IS OFFERED AT ALL is not held here — that is read off
+   * the record's own status, so the control goes because the session ended and not because this
+   * remembers being pressed.
+   */
+  const [ending, setEnding] = useState<EndingState>(noEnding);
+
   /** The curves, the whole library and this session's routine. Read once — see `intensity-source.ts`. */
   const [ground, setGround] = useState<Read<IntensityGround & { sessionId: string }> | null>(null);
 
@@ -410,6 +425,18 @@ export function RunnerScreen() {
   /** The exercises that can stand in for a line: the whole catalogue, not the routine's own list. */
   const [pool, setPool] = useState<Read<SubstitutionPool> | null>(null);
 
+  /**
+   * THE ARRIVAL CONTROL'S OWN SMALL LIFE, and the register it offers.
+   *
+   * Held at screen level exactly as the four panels above are, and for the same reason: it describes
+   * where a control has got to and never where the SESSION has, so it is passed to no writer and dies
+   * with the window. The register is a read of the coach's own people — the ONE list this screen
+   * needs that the session cannot supply, because a late arrival is by definition somebody the
+   * session has never mentioned.
+   */
+  const [arrival, setArrival] = useState<ArrivalState>(noArrival);
+  const [register, setRegister] = useState<Read<ArrivalRegister> | null>(null);
+
   /** Each attendee's PREVIOUS session, which is the one before the session in this window. */
   const [glances, setGlances] = useState<Read<RunnerGlances & { sessionId: string }> | null>(null);
 
@@ -421,6 +448,14 @@ export function RunnerScreen() {
   useEffect(() => {
     if (store === null) return undefined;
     return readSubstitutionPoolInto(store, (what) => setPool({ from: store, what }));
+  }, [store]);
+
+  // KEYED ON THE STORE ALONE, as the substitution pool is: the register is the coach's own people and
+  // has nothing to do with which session is open, so re-reading it per session would be a read that
+  // could only ever hand back the same answer.
+  useEffect(() => {
+    if (store === null) return undefined;
+    return readArrivalRegisterInto(store, (what) => setRegister({ from: store, what }));
   }, [store]);
 
   const onMoved = useCallback(
@@ -682,6 +717,52 @@ export function RunnerScreen() {
                   </li>
                 ))}
               </ul>
+            )}
+
+            {/*
+              SOMEBODY ARRIVED AFTER IT STARTED, which is an ordinary thing that happens to a coach
+              with a group in front of him — and until this was wired the application REFUSED to
+              record against them and told him to add them first, while offering no way to do it.
+              `addClient` had been built and called by no file under `src/` at all.
+
+              DRAWN ONCE FOR THE WHOLE SCREEN, above the finish control and below what he records: a
+              session is one routine however many people are in it, so adding somebody inside another
+              person's card would read as adding them to that person.
+            */}
+            {store !== null && sessionId !== null && (
+              <SessionArrival
+                store={store}
+                sessionId={sessionId}
+                register={register !== null && register.from === store ? register.what : null}
+                attending={attending}
+                state={arrival}
+                setState={setArrival}
+                onMoved={onMoved}
+              />
+            )}
+
+            {/*
+              THE ONE CONTROL THAT ENDS A SESSION, and until it was wired NOTHING IN THIS APPLICATION
+              DID: `complete()` had been built and called by no screen, so every session the coach
+              started sat under "Sessions you have not finished" forever.
+
+              LAST IN THE CARD, below everything he records, because it is the act he reaches for when
+              there is nothing left above it. Drawn once for the whole screen rather than in anybody's
+              card — a session is one routine and one to many people, and finishing it for one person
+              is not a thing the record can express.
+
+              IT WRITES `complete()` AND NOTHING ELSE. Leaving this screen is already what
+              `interrupt()` means and already happens by itself.
+            */}
+            {store !== null && sessionId !== null && (
+              <SessionEnding
+                store={store}
+                sessionId={sessionId}
+                report={report}
+                state={ending}
+                setState={setEnding}
+                onMoved={onMoved}
+              />
             )}
           </>
         )}

@@ -194,8 +194,8 @@ export function readBaseline(history) {
 function emptyBaseline(clientId, window, excluded) {
   // Said plainly, because a number that looks measured and is not is worse than no number.
   const nothingAtAll = 'There is nothing recorded for this client yet, so every number here comes '
-    + 'from your own exercise library and this routine rather than from anything he has done. Read it '
-    + 'as a starting point, not as a measurement.';
+    + 'from your own exercise library and this routine rather than from anything this client has '
+    + 'done. Read it as a starting point, not as a measurement.';
 
   /**
    * THE NEAR-NEIGHBOUR CASE, and it must not borrow the sentence above: there IS something recorded,
@@ -205,8 +205,9 @@ function emptyBaseline(clientId, window, excluded) {
   const count = excluded.record_count;
   const nothingCalibratable = `Nothing recorded for this client says which point of a curve it was `
     + `worked at, so every number here comes from your own exercise library and this routine rather `
-    + `than from anything he has done. ${count} ${count === 1 ? 'record was' : 'records were'} left `
-    + `out for that reason. Read it as a starting point, not as a measurement.`;
+    + `than from anything this client has done. ${count} `
+    + `${count === 1 ? 'record was' : 'records were'} left out for that reason. Read it as a `
+    + `starting point, not as a measurement.`;
 
   return Object.freeze({
     kind: 'none',
@@ -230,8 +231,8 @@ function emptyBaseline(clientId, window, excluded) {
 function leftOutSentence(count) {
   return `${count} earlier ${count === 1 ? 'record does' : 'records do'} not say which point `
     + `${count === 1 ? 'it was' : 'they were'} worked at, so ${count === 1 ? 'it was' : 'they were'} `
-    + `left out and this is calibrated on less of his record than it might have been. A line worked `
-    + `under a curve keeps that point with it.`;
+    + `left out and this is calibrated on less of this client's record than it might have been. `
+    + `A line worked under a curve keeps that point with it.`;
 }
 
 /** @returns {Baseline['excluded']} */

@@ -336,7 +336,15 @@ test('the honest platform statement travels with the status, promising no backgr
 
   assert.equal(status.statement, PLATFORM_STATEMENT);
   assert.match(status.statement.promises.saves, /saved on this device/i);
-  assert.match(status.statement.promises.backs_up, /open the app|leave it|tap Sync/i);
+  assert.match(status.statement.promises.backs_up, /open the app/i);
+  // THE SAME OPPOSED PAIR AS `statement.test.js`, and for the same reason: the alternation that
+  // stood here required `tap Sync` as one of its arms, so it ENFORCED a control this application
+  // does not have. CHANGED TO MATCH AN INTENTIONAL COPY CORRECTION. The requiring half is worded
+  // to survive the old copy so the two halves cannot both red on one probe.
+  assert.match(status.statement.promises.backs_up, /whenever you /i,
+    'the promise travelling with the status no longer says a backup can be asked for by hand');
+  assert.doesNotMatch(status.statement.promises.backs_up, /\bsync\b/i,
+    'the promise travelling with the status names "Sync", a control this application does not have');
   assert.match(status.statement.limits.no_background_sync, /cannot back up in the background/i);
   assert.match(status.statement.limits.no_sync_while_closed, /while the app is closed/i);
   await dev.store.close();

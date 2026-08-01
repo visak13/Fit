@@ -15,7 +15,7 @@
  *     `accountabilityStatus(store, { in_progress, last_attempt, credential })`, pushing the result
  *     into `SyncStatusProvider` UNCHANGED. The reading is a SUBSET of that object, field for field and
  *     name for name; nothing is converted and nothing is renamed.
- *  2. Re-reads after EVERY attempt, on all five declared opportunities, and on a modest interval
+ *  2. Re-reads after EVERY attempt, on all six declared opportunities, and on a modest interval
  *     besides — the two periodicities are `sync-runner.ts`'s and they are deliberately not one timer.
  *  3. Hands the LIVE report to `recordCompletedSync`, which is the join. That happens inside
  *     {@link runSyncPass} and never here: by the time a report reaches this component's state it has
@@ -57,11 +57,15 @@ import type { RemoteConfirmation } from '../screens/removals';
 import { RemovalsFromStore } from './RemovalsFromStore';
 import { NO_PASS_HAS_REPORTED, remoteConfirmationFrom } from './removals-source';
 import { NO_BACKUP_YET, SyncStatusProvider } from './SyncStatus';
-import type { SyncStatusReading } from './sync-indicator';
+import type { SyncSeamReading } from './sync-indicator';
+import { AccountActionsProvider } from './account-actions';
+import type { AccountActions } from './account-actions';
+import type { AccountActOutcome } from '../screens/admin-report';
 import { SyncActionsProvider } from './sync-actions';
 import type { SyncActions } from './sync-actions';
 import {
-  armSyncOpportunities, browserSyncEnvironment, oneAtATime, readSyncReading, runSyncPass,
+  armSyncOpportunities, browserSyncEnvironment, holdAttempts, oneAtATime, readSyncReading,
+  runSyncPass,
 } from './sync-runner';
 import type { RemoteCopy, SyncEnvironment } from './sync-runner';
 import type { LocalStore } from '../../core/store/store.js';
@@ -97,12 +101,78 @@ export interface BackupAccess {
     event: { readonly isTrusted?: boolean; readonly type?: string },
     store: LocalStore,
   ) => Promise<string | null>;
+  /**
+   * THE WAY OUT — sign out of the account on this device, and the separate act of erasing it.
+   *
+   * Two members and not one with a flag, the whole way down: `platform/google-account.ts` keeps them
+   * as two routines precisely so that "sign out" and "destroy everything here" can never become one
+   * code path with a boolean on it.
+   *
+   * Both take the store, like `connect` does, and neither throws: every way they can fail is a state
+   * the coach is told about in his own language, carried back as an outcome rather than as an
+   * exception. Nothing a provider said comes through here either — a failure's own text rides the
+   * outcome's `verbatim`, apart from this application's words, so it cannot be spliced into prose.
+   */
+  readonly signOut: (store: LocalStore) => Promise<AccountActOutcome>;
+  /**
+   * Sign out AND erase this device.
+   *
+   * @param reading the delivery figures the gate reads. Passed IN rather than looked up: the live
+   * `accountabilityStatus()` result is held here, and a second read of the same queue for the same
+   * question is two answers where the whole point is that there is one.
+   * @param acknowledged he has read what will be lost and said go ahead. It is minted into a real
+   * acknowledgement only where the gate's verdict allows one; nothing here decides that.
+   */
+  readonly eraseThisDevice: (
+    store: LocalStore,
+    reading: DeliveryFiguresOutcome,
+    acknowledged: boolean,
+  ) => Promise<AccountActOutcome>;
 }
+
+/**
+ * The delivery figures the erase gate reads, as the interface passes them along.
+ *
+ * Structural rather than imported from the platform, for the reason that module gives about the same
+ * shape on its own side: this file may not know a provider exists. The names are the core's own, so
+ * the reading this component already holds IS one of these.
+ */
+export interface DeliveryFigures {
+  readonly pending: number;
+  readonly waiting_for_credential: number;
+  readonly rejected: number;
+  readonly ambiguous: number;
+  readonly oldest_undelivered_label: string | null;
+  readonly oldest_undelivered_age_ms: number | null;
+  /**
+   * The leading reason, carried so the gate's refusal can name only what the indicator is offering.
+   *
+   * The reading this component already holds HAS it under this name, so nothing new is read and
+   * nothing is converted — which is the point. Two sentences derived from one fact cannot contradict
+   * each other, and this pair did.
+   */
+  readonly reason: { readonly action: string | null } | null;
+}
+
+/**
+ * THE FIGURES, OR THE FACT THAT THERE ARE NONE — what the erase gate is actually handed.
+ *
+ * Structural, like {@link DeliveryFigures} above and for the same reason. The reading this component
+ * holds IS one of these: `sync-runner.ts` publishes three outcomes and this passes the outcome
+ * through whole, so the panel that names what he would lose and the gate that decides whether he may
+ * are still reading ONE object — including when that object says the read never came back.
+ *
+ * That last case is the whole of this type's existence. The reading used to fall back to the empty
+ * literal on a failed read, and its four zeroes read to the gate as a device with nothing to lose.
+ */
+export type DeliveryFiguresOutcome =
+  | ({ readonly status: 'not_yet' | 'read' } & DeliveryFigures)
+  | { readonly status: 'failed'; readonly failure: { readonly stage: string; readonly errorName: string } };
 
 /** The reading, and WHICH store it was read from. @see RemovalsFromStore for the same shape and why. */
 interface ReadingFromStore {
   readonly from: LocalStore;
-  readonly reading: SyncStatusReading;
+  readonly reading: SyncSeamReading;
 }
 
 /**
@@ -144,7 +214,7 @@ export function SyncFromStore({
 }: {
   backup: BackupAccess;
   /**
-   * The world the opportunities are observed in. Injected so every one of the five can be fired and
+   * The world the opportunities are observed in. Injected so every one of the six can be fired and
    * asserted with no browser; `main.tsx` passes the real window.
    */
   environment?: SyncEnvironment;
@@ -168,10 +238,26 @@ export function SyncFromStore({
   const [confirmation, setConfirmation] = useState<RemoteConfirmation>(NO_PASS_HAS_REPORTED);
 
   /**
-   * The most recent report of this session, BY REFERENCE. See the header: this is identity, not data.
-   * It is deliberately not state — a re-render must not be able to replace it with a copy.
+   * Whether a sign-out or an erase is in flight, and what the last one did.
+   *
+   * Kept apart from `running` above rather than sharing it: a backup pass and a sign-out are
+   * different waits, and a card that greyed itself out because an unrelated interval pass had
+   * started would be telling him the control was busy when it was not.
    */
-  const lastAttempt = useRef<unknown>(null);
+  const [accountRunning, setAccountRunning] = useState(false);
+  const [accountOutcome, setAccountOutcome] = useState<AccountActOutcome | null>(null);
+
+  /**
+   * The attempts of this session, BY REFERENCE. See the header: this is identity, not data. It is
+   * deliberately not state — a re-render must not be able to replace it with a copy.
+   *
+   * It became a holder rather than a bare report because the bare report was destroying a true
+   * finding: a pass that failed before it reached the union reports no skipped files, and the
+   * surface, reading the latest report alone, dropped "your backup is missing files" on the next
+   * dropped signal. {@link holdAttempts} keeps the OUTCOME of the latest pass and the OUTSTANDING
+   * FINDING apart — read its own header for the trap in the obvious fix.
+   */
+  const attempts = useRef(holdAttempts());
 
   /**
    * Everything the acts and the timers need, rebuilt only when the store or the access changes.
@@ -203,7 +289,7 @@ export function SyncFromStore({
     const refresh = async () => {
       const reading = await readSyncReading(store, {
         inProgress: passInFlight.now,
-        lastAttempt: lastAttempt.current,
+        lastAttempt: attempts.current.forTheSurface(),
         credential: backup.credential(),
       });
       setRead({ from: store, reading });
@@ -222,7 +308,7 @@ export function SyncFromStore({
         const { report } = await runSyncPass(store, backup.remote, { trigger });
         // The live object, by reference. It has ALREADY been offered to `recordCompletedSync` inside
         // the pass; this is the surface's read of its failures and its skipped files.
-        lastAttempt.current = report;
+        attempts.current.record(report);
         // THE SECOND CONSUMER OF THE SAME REPORT, and the last hop of a7's work: the remote half of a
         // deletion that did not reach the backup. Derived here, from this object, rather than by a
         // second path to the same screen.
@@ -248,6 +334,13 @@ export function SyncFromStore({
         void engine.guard.run(trigger);
       },
       refreshReading: () => {
+        // `void` DISCARDS A REJECTION, and it is safe here for one reason only: `readSyncReading`
+        // reports a failed read as an OUTCOME and no longer rejects, so there is nothing left for
+        // this to drop. It used to have no catch at all — the rejection escaped through here
+        // unhandled, `setRead` never ran, and the seam stood at NO_BACKUP_YET, whose four zeroes the
+        // erase gate then read as a device with nothing to lose. Anything awaited inside `refresh`
+        // that CAN reject must report an outcome the way the read does, or this line goes back to
+        // being the hole it was.
         void engine.refresh();
       },
     });
@@ -276,15 +369,73 @@ export function SyncFromStore({
     [backup, engine, running, refusal, store],
   );
 
-  const reading = useMemo<SyncStatusReading>(
+  const reading = useMemo<SyncSeamReading>(
     () => (read !== null && read.from === store ? read.reading : NO_BACKUP_YET),
     [read, store],
+  );
+
+  /**
+   * THE TWO WAYS OUT OF THIS DEVICE, on their own context beside the acts above.
+   *
+   * They are here rather than in a component of their own for ONE reason, and it is the reason this
+   * file already gives about the last pass's report: the erase gate reads the delivery figures, and
+   * this is the one holder of a live `accountabilityStatus()` result. A second component would have
+   * to read the same queue again to answer the same question, and two reads of one queue is two
+   * answers — the second of which is the one that goes wrong, silently, in front of a destructive
+   * button. One holder, one reading, three consumers now.
+   *
+   * THE READING IT PASSES IS THE ONE ON SCREEN. `reading` is what the coach is looking at when he
+   * presses, which is the whole point: the panel that named what he would lose and the gate that
+   * decides whether he may are reading the same object. The mechanism re-checks the figure once more
+   * at the last moment for the case where the queue moved while he was reading — see
+   * `EraseAcknowledgement` — and that re-check is its own, not a second one added here.
+   */
+  const accountActions = useMemo<AccountActions>(
+    () => ({
+      signOut: () => {
+        if (store === null || accountRunning) return;
+        setAccountRunning(true);
+        void (async () => {
+          try {
+            setAccountOutcome(await backup.signOut(store));
+          } finally {
+            setAccountRunning(false);
+            // What may be sent has changed, so the indicator must say so. `refresh` and not a pass:
+            // there is no credential to run one with any more.
+            await engine?.refresh();
+          }
+        })();
+      },
+      eraseThisDevice: (acknowledged: boolean) => {
+        if (store === null || accountRunning) return;
+        setAccountRunning(true);
+        void (async () => {
+          try {
+            setAccountOutcome(await backup.eraseThisDevice(store, reading, acknowledged));
+          } finally {
+            setAccountRunning(false);
+            // NO REFRESH AFTER THIS ONE. A successful erase has closed the store and deleted the
+            // database; reading it again would be this component asking a question of a thing it
+            // just destroyed. A REFUSAL leaves everything exactly as it was, so there is nothing new
+            // to read either — the figures it refused on are the figures already on screen.
+          }
+        })();
+      },
+      // THE SAME OBJECT the erase call above passes to the gate. The card reads these to say what is
+      // outstanding; the gate reads them to decide. One reading, so the two cannot disagree.
+      figures: reading,
+      running: accountRunning,
+      last: accountOutcome,
+    }),
+    [backup, engine, store, reading, accountRunning, accountOutcome],
   );
 
   return (
     <SyncStatusProvider reading={reading}>
       <SyncActionsProvider actions={actions}>
-        <LastPassContext.Provider value={confirmation}>{children}</LastPassContext.Provider>
+        <AccountActionsProvider actions={accountActions}>
+          <LastPassContext.Provider value={confirmation}>{children}</LastPassContext.Provider>
+        </AccountActionsProvider>
       </SyncActionsProvider>
     </SyncStatusProvider>
   );

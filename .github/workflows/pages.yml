@@ -1,0 +1,101 @@
+# Publish the coach's application to https://visak13.github.io/Fit/.
+#
+# This workflow is the CI publish path. It rebuilds the site from source on every push to
+# master and deploys the freshly built `app/dist` to GitHub Pages. The committed `app/dist`
+# in the repository is NOT what this path serves — see DEPLOYMENT.md, which also carries the
+# no-CI fallback for when Actions is unavailable or unwanted.
+#
+# For this workflow to publish anything, the repository's Pages source must be set to
+# "GitHub Actions" (Settings → Pages → Build and deployment → Source). That is a one-time
+# manual setting; nothing here can make it for you.
+
+name: Publish to GitHub Pages
+
+on:
+  push:
+    branches: [master]
+  # Lets an operator re-publish the current master without an empty commit.
+  workflow_dispatch:
+
+# The three grants the deploy needs and nothing more: read the tree, mint the OIDC token
+# `deploy-pages` exchanges, and write the Pages deployment.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One publish at a time. A queued run is allowed to wait rather than be cancelled, so a push
+# that lands mid-deploy still reaches the address instead of being dropped.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - name: Check out the whole project
+        uses: actions/checkout@v4
+        # The build reads `design/tokens/` — a SIBLING of app/, outside the application. A
+        # checkout scoped to app/ would fail, or worse, half-build.
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          # Pinned to an LTS line that satisfies package.json engines (>=20). The machine that
+          # produced the committed dist runs 25.1.0; CI is pinned rather than floating so a
+          # runner image change cannot silently alter the published bytes.
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install dependencies from the lockfile
+        run: npm ci
+
+      # THE FIVE-COMMAND PUBLISH GATE, run before anything is built or deployed. A red here
+      # stops the publish; the address keeps serving whatever it served before.
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Core tests
+        run: npm test
+
+      - name: Shell tests
+        run: npm run test:shell
+
+      - name: Tool tests
+        run: npm run test:tools
+
+      - name: Build the site
+        run: npm run build
+
+      # Run AFTER the build: `check:stale` compares the build record against a hash of the
+      # source tree, so it answers "does dist match the source it was built from". Running it
+      # on a tree this job just built is the honest ordering.
+      - name: Confirm the built output is not stale
+        run: npm run check:stale
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload app/dist as the Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Path is repository-relative — `defaults.run.working-directory` does not apply to
+          # `uses:` steps. The artifact's ROOT becomes https://visak13.github.io/Fit/, which is
+          # why `base` stays `/Fit/` on this path.
+          path: app/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -35,3 +35,4 @@ import './effort.test.js';
 import './proposal.test.js';
 import './purity.test.js';
 import './shipped-content.test.js';
+import './honest-degradation.test.js';

@@ -57,8 +57,8 @@ import { Fragment } from 'react';
 
 import { Glyph } from '../design/Glyph';
 import { useKeyMaterial } from '../shell/KeyMaterial';
-import { describeCondition, describeSettled } from './key-material-condition';
-import type { CandidateReport, ConditionReport, SettledReport } from './key-material-condition';
+import { describeCondition, describeNotChecked } from './key-material-condition';
+import type { CandidateReport, ConditionReport, NotCheckedReport } from './key-material-condition';
 
 /** One candidate's facts, drawn with the label-and-value primitive the admin screen established. */
 function Candidate({ candidate }: { candidate: CandidateReport }) {
@@ -77,17 +77,21 @@ function Candidate({ candidate }: { candidate: CandidateReport }) {
   );
 }
 
-/** The normal state: one set, nothing to do, and said as the good news it is. */
-function Settled({ report }: { report: SettledReport }) {
+/**
+ * The state every device is in: nothing has surveyed anything, said as exactly that.
+ *
+ * NO FIGURE IS DRAWN. The report carries none, and that is the whole correction: the "1" that used
+ * to sit here was a constant in the wording module and never a count of anything, under a sentence
+ * saying his devices agreed.
+ */
+function NotChecked({ report }: { report: NotCheckedReport }) {
   return (
     <div className="screen">
       <section className="card stack" aria-labelledby="screen-key-material">
         <h2 id="screen-key-material" className="title-screen">
           {report.title}
         </h2>
-        <p className="value-display">{report.count}</p>
-        <p className="screen-intro read">{report.countMeans}</p>
-        <p className="read">{report.intro}</p>
+        <p className="screen-intro read">{report.intro}</p>
       </section>
     </div>
   );
@@ -241,12 +245,22 @@ function Condition({ report }: { report: ConditionReport }) {
   );
 }
 
+/**
+ * THE SELECTION IS HALF THE FIX AND IT USED TO BE THE LYING HALF.
+ *
+ * This branched on `condition === null` into a component called `Settled` — and `condition` is null
+ * on every device, because nothing in this application surveys anything. So the reassuring screen was
+ * not a rare good-news state that happened to be common; it was the ONLY state, reached through a
+ * branch whose name asserted a condition nobody had measured. Changing its words alone would have
+ * left an honest sentence arriving through a path named for the opposite thing, which is the same
+ * defect with better manners. The seam now carries `checked`, and this reads that.
+ */
 export function KeyMaterialConditionScreen() {
-  const { condition } = useKeyMaterial();
+  const reading = useKeyMaterial();
 
-  return condition === null ? (
-    <Settled report={describeSettled()} />
+  return reading.checked ? (
+    <Condition report={describeCondition(reading.condition)} />
   ) : (
-    <Condition report={describeCondition(condition)} />
+    <NotChecked report={describeNotChecked()} />
   );
 }

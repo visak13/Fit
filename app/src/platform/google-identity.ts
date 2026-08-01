@@ -324,8 +324,8 @@ export type AcquireOutcome =
  */
 export const ACQUIRE_REFUSALS: Readonly<Record<AcquireRefusalCode, string>> = Object.freeze({
   'no-gesture':
-    'Connecting to Google has to start from something you tap. Use the Connect button rather than '
-    + 'waiting for it to happen on its own.',
+    'Connecting to Google has to start from something you tap. Use the "Connect Google" button '
+    + 'rather than waiting for it to happen on its own.',
   'not-configured':
     'This app has not been given its Google client id yet, so it cannot connect. Open Setup and '
     + 'follow the steps for creating the Google client id, then try again.',
@@ -334,10 +334,10 @@ export const ACQUIRE_REFUSALS: Readonly<Record<AcquireRefusalCode, string>> = Ob
     + 'you do is still saved here on the device and will back up once you can connect.',
   declined:
     'The Google window closed without connecting. Nothing has changed, and everything you have done '
-    + 'is still saved on this device. Tap Connect to try again.',
+    + 'is still saved on this device. Tap "Connect Google" to try again.',
   'no-token':
     'Google did not return a working connection. Nothing has changed, and everything you have done '
-    + 'is still saved on this device. Tap Connect to try again.',
+    + 'is still saved on this device. Tap "Connect Google" to try again.',
 });
 
 /**
@@ -355,6 +355,19 @@ export interface GoogleConnectionDependencies {
   /** Where the remembered connection is kept, or null in a browser that refuses storage. */
   readonly storage: SmallFactStorage | null;
   readonly now?: () => Date;
+  /**
+   * TELL SOMEBODY WHICH CLIENT ID JUST WORKED — the only proof that one is the right one.
+   *
+   * A client id from the wrong Cloud project has a perfect shape and fails at the moment he signs in.
+   * Connecting is the ONLY thing this application does with a client id, so connecting once is the
+   * only thing that can prove it, and this is where that is watched happening.
+   *
+   * INJECTED RATHER THAN WRITTEN HERE, for the reason every other dependency on this interface is:
+   * this module knows about a credential and must not also know where a screen's statement keeps its
+   * evidence. It is handed the id THIS ACQUISITION USED — see the call site — and it is called ONLY
+   * on success, because a failure is not a disproof.
+   */
+  readonly noteClientIdProven?: (clientId: string) => void;
 }
 
 /**
@@ -370,6 +383,7 @@ export class GoogleConnection {
   readonly #clientId: () => string | null;
   readonly #storage: SmallFactStorage | null;
   readonly #now: () => Date;
+  readonly #noteClientIdProven: (clientId: string) => void;
 
   /** The live token. In memory only, for the lifetime of this tab, and never persisted. */
   #token: CarriedToken | null = null;
@@ -381,11 +395,14 @@ export class GoogleConnection {
   /** The request currently waiting on the library's callbacks, if there is one. */
   #pending: ((value: TokenResponseLike | null) => void) | null = null;
 
-  constructor({ identity, clientId, storage, now }: GoogleConnectionDependencies) {
+  constructor({
+    identity, clientId, storage, now, noteClientIdProven,
+  }: GoogleConnectionDependencies) {
     this.#identity = identity;
     this.#clientId = clientId;
     this.#storage = storage;
     this.#now = now ?? (() => new Date());
+    this.#noteClientIdProven = noteClientIdProven ?? (() => {});
   }
 
   /**
@@ -419,6 +436,20 @@ export class GoogleConnection {
 
     this.#token = token;
     this.#remember();
+
+    // THE ID THIS ACQUISITION USED, and never a fresh read of the setting. A sign-in takes as long as
+    // a person takes to read a consent screen, and he can edit the box on the setup page while it is
+    // in flight — a read here would stamp the NEW id as proven on the strength of the OLD id having
+    // worked, which is exactly the drift the whole proof design exists to prevent. `clientId` is the
+    // value the request was formed with, captured above.
+    //
+    // Reported rather than allowed to escape: a statement on a screen is not worth losing a
+    // connection the coach has already completed.
+    try {
+      this.#noteClientIdProven(clientId);
+    } catch (error) {
+      console.error('[google] the client id that worked could not be noted', error);
+    }
 
     return Object.freeze({
       outcome: 'acquired' as const,

@@ -82,7 +82,45 @@
  */
 
 import { UNRESOLVED } from '../../core/outbox/scrub.js';
+import { PERFORMED_ACT, performedFor } from '../shell/action-destinations.ts';
 import type { ReportPair } from './admin-report';
+
+/**
+ * THE WORDS ON THE CONTROL THAT RUNS A PASS, TAKEN FROM THE TABLE RATHER THAN REMEMBERED.
+ *
+ * These sentences said "Tap Sync" three times, and NOTHING IN THIS APPLICATION IS CALLED SYNC. It is
+ * the same defect `action-destinations.ts` records against the erase gate — a sentence describing the
+ * screen from memory — repeated in a file a previous fix had already visited. `setup-surface.ts`
+ * takes the connecting act's words the same way and for the same reason: there is one label, so two
+ * surfaces cannot come to spell it differently.
+ */
+const RUN_A_PASS_NOW: string = (() => {
+  const performed = performedFor('sync_now');
+  if (performed === null || performed.act !== PERFORMED_ACT.SYNCHRONISE) {
+    throw new Error('the act that runs a backup pass is no longer performed here, so this screen cannot name it');
+  }
+  return performed.words;
+})();
+
+/**
+ * HOW A CONTROL THAT IS NOT ALWAYS THERE IS NAMED HONESTLY.
+ *
+ * MEASURED, and it is the half that makes the rename more than a spelling correction. The control is
+ * drawn by `SyncStatus.tsx` only when the LEADING reason's action code is `sync_now`, and
+ * `core/status/reasons.js` ranks `not_yet_backed_up` LAST of eleven — so on an offline device, or one
+ * whose credential has expired, the coach is reading this screen with no such button anywhere on it.
+ * This surface cannot ask which state the indicator is in: `frame-structure.test.ts` forbids a screen
+ * from reading the synchronisation seam at all, and rightly, because a second live region is a second
+ * announcement of one state.
+ *
+ * So the sentence names the real control AND states the condition instead of asserting it, and the
+ * thing that is ALWAYS true — a connected moment runs a pass by itself — is what it leads with. A
+ * sentence that simply swapped one name for another would still be telling him to press something
+ * that is frequently not there, which is the defect rather than its fix.
+ */
+const A_CONNECTED_MOMENT =
+  `Open the app while you have a connection, or press “${RUN_A_PASS_NOW}” on the backup indicator `
+  + 'when it is offering it.';
 
 /**
  * A deletion manifest exactly as `core/store/purge.js` wrote it. Nothing renamed, nothing added.
@@ -414,16 +452,16 @@ export function describeRemoval(
     whyVerbatim: manifest.last_error,
     tried,
     whatToDo: confirmedPresent
-      ? 'Tap Sync while you have a connection. This app rewrites its part of your backup and then '
-        + 'reads it back to check, so another attempt is what clears this. If it keeps saying the '
-        + 'same thing, read this screen out to whoever set the app up for you — do not go into '
-        + 'Drive and delete files yourself.'
+      ? `${A_CONNECTED_MOMENT} This app rewrites its part of your backup and then reads it back to `
+        + 'check, so another pass is what clears this. If it keeps saying the same thing, read this '
+        + 'screen out to whoever set the app up for you — do not go into Drive and delete files '
+        + 'yourself.'
       : (tried
-        ? 'Tap Sync, or open the app while you have a connection, and it will try again and check. If '
-          + 'this one keeps saying the same thing, read this screen out to whoever set the app up for '
-          + 'you — do not go into Drive and delete files yourself.'
-        : 'Open the app while you have a connection, or tap Sync. This app checks by reading your '
-          + 'backup back, so it needs one connected moment before it can tell you they are gone.'),
+        ? `${A_CONNECTED_MOMENT} It will try again and check. If this one keeps saying the same `
+          + 'thing, read this screen out to whoever set the app up for you — do not go into Drive '
+          + 'and delete files yourself.'
+        : `${A_CONNECTED_MOMENT} This app checks by reading your backup back, so it needs one `
+          + 'connected moment before it can tell you they are gone.'),
     scope: scopeWords(manifest),
     confirmedPresent,
     foundCount: found.length,
@@ -502,6 +540,131 @@ export interface RemovalsAdminEntry {
   readonly intro: string;
   readonly linkLabel: string;
   readonly settled: boolean;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// A READ THAT FAILED, WHICH IS NOT A CONFIRMED DELETION
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * WHICH READ did not come back. One member today, declared as a closed set for the reason every
+ * other closed set in this module is: this file must hold a sentence for every member, and the set
+ * it words and the set `shell/removals-source.ts` tags must be the same one.
+ */
+export type RemovalsReadStage = 'pending';
+
+/** Which read it was. One sentence per member of {@link RemovalsReadStage}. */
+export const REMOVALS_STAGE_WORDS: Readonly<Record<RemovalsReadStage, string>> = Object.freeze({
+  pending: 'It was the list of removals waiting to be confirmed that could not be read.',
+});
+
+/** Said when the tag is one this module has no sentence for. Never a blank where a fact should be. */
+export const REMOVALS_STAGE_UNWORDED = 'This app has not recorded which part of the read it was.';
+
+/**
+ * THE SENTENCE THE THIRD STATE EXISTS TO MAKE SAYABLE, and it is the exact opposite of what shipped.
+ *
+ * What a coach saw after a failed read was *"Every client you have removed is confirmed gone from
+ * your Google Drive backup as well as from this device"* — a POSITIVE CLAIM ABOUT A REMOTE SYSTEM,
+ * made by a read that looked at nothing. This says the only true thing available: the app could not
+ * look, so it is not in a position to confirm anything.
+ *
+ * It must not be reassuring. This is the surface a coach comes to when he needs to know a departed
+ * client's data is gone, and a soft sentence here is worth less than no screen at all.
+ */
+export const COULD_NOT_READ_THE_REMOVALS =
+  'This app could not read your removals from this device. It cannot tell you whether anything is '
+  + 'waiting, and it has NOT confirmed that any removal is gone from your backup.';
+
+/**
+ * WHAT A FAILED READ DID NOT DO, and this claim is CHECKABLE ON PURPOSE.
+ *
+ * Two refusal sentences in this build once told the coach a refused save had ERASED something, when
+ * a refusal changes nothing — a sentence about a failure makes a separate, checkable claim about the
+ * state it left behind. So this one is held to what a READ can be held to: reading is not writing.
+ * `removals-source.test.ts` induces a real failure and READS THE STORE BACK to prove it.
+ */
+export const A_FAILED_REMOVALS_READ_CHANGED_NOTHING =
+  'Nothing was changed by trying. Every removal you have made is still recorded on this device, and '
+  + 'this app will still check your backup for it.';
+
+/** What to do about it. Try again first, because a read that failed once may not fail twice. */
+export const WHAT_TO_DO_ABOUT_A_FAILED_REMOVALS_READ =
+  'Close this app and open it again. If it still cannot read them, ask the person who set this app '
+  + 'up for you, and show them this screen.';
+
+/** Everything the removals surface says when its read FAILED. A different report: a different state. */
+export interface RemovalsFailureReport {
+  readonly title: string;
+  /** The app tried and could not. */
+  readonly headline: string;
+  /** Which read it was. */
+  readonly whatFailed: string;
+  /** What this does NOT mean. */
+  readonly notAVerdict: string;
+  readonly whatToDo: string;
+  /** The stage tag, literal, because it is what somebody helping him will search for. */
+  readonly stage: string;
+  /** The class of what was thrown, literal, for the same reader and the same reason. */
+  readonly errorName: string;
+}
+
+/**
+ * A FAILED READ, WORDED.
+ *
+ * Deliberately NOT a variant of {@link describeRemovals}: every sentence there is a statement about
+ * what is waiting, and after a failed read this app has not been able to look. A report that shared
+ * them would be one flag away from saying both things at once.
+ */
+export function describeFailedRemovalsRead(
+  failure: { readonly stage: string; readonly errorName: string },
+): RemovalsFailureReport {
+  return {
+    title: REMOVALS_TITLE,
+    headline: COULD_NOT_READ_THE_REMOVALS,
+    whatFailed: REMOVALS_STAGE_WORDS[failure.stage as RemovalsReadStage] ?? REMOVALS_STAGE_UNWORDED,
+    notAVerdict: A_FAILED_REMOVALS_READ_CHANGED_NOTHING,
+    whatToDo: WHAT_TO_DO_ABOUT_A_FAILED_REMOVALS_READ,
+    stage: failure.stage,
+    errorName: failure.errorName,
+  };
+}
+
+/**
+ * THE WAY IN, when the read behind it failed.
+ *
+ * The link stays — it is permanent, like every other entry on the Admin screen — but the summary may
+ * not say "nothing is waiting", which is what the settled branch below says and what a failed read
+ * used to reach. `count` is null rather than 0 for the same reason: a nought here is a figure this
+ * app never counted.
+ */
+export const REMOVALS_ADMIN_COULD_NOT_READ =
+  'This app could not read your removals from this device, so it cannot say whether anything is '
+  + 'waiting. Open this to see what happened.';
+
+/**
+ * THE WAY IN AFTER A FAILED READ, as its own function rather than a branch inside
+ * {@link describeRemovalsAdminEntry}.
+ *
+ * The same separation s17 drew between `describeJournal` and `describeFailedJournalRead`, and for
+ * the same reason: every sentence the other function produces is a statement about what is waiting,
+ * and after a failed read this app has not looked. Sharing them would be one flag away from saying
+ * both things at once — and the settled branch of the other function is exactly the sentence a
+ * failed read used to reach.
+ *
+ * `settled` is FALSE. It is what the card reads to decide whether to draw itself quietly, and a
+ * failed read is not a quiet state. `count` is 0 because the shape requires a number; the surface
+ * draws {@link RemovalsAdminEntry.intro}, which says the app could not count, rather than the
+ * figure — see `AdminScreen.tsx`.
+ */
+export function describeFailedRemovalsAdminEntry(): RemovalsAdminEntry {
+  return {
+    title: REMOVALS_TITLE,
+    count: 0,
+    intro: REMOVALS_ADMIN_COULD_NOT_READ,
+    linkLabel: 'See what happened',
+    settled: false,
+  };
 }
 
 /**

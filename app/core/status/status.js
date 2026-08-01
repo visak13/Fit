@@ -48,6 +48,7 @@
  */
 
 export * from './levels.js';
+export * from './on-this-device.js';
 export * from './reasons.js';
 export * from './completion.js';
 export * from './statement.js';

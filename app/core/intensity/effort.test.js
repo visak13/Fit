@@ -60,7 +60,15 @@ test('a MEASURED baseline becomes the reference, and the sentence names the day 
   assert.equal(effort.reference.level, 'low');
   assert.equal(effort.reference.work, 10);
   assert.equal(effort.reference.recorded_at, T.latest);
-  assert.ok(effort.reference.note.includes('what he did on 2026-07-01'), effort.reference.note);
+  // TWO OPPOSED FAILURES on this sentence, whose wording was changed to match an INTENTIONAL COPY
+  // CORRECTION — it used to say "what he did" about a client record that holds no gender.
+  // REQUIRING — the day it came from must still be NAMED, and this half is worded to stay green if
+  // the pronoun is put back, so it guards the claim rather than the phrasing.
+  assert.match(effort.reference.note, /Built from what .*did on 2026-07-01/, effort.reference.note);
+  // FORBIDDING — and the client must not be gendered to say it.
+  assert.ok(!/\b(he|him|his)\b/i.test(effort.reference.note),
+    'the client record cannot carry gender, so a sentence about the client may not assume one: '
+      + effort.reference.note);
   // Ten repetitions at the low point, spread up the exercise's own ladder to the medium point, is
   // fifteen — and fifteen is a number nobody wrote. The library's medium point is twelve and he has
   // managed ten, so twelve is where it lands, and it is still more than he last did because the curve
@@ -107,7 +115,44 @@ test('THE INVARIANT: a rising curve is HELD at what he has actually managed, and
   assert.equal(effort.clamped, true);
   assert.ok(effort.clamp_note.includes('Held at 30'), effort.clamp_note);
   assert.ok(effort.clamp_note.includes('75'), 'he is told what the shape alone would have asked for');
-  assert.ok(effort.clamp_note.includes('the most he has actually managed here'), effort.clamp_note);
+  // TWO OPPOSED FAILURES, same intentional copy correction. REQUIRING: the note must still ATTRIBUTE
+  // the ceiling to what the client has managed — worded to survive the masculine version, so that a
+  // note which drops the attribution altogether is what reds it.
+  assert.match(effort.clamp_note, /is the most .*has actually managed here/, effort.clamp_note);
+  // FORBIDDING: and it must not attribute it to a gender the record does not hold.
+  assert.ok(!/\b(he|him|his)\b/i.test(effort.clamp_note),
+    'the client record cannot carry gender, so a sentence about the client may not assume one: '
+      + effort.clamp_note);
+});
+
+/**
+ * THE REST FLOOR HELD BY THE CLIENT'S OWN SHORTEST REST, which is the other half of `describeRestSource`
+ * and had no test of its own: every existing rest case lands on the LIBRARY's number, so the sentence
+ * naming the CLIENT as the source of the floor was painted by nothing this suite could see.
+ *
+ * Twenty seconds' rest at the low point, shaped up to the high point, subtracts thirty and reaches
+ * minus ten — under both sources, and the client's twenty is the lower of the two.
+ */
+test('THE REST FLOOR names the CLIENT when it is their own shortest rest that holds it', () => {
+  const baseline = baselineFor([
+    aPerformedRecord({ exerciseId: 'push-up', recordedAt: T.latest, repetitions: 5, sets: 2, restSeconds: 20, level: 'low' }),
+  ], 'push-up');
+
+  const shapeAloneWouldHaveGiven = 20 + (PUSH_UP.scaling.high.rest_seconds - PUSH_UP.scaling.low.rest_seconds);
+  const floor = Math.min(PUSH_UP.scaling.high.rest_seconds, 20);
+  assert.ok(shapeAloneWouldHaveGiven < floor, 'the floor genuinely has something to catch here');
+
+  const effort = scaleToLevel(PUSH_UP, 'high', null, baseline);
+
+  assert.equal(effort.rest_seconds, 20, 'held at the client s own shortest rest, not the library s');
+  assert.equal(effort.clamped, true);
+  // TWO OPPOSED FAILURES, same intentional copy correction — this sentence said "he" too.
+  // REQUIRING: the floor must still be attributed to the client s own rest.
+  assert.match(effort.clamp_note, /20 seconds is the least .*has actually rested here/, effort.clamp_note);
+  // FORBIDDING: and not by assuming a gender the record cannot hold.
+  assert.ok(!/\b(he|him|his)\b/i.test(effort.clamp_note),
+    'the client record cannot carry gender, so a sentence about the client may not assume one: '
+      + effort.clamp_note);
 });
 
 test('THE INVARIANT holds against the ROUTINE\'S OWN number when nothing is recorded', () => {

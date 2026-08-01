@@ -50,9 +50,9 @@
  * disagree.
  */
 
-import { libraryPage } from '../../core/store/store.js';
+import { libraryPage, listClients } from '../../core/store/store.js';
 import { NOT_HELD_HERE, describeRefusal } from './modular-control';
-import type { FactValues, RefusalReport, SubstituteChoice } from './modular-control';
+import type { ArrivalChoice, FactValues, RefusalReport, SubstituteChoice } from './modular-control';
 import { readExerciseNames } from './runner-source';
 import type { SessionView } from './runner-source';
 import { heldSession } from './session-handover';
@@ -77,6 +77,18 @@ interface RecordingHandle {
     produce: (content: Record<string, unknown>) => Record<string, unknown>,
   ) => Promise<unknown>;
   refresh: () => Promise<SessionView>;
+}
+
+/**
+ * The live handle as the late-arrival wire touches it: ONE verb, and it owns none of it.
+ *
+ * Structural rather than the class, exactly as `session-ending-source.ts` names only `complete` and
+ * `session-readings-source.ts` names only what it captures. Naming `addClient` alone is the point —
+ * `removeClient` sits beside it on the same class, carries its own refusal, and is not in this
+ * file's reach.
+ */
+interface ArrivingHandle {
+  addClient: (clientId: string, options?: Record<string, unknown>) => Promise<unknown>;
 }
 
 /** The session as it stands after a move, with the names of everything it now mentions. */
@@ -189,6 +201,39 @@ export function readTheSessionBack(
 }
 
 /**
+ * SOMEBODY ARRIVED AFTER THE SESSION STARTED — put them in it.
+ *
+ * ## Why this is one line here rather than a seam of its own
+ *
+ * `addClient` USES THE LEASE THIS HANDLE ALREADY HOLDS: it passes `{ lease: this.lease }` to the
+ * store and takes none of its own, so there is no lease choreography to design and nothing here that
+ * `recordTheLine` does not already do. It is the same three lines, through the same held handle, and
+ * every way it can refuse — `SessionClosedError` from the handle's own open check, `StoreLeaseError`
+ * from the write — is already in `modular-control.ts`'s coach-facing list, so it needs no failure
+ * taxonomy of its own either.
+ *
+ * ## THE LATE ARRIVAL IS ORDINARY, AND THE APPLICATION USED TO REFUSE IT WITH NOWHERE TO GO
+ *
+ * Recording against somebody not in the session is refused by `core/session/journal.js` with a
+ * sentence that told the coach to add them first — while no file under `src/` called `addClient` at
+ * all. This is the call that makes that sentence true, and the sentence now names the control drawn
+ * over this function.
+ *
+ * ONE PERSON, ONE ROUTINE. A session drives one routine however many people are in it, so there is
+ * nothing to choose here beyond who: the arrival joins the routine already running. The core makes
+ * the write idempotent — adding somebody already in the session returns the record unchanged rather
+ * than listing them twice.
+ */
+export function addTheLateArrival(
+  store: LocalStore,
+  sessionId: string,
+  clientId: string,
+): Promise<MoveResult> {
+  return throughTheHeldSession<ArrivingHandle>(store, sessionId, 'late arrival', (live) =>
+    live.addClient(clientId));
+}
+
+/**
  * How many exercises the substitution pool offers at once.
  *
  * The library page's own default is 25, and the pool is deliberately wider: the shipped catalogue
@@ -254,6 +299,99 @@ export function readSubstitutionPoolInto(
     },
     (error: unknown) => {
       console.error('[session] the exercise library could not be read for a substitution', error);
+    },
+  );
+
+  return () => {
+    live = false;
+  };
+}
+
+/**
+ * How many people the arrival picker offers at once.
+ *
+ * The same number and the same reasoning as {@link SUBSTITUTION_POOL_LIMIT}: a coach's register grows
+ * for years, so this is a PAGE and not the whole of it, and the screen says plainly when there is
+ * more rather than implying he is looking at everybody.
+ */
+export const ARRIVAL_REGISTER_LIMIT = 200;
+
+/** The people who could be added, and whether that is everybody. */
+export interface ArrivalRegister {
+  readonly choices: readonly ArrivalChoice[];
+  /** False when the register holds more than one page. Said to him rather than swallowed. */
+  readonly whole: boolean;
+}
+
+/**
+ * THE PEOPLE WHO COULD BE ADDED TO A RUNNING SESSION: the register, not the session's own roster.
+ *
+ * THE ONE READ THE RUNNER DID NOT ALREADY DO. Every other list this screen draws comes off the
+ * session — who is in it, what they did, what the routine asked for — and a late arrival is by
+ * definition somebody the session has never mentioned. So it is read from the register, exactly as
+ * the substitution pool is read from the catalogue and for the same reason: the thing he needs is
+ * the one the session cannot tell him about.
+ *
+ * ## `listClients` AND NOT `libraryPage`, AND THAT WAS MEASURED RATHER THAN CHOSEN
+ *
+ * The substitution pool's read is `libraryPage`, and this was written the same way first. IT THROWS:
+ * `NotFoundError: No index "by_content_key" on "clients"`. The catalogue is content-keyed and the
+ * register is not — people are not library content, they have no content key, and the store says so
+ * by having no such index. `listClients` is the register's OWN query, which the register screen has
+ * always used: alphabetical by name, and archived people left out unless they are asked for.
+ *
+ * SO THE ARCHIVED QUESTION IS ANSWERED BY THE STORE'S OWN CONVENTION rather than by an opinion held
+ * here. Somebody the coach has stopped training does not appear in the picker, which is exactly what
+ * he sees on his register — and if he wants them back it is the register that brings them back, one
+ * place rather than two.
+ *
+ * WHO IS ALREADY IN THE ROOM IS NOT SUBTRACTED HERE. That is the screen's to do, because the screen
+ * is what knows the roster it is drawing beside — the same division `readTheSubstitutionPool` keeps
+ * against the line being replaced.
+ */
+export async function readTheArrivalRegister(store: LocalStore): Promise<ArrivalRegister> {
+  const page = await listClients(store, { limit: ARRIVAL_REGISTER_LIMIT }) as {
+    items: readonly { record_id?: string; content?: { name?: string } }[];
+    done: boolean;
+  };
+
+  const choices: ArrivalChoice[] = [];
+  for (const record of page.items) {
+    const clientId = record.record_id;
+    const name = record.content?.name;
+    // A person the coach cannot be offered BY NAME is not somebody he can knowingly add to a session,
+    // and offering a record id would be a machine talking on the screen he reads with a client in
+    // front of him. The identity is the RECORD ID here and not a content key, because that is what
+    // a session's `client_ids` holds and what `addClient` is given.
+    if (typeof clientId === 'string' && typeof name === 'string' && name.length > 0) {
+      choices.push({ clientId, name });
+    }
+  }
+
+  return { choices, whole: page.done };
+}
+
+/**
+ * Read the register and publish it, dropping a read that arrives after the caller has gone.
+ *
+ * A failure publishes NOTHING and is logged, exactly as the substitution pool's read does: an empty
+ * register would read as "you train nobody", which is a nought this application never counted and
+ * would be a lie told at the moment he is trying to add somebody.
+ *
+ * @returns cancel
+ */
+export function readArrivalRegisterInto(
+  store: LocalStore,
+  publish: (register: ArrivalRegister) => void,
+): () => void {
+  let live = true;
+
+  void readTheArrivalRegister(store).then(
+    (register) => {
+      if (live) publish(register);
+    },
+    (error: unknown) => {
+      console.error('[session] your register could not be read for a late arrival', error);
     },
   );
 

@@ -30,6 +30,7 @@ import { GoogleConnection } from './google-identity.ts';
 import type { GoogleIdentityLike } from './google-identity.ts';
 import { GoogleMeetLinks } from './google-meet.ts';
 import { browserSettings, coachingCalendarId, googleClientId } from './google-settings.ts';
+import { CLIENT_ID_PROVEN_KEY, COACHING_CALENDAR_PROVEN_KEY, recordProvenValue } from './setting-proof.ts';
 
 /** Everything this tab's Google access is made of. */
 export interface GoogleOnThisDevice {
@@ -68,6 +69,11 @@ export function googleOnThisDevice(global: typeof globalThis = globalThis): Goog
     identity: () => identityLibrary(global),
     clientId: () => googleClientId(storage),
     storage,
+    // WHERE "ENTERED" BECOMES "PROVEN" FOR THE CLIENT ID, and it is wired HERE rather than in either
+    // module because this file is the one that already holds the storage and the single connection.
+    // `setting-proof.ts` argues at length why the VALUE is remembered rather than a flag; the short
+    // version is that a flag survives him changing the id underneath it.
+    noteClientIdProven: (used) => recordProvenValue(storage, CLIENT_ID_PROVEN_KEY, used),
   });
 
   built = {
@@ -77,6 +83,10 @@ export function googleOnThisDevice(global: typeof globalThis = globalThis): Goog
       // tap that starts the session is where the acquisition happens, and this reads what it left.
       token: () => connection.tokenForRequest(),
       coachingCalendarId: () => coachingCalendarId(storage),
+      // AND WHERE IT BECOMES "PROVEN" FOR THE COACHING CALENDAR. A DIFFERENT PROOF, deliberately: a
+      // sign-in says nothing about whether a calendar can carry an event, and there is no pre-flight
+      // that could ask under the narrow scope. The mint that lands is the only answer available.
+      noteCalendarProven: (used) => recordProvenValue(storage, COACHING_CALENDAR_PROVEN_KEY, used),
     }),
   };
   return built;

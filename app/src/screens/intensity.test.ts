@@ -43,6 +43,7 @@ import {
   EMPTY_DRAFT, changeDraft, draftKey, lineDraft, noControls, openPanel, recorded, valuesForLine,
 } from './modular-control';
 import type { Prescription } from './modular-control';
+import { DESTINATIONS } from '../shell/navigation';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -74,8 +75,8 @@ function anEffort(over: Partial<ProposedEffort> = {}): ProposedEffort {
     repetitions: 14,
     durationSeconds: null,
     restSeconds: 30,
-    referenceWords: 'Built from what he did on 2026-07-01: 3 sets of 14 repetitions, resting 30 '
-      + 'seconds, at the high point.',
+    referenceWords: 'Built from what this client did on 2026-07-01: 3 sets of 14 repetitions, '
+      + 'resting 30 seconds, at the high point.',
     referenceSource: 'measured-performance',
     heldBackWords: null,
     ...over,
@@ -151,8 +152,8 @@ function aProposal(over: Partial<RoomProposal> = {}): RoomProposal {
         name: 'The fresh one',
         calibrated: false,
         baselineWords: 'There is nothing recorded for this client yet, so every number here comes from '
-          + 'your own exercise library and this routine rather than from anything he has done. Read it '
-          + 'as a starting point, not as a measurement.',
+          + 'your own exercise library and this routine rather than from anything this client has '
+          + 'done. Read it as a starting point, not as a measurement.',
         efforts: [
           anEffort({
             measurement: 'time', repetitions: null, durationSeconds: 25, sets: 3, restSeconds: 45,
@@ -684,7 +685,14 @@ describe('the numbers and where they came from', () => {
         assert.ok(effort.referenceWords.length > 0, 'a position arrived with no provenance at all');
       }
     }
-    assert.match(proposal.people[0].efforts[1].referenceWords, /Built from what he did on 2026-07-01/);
+    // TWO OPPOSED FAILURES, and this fixture's wording was changed to match an INTENTIONAL COPY
+    // CORRECTION in `core/intensity/effort.js` — it said "what he did" of a client record that
+    // deliberately holds no gender. REQUIRING keeps the claim (the day it was built from) and is
+    // worded to survive the masculine version; FORBIDDING is the pronoun itself.
+    assert.match(proposal.people[0].efforts[1].referenceWords, /Built from what .*did on 2026-07-01/);
+    assert.ok(!/\b(he|him|his)\b/i.test(proposal.people[0].efforts[1].referenceWords),
+      'the client record cannot carry gender, so a sentence about the client may not assume one: '
+        + proposal.people[0].efforts[1].referenceWords);
   });
 
   /**
@@ -700,6 +708,13 @@ describe('the numbers and where they came from', () => {
     assert.equal(calibrationMark(true), 'Built from their own record');
     assert.equal(calibrationMark(false), 'From your library only');
     assert.match(proposal.people[1].baselineWords, /not as a measurement/);
+    // The same opposed pair on the sentence the uncalibrated person is given, for the same
+    // intentional copy correction: the claim must be made, and made without gendering the client.
+    assert.match(proposal.people[1].baselineWords,
+      /every number here comes from your own exercise library and this routine/);
+    assert.ok(!/\b(he|him|his)\b/i.test(proposal.people[1].baselineWords),
+      'the client record cannot carry gender, so a sentence about the client may not assume one: '
+        + proposal.people[1].baselineWords);
     assert.notEqual(
       calibrationMark(true),
       calibrationMark(false),
@@ -861,7 +876,37 @@ describe('what it says to the coach', () => {
     assert.match(REJECT_WORDS, /Nothing has been recorded/);
     assert.match(COULD_NOT_SHAPE, /Nothing has been changed/);
     assert.match(acceptedWords('Steady'), /Nothing has been recorded/);
-    assert.match(NO_PATTERNS, /admin/);
+  });
+
+  /**
+   * THE EMPTY-LIBRARY SENTENCE SENDS HIM TO THE RIGHT SCREEN FOR EACH OF ITS TWO HALVES.
+   *
+   * It used to read "Restoring the shipped library from the admin panel brings them back, and you can
+   * write your own there too". The RESTORE half was right and the WRITE half was not: curve authoring
+   * — `LibraryPatterns`, "Add a curve" — is mounted on `RoutinesScreen.tsx`, at `/routines`, and has
+   * never been on Admin. Nothing refuses and nothing fails, so he simply hunts Admin for a control
+   * that lives elsewhere with a client waiting. Its own sibling `library-patterns.ts` had it right.
+   *
+   * THE OLD ASSERTION WAS `/admin/` AND IT PASSED THE WHOLE TIME, because a sentence naming Admin
+   * twice satisfies it exactly as well as one naming Admin once. Re-aiming it at the new wording
+   * would be indistinguishable in the diff from softening it, so it is replaced by one that pins the
+   * DEFECT: both destinations named, each from `DESTINATIONS` rather than typed here.
+   */
+  it('sends him to Admin to restore the shipped curves and to Routines to write his own', () => {
+    const admin = DESTINATIONS.find((one) => one.path === 'admin');
+    const routines = DESTINATIONS.find((one) => one.path === 'routines');
+    assert.ok(admin !== undefined && routines !== undefined, 'the navigation no longer carries both');
+
+    assert.ok(NO_PATTERNS.includes(admin.label),
+      `the restore half no longer names ${admin.label}: ${NO_PATTERNS}`);
+    assert.ok(NO_PATTERNS.includes(routines.label),
+      `the write half sends him somewhere other than ${routines.label}, where "Add a curve" actually `
+      + `is: ${NO_PATTERNS}`);
+    // AND NOT THE OLD SENTENCE, which named one screen for both halves. Without this the rule above
+    // would pass on any wording that mentioned both words anywhere, including the broken one plus a
+    // stray reference.
+    assert.equal(/admin panel/iu.test(NO_PATTERNS), false,
+      'it still calls Admin "the admin panel", which is not what the navigation calls it');
   });
 
   it('names a stand-in and a level in the coach s terms', () => {

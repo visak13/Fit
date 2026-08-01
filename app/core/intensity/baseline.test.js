@@ -25,6 +25,19 @@ test('NO HISTORY is an ordinary case, and it says so in words the coach can read
     assert.ok(baseline.note.includes('nothing recorded for this client yet'), baseline.note);
     assert.ok(baseline.note.includes('starting point, not as a measurement'),
       'the sentence must refuse to look measured: ' + baseline.note);
+
+    // TWO OPPOSED FAILURES, and the second was WRITTEN TO MATCH AN INTENTIONAL COPY CORRECTION: this
+    // sentence used to say "anything he has done" about a record that deliberately holds no gender.
+    // REQUIRING — the claim must still be MADE. A rewrite that quietly drops it satisfies any rule
+    // about pronouns by saying nothing at all, which is the failure the forbidding half cannot see.
+    assert.ok(baseline.note.includes('every number here comes from your own exercise library and this routine'),
+      'the sentence must still say where every number came from: ' + baseline.note);
+    // FORBIDDING — and it must not put a gender on the client in order to say it. `client.js` holds
+    // name, notes and adaptation_flag and nothing else; `vocabularies.js` refuses "gender" as
+    // sensitive. A masculine pronoun here is unconditional for every client the coach will ever enter.
+    assert.ok(!/\b(he|him|his)\b/i.test(baseline.note),
+      'the client record cannot carry gender, so a sentence about the client may not assume one: '
+        + baseline.note);
   }
 
   // NON-VACUITY: with one real record the very same reader reports a measurement instead, so the
@@ -201,6 +214,13 @@ test('THE WORDS: an unshaped session is still usable, and the sentence says what
   assert.ok(!unshaped.note.includes('nothing recorded for this client yet'),
     'there IS something recorded, and saying otherwise is its own small lie: ' + unshaped.note);
 
+  // THE SAME OPPOSED PAIR on the near-neighbour sentence, for the same intentional copy correction.
+  assert.ok(unshaped.note.includes('every number here comes from your own exercise library and this routine'),
+    'the sentence must still say where every number came from: ' + unshaped.note);
+  assert.ok(!/\b(he|him|his)\b/i.test(unshaped.note),
+    'the client record cannot carry gender, so a sentence about the client may not assume one: '
+      + unshaped.note);
+
   const mixed = readBaseline(aHistory([
     aPerformedRecord({ exerciseId: 'push-up', recordedAt: T.latest, repetitions: 25 }),
     aPerformedRecord({ exerciseId: 'plank', recordedAt: T.older, durationSeconds: 40, level: 'medium' }),
@@ -208,8 +228,15 @@ test('THE WORDS: an unshaped session is still usable, and the sentence says what
   assert.equal(mixed.kind, 'measured');
   assert.ok(mixed.note.includes('Built from what this client has done'), mixed.note);
   assert.ok(mixed.note.includes('1 earlier record does not say which point it was worked at'), mixed.note);
-  assert.ok(mixed.note.includes('calibrated on less of his record than it might have been'),
-    'what it means FOR HIM, not an account of which field was missing: ' + mixed.note);
+  // REQUIRING — deliberately stopping SHORT of the reworded phrase, so this half still stands when
+  // the masculine wording is put back: what it guards is that the cost is STATED, not how it is
+  // worded. The wording it now matches was changed to match an intentional copy correction.
+  assert.ok(mixed.note.includes('this is calibrated on less of'),
+    'what it means for the client, not an account of which field was missing: ' + mixed.note);
+  // FORBIDDING — the opposed failure: saying it by assuming the client is a man.
+  assert.ok(!/\b(he|him|his)\b/i.test(mixed.note),
+    'the client record cannot carry gender, so a sentence about the client may not assume one: '
+      + mixed.note);
 
   // NON-VACUITY: with nothing left out the sentence does NOT carry that clause, so the assertions
   // above are about the exclusion rather than about a sentence that always apologises.

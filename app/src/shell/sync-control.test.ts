@@ -37,12 +37,12 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { LEVEL, LEVELS } from '../../core/status/levels.js';
 import { REASON, REASONS } from '../../core/status/reasons.js';
 import { NO_BACKUP_YET, SyncIndicator, SyncStatusProvider } from './SyncStatus.tsx';
-import type { SyncStatusReading } from './sync-indicator.ts';
+import type { SyncSeamReading, SyncStatusReading } from './sync-indicator.ts';
 import { NO_SYNC_ACTIONS, SyncActionsProvider } from './sync-actions.tsx';
 import { ACTION_DESTINATIONS, performedFor } from './action-destinations.ts';
 
 /** A reading whose leading reason is the one named, built from the core's own constants. */
-function readingWithReason(code: string, over: Partial<SyncStatusReading> = {}): SyncStatusReading {
+function readingWithReason(code: string, over: Partial<SyncStatusReading> = {}): SyncSeamReading {
   const reason = Object.freeze({ code, ...REASONS[code] });
   return Object.freeze({
     ...NO_BACKUP_YET,
@@ -51,11 +51,11 @@ function readingWithReason(code: string, over: Partial<SyncStatusReading> = {}):
     reason,
     reasons: Object.freeze([reason]),
     ...over,
-  }) as SyncStatusReading;
+  }) as SyncSeamReading;
 }
 
 /** The indicator, rendered with a reading and with or without the acts above it. */
-function paint(reading: SyncStatusReading, actions: typeof NO_SYNC_ACTIONS | null): string {
+function paint(reading: SyncSeamReading, actions: typeof NO_SYNC_ACTIONS | null): string {
   const indicator = createElement(SyncIndicator);
   const withActs = actions === null
     ? indicator
@@ -131,7 +131,7 @@ describe('the control appears only where it can honour itself', () => {
       summary: LEVELS[LEVEL.UP_TO_DATE].summary,
       reason: null,
       reasons: Object.freeze([]),
-    }) as SyncStatusReading;
+    }) as SyncSeamReading;
 
     const html = paint(backedUp, NO_SYNC_ACTIONS);
     assert.match(html, /class="sync"/, 'the indicator is permanent — it does not go away when calm');

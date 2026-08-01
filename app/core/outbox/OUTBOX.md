@@ -260,26 +260,64 @@ choose a colour, and does not decide what is alarming.
 
 ---
 
-## 8. What is kept, and what is pruned
+## 8. What is kept, and what is bounded
 
-Delivered entries are **kept** until `pruneDelivered` is called with a cutoff. They are the evidence
-that a delivery happened — which is what makes "it is in the backup" checkable rather than merely
-intended — and they are the local half of the duplicate defence, since a re-enqueue of a delivered key
-finds it and does not queue again. How long that protection lasts is therefore a decision for a caller
-who knows, not a default that quietly forgets.
+Delivered entries are **kept**. They are the evidence that a delivery happened — which is what makes
+"it is in the backup" checkable rather than merely intended — and they are the local half of the
+duplicate defence, since a re-enqueue of a delivered key finds it and does not queue again.
 
-**Nothing else is ever removed.** A rejected or ambiguous entry is not pruned by age: the problem it
-records does not stop mattering because time passed.
+They are also, unavoidably, a **second full copy** of every record they carry, so keeping them is
+bounded. **The bound is applied by `recordDelivered`, inside the transaction that makes an entry
+delivered, and it is a COUNT.** `retention.js` beside `queue.js` is the decision; the mechanism that
+carries it out is module-private and there is no exported prune.
 
-### 8.1 A purged client is taken out of the queue — the one exception to "kept"
+### 8.0 This reverses two positions this file used to hold, and both reversals are the point
+
+**"This package holds no policy" no longer applies to retention.** It used to say that how long
+delivery evidence lasts was *"a decision for a caller who knows, not a default that quietly forgets"*,
+and that a retention constant sitting in this directory would be exactly the default it refused. Two
+callers were tried under that rule. The first was nobody — `pruneDelivered` shipped with no production
+caller, and the measured cost was three delivered entries carrying a purged client's name, notes and
+readings in plain text, indefinitely, after the coach had been told that client was deleted. The
+second was the tail of `syncNow`, which is a place a pass REACHES: it can throw, the tab can be torn
+down mid-flight, and the departing `leave` trigger skipped the prune deliberately so housekeeping was
+not competing with the flush. After every one of those the bound was not applied and nothing said so.
+
+The compiled security specialist's amendment **L3** names this queue as one of the two failures it
+answers, and asks for the bound *"inside the only function that can add to it, in the same
+transaction"*, with the pruning function *"module-private as part of the same decision"* so that a
+test **cannot** report that "prune works when invoked". A bound inside the only growth path cannot be
+held by another package, because the growth path is here. So the policy is here. The older instinct
+was right about defaults and wrong about where safety comes from.
+
+**The bound is counted, not dated — and the authority for that is L3, not L4.** L4 (*"Retention on an
+audit log must be counted, NEVER dated"*) is written about the audit log, and its counted alternative
+rests on a sequence *"assigned by the chain"*, which is the journal's and not this queue's. It is not
+claimed here that L4 reaches this package. The reason the bound counts is L3's own promise — that the
+bound *"cannot be exceeded by any ordering, configuration or refactor"* — which a dated bound cannot
+keep on this device: the cutoff of an age prune comes from the device clock, and a clock set backwards
+means nothing is ever old enough to reach, for ever, **while every prune reports success**. `seq` is
+allocated inside the enqueueing transaction and no setting can move it.
+
+### 8.1 What the bound may never reach
+
+Only `delivered`. **Nothing else is ever removed**: a rejected or ambiguous entry is not bounded at
+all, because the problem it records does not stop mattering because more work landed. That range is
+what spares the entry §8.3 is about, and `retention.test.js` and `status.test.js` both assert the
+survivals BEFORE any tally, so a widened range reds on them rather than on a count.
+
+The **newest** delivered entry always survives, by construction: a bound that could discard the entry
+whose own delivery triggered it would lose the evidence of the delivery that just happened.
+
+### 8.2 A purged client is taken out of the queue — the one exception to "kept"
 
 Keeping delivered entries had a consequence nobody had joined up, and it was **measured, not
 theorised**: a client created with a distinctive name and notes, synchronised, hard-deleted and
 synchronised three more times left the record stores clean and the remote copies clean — while three
 delivered entries still carried the name, the general notes and the readings **in plain text, for
-ever**. The per-client purge swept every store except the one that accumulates by design, and
-`pruneDelivered` is caller-owned with no caller anywhere outside a test. Neither half was wrong on its
-own; the gap was between them, which is why no single suite's own tests caught it.
+ever**. The per-client purge swept every store except the one that accumulates by design, and the only
+prune in the build was caller-owned with no caller anywhere outside a test. Neither half was wrong on
+its own; the gap was between them, which is why no single suite's own tests caught it.
 
 So `purgeClient` now sweeps the queue too, in its own transaction, through
 `scrubClientFromOutbox` in `scrub.js`. The rules are the purge's two rules:
@@ -310,10 +348,27 @@ data, so the entry is **left exactly as it is** and reported in the purge's mani
 by identity. Nothing in this core queues such a payload today, so that is a declared boundary with a
 test on it, not a live path.
 
-**What was deliberately left alone.** `pruneDelivered` still has no caller and still prunes by age
-only: how long the delivery evidence and the duplicate defence last is a decision for a caller who
-knows. It is no longer load-bearing for a departed client's privacy, because the purge reaches
-delivered entries directly rather than waiting for them to age out.
+**THE BOUND DOES NOT MAKE THIS SCRUB REDUNDANT, AND MUST NEVER BE READ AS DOING SO.** The two answer
+different questions and neither substitutes for the other. The bound removes the OLDEST evidence when
+NEW deliveries arrive; a departed client's data has to leave when the coach deletes them, not when a
+couple of hundred later deliveries happen to push it out. The purge reaches delivered entries directly
+and immediately, which is the only timing that means anything to the person who was deleted.
+
+### 8.3 One boundary, stated because it is easy to read the wrong way
+
+The unresolved opaque-shared entry above survives the bound because it is **not delivered**, and so is
+outside the only range the bound can walk. **Nothing checks whether an entry is unresolved.** Nothing
+in this core can queue an opaque payload today, so a DELIVERED one cannot arise from the application —
+but the day something does, the bound WILL be able to reach it and the surface that keeps naming those
+entries would go quiet.
+
+Two tests hold that boundary rather than prose, in the two shapes it takes:
+`core/outbox/retention.test.js` proves the entry survives untouched, byte for byte, across three times
+the cap, while it stays pending; `core/sync/retention.test.js` records the other half — **a
+synchronisation pass FLUSHES pending entries, so a pass is exactly what turns such an entry into a
+delivered one**, and a delivered one is inside the range. The day a step queues an opaque payload for
+real, the sparing needs a guard of its own rather than resting on status, and those tests are what
+will say so.
 
 ---
 
@@ -322,7 +377,7 @@ delivered entries directly rather than waiting for them to age out.
 From `C:/Projects/Fit/app`:
 
 ```powershell
-node --test core/outbox      # 74 tests, no install step, nothing to build
+node --test core/outbox      # 75 tests, no install step, nothing to build
 ```
 
 On this runtime a positional argument to `--test` is resolved as a **module**, not searched as a

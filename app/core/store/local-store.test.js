@@ -14,7 +14,7 @@ import {
 import { ALL_ENCRYPTED_FIELD_NAMES, createEnvelope, reviseEnvelope } from '../model/model.js';
 import { StoreConflictError, StoreNotFoundError, StoreValidationError } from './errors.js';
 import {
-  openLocalStore, participantRowsFor, PRUNES_UNREFERENCED_CONTENT, storesFor,
+  APPLY, openLocalStore, participantRowsFor, PRUNES_UNREFERENCED_CONTENT, storesFor,
 } from './local-store.js';
 import { libraryPage } from './queries.js';
 import { PARTICIPANTS_STORE, RECORD_STORES, schemaCoverage } from './schema.js';
@@ -200,7 +200,7 @@ test('the seed import lands in one transaction and prunes NOTHING', async () => 
   records.push(createEnvelope({ type: 'routine', content: routine, device: 'coach-laptop', now: T0 }));
 
   const result = await store.importRecords(records);
-  assert.deepEqual(result, { written: 4, skipped: 0 });
+  assert.deepEqual(result, { written: 4, skipped: 0, reconciled: 0 });
 
   assert.equal(PRUNES_UNREFERENCED_CONTENT, false,
     'a declared value, not a missing check: unreferenced content is NORMAL and pruning it is a defect');
@@ -212,7 +212,7 @@ test('the seed import lands in one transaction and prunes NOTHING', async () => 
 
   // Re-importing the same set changes nothing, and still removes nothing.
   const again = await store.importRecords(records);
-  assert.deepEqual(again, { written: 0, skipped: 4 });
+  assert.deepEqual(again, { written: 0, skipped: 4, reconciled: 0 });
   assert.equal(await store.count('exercise'), 3);
   await store.close();
 });
@@ -235,13 +235,13 @@ test('a record from elsewhere is applied under the model last-write-wins rule', 
   const theirs = reviseEnvelope(mine, { ...mine.content, notes: 'from the phone' },
     { device: 'coach-phone', now: T1 });
   const applied = await store.putRecord(theirs);
-  assert.equal(applied.applied, true);
+  assert.equal(applied.outcome, APPLY.APPLIED);
   assert.equal((await store.get('client', mine.record_id)).content.notes, 'from the phone');
 
   // An older revision arriving late does not undo the newer one.
   const stale = reviseEnvelope(mine, { ...mine.content, notes: 'stale' }, { device: 'coach-phone', now: T0 });
   const rejected = await store.putRecord(stale);
-  assert.equal(rejected.applied, false);
+  assert.equal(rejected.outcome, APPLY.KEPT_LOCAL);
   assert.equal((await store.get('client', mine.record_id)).content.notes, 'from the phone');
   await store.close();
 });

@@ -62,7 +62,9 @@ import { Fragment } from 'react';
 import { Glyph } from '../design/Glyph';
 import { LocalStoreNotice, useLocalStore } from '../platform/LocalStore';
 import { useRemovals } from '../shell/Removals';
-import { NO_NAME_IS_DELIBERATE, REMOVALS_TITLE, describeRemovals } from './removals';
+import {
+  NO_NAME_IS_DELIBERATE, REMOVALS_TITLE, describeFailedRemovalsRead, describeRemovals,
+} from './removals';
 import type { LeftBehindItem, RemovalItem } from './removals';
 import type { ReportPair } from './admin-report';
 
@@ -184,7 +186,42 @@ function RemovalCard({ item }: { item: RemovalItem }) {
 
 export function RemovalsScreen() {
   const opening = useLocalStore();
-  const report = describeRemovals(useRemovals());
+  const reading = useRemovals();
+  /**
+   * THE READ FAILED, WHICH IS A THIRD STATE AND NOT A QUIET SCREEN.
+   *
+   * The store-open branch below discriminates STORE-DID-NOT-OPEN from OPEN and says nothing about a
+   * read that failed AFTER opening — which is exactly how the defect survived: the guard existed,
+   * looked like it covered this, and did not. `shell/Removals.tsx` states the whole of it.
+   */
+  if (reading.status === 'failed') {
+    const couldNotRead = describeFailedRemovalsRead(reading.failure);
+    return (
+      <div className="screen">
+        <section className="card stack" aria-labelledby="screen-removals">
+          <h2 id="screen-removals" className="title-screen">{couldNotRead.title}</h2>
+          {/*
+            NO FIGURE IS DRAWN HERE, and its absence is the fix. The count in this position is the
+            first thing on the screen and it used to read `0` after a failed read — a nought this
+            app never counted, above a sentence saying every removal was confirmed gone from a
+            backup it had not looked at.
+          */}
+          <div className="note read" role="status">
+            <Glyph name="sync-failed" size="inline" decorative />
+            <div className="stack-tight">
+              <span>{couldNotRead.headline}</span>
+              <span>{couldNotRead.whatFailed}</span>
+              <span>{couldNotRead.notAVerdict}</span>
+              <span className="muted">{couldNotRead.whatToDo}</span>
+              <span className="muted">{`${couldNotRead.stage} · ${couldNotRead.errorName}`}</span>
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  const report = describeRemovals(reading);
   const known = opening.state === 'open';
 
   return (

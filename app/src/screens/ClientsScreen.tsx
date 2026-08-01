@@ -87,8 +87,10 @@ import {
   REGISTER_FORM_TITLE, describeClinicalField, describeRefusal, describeRegister, registeredWords,
 } from './clients';
 import type {
-  ClientDraft, ClientSummary, ClinicalFieldState, RefusalReport, RegisterPage,
+  ClientDraft, ClientSummary, RefusalReport, RegisterPage,
 } from './clients';
+import { backupHistoryOf } from './backup-history';
+import type { BackupHistory } from './backup-history';
 import { CLINICAL_HINT_KEY, deviceMemory, hintIsStillDue, rememberHintAcknowledged } from './clinical-hint';
 import {
   ABOUT_CLIENT_KEY, calendarWithClient, describeArrivedAbout, startSessionLabel,
@@ -101,10 +103,12 @@ import {
   archivedWords, describeActionFailure, describeRegisterRemovals, describeRemovalConfirmation,
   describeRowActions, removedWords, restoredWords,
 } from './client-removal';
+import { ClientReportCard } from './ClientReportCard';
 import type {
-  ActionFailure, BackupOfferState, RemovalConfirmation,
+  ActionFailure, RemovalConfirmation,
 } from './client-removal';
 import { useRemovals } from '../shell/Removals';
+import { describeFailedRemovalsRead } from './removals';
 import type { LocalStore } from '../../core/store/store.js';
 
 /**
@@ -128,13 +132,14 @@ interface Shown {
  * out on the day it does not.
  */
 function ClientRow({
-  client, busy, cameAbout, onReversible, onRemove,
+  client, busy, cameAbout, onReport, onReversible, onRemove,
 }: {
   client: ClientSummary;
   /** True while any of the three writes is in flight, from any row. */
   busy: boolean;
   /** The words marking this person as the one he came back about, or null. */
   cameAbout: string | null;
+  onReport: (client: ClientSummary) => void;
   onReversible: (client: ClientSummary) => void;
   onRemove: (client: ClientSummary) => void;
 }) {
@@ -223,6 +228,25 @@ function ClientRow({
           <Glyph name="session-start" size="inline" decorative />
           <span>Start a session</span>
         </Link>
+
+        {/*
+          THE WAY FROM A PERSON TO THE REPORT HE SENDS THEM. An ordinary control rather than a
+          danger or a confirmation: sending a client their own progress is the most routine thing on
+          this screen, and it is the one artefact a client ever receives.
+
+          The accessible name says WHOSE progress, because a register of forty rows otherwise offers
+          forty controls announcing the identical sentence.
+        */}
+        <button
+          type="button"
+          className="btn btn-quiet btn-sm"
+          aria-label={`Send ${client.name} their progress report`}
+          disabled={busy}
+          onClick={() => onReport(client)}
+        >
+          <Glyph name="progress-over-time" size="inline" decorative />
+          <span>Progress</span>
+        </button>
 
         <button
           type="button"
@@ -330,7 +354,7 @@ function RemovalConfirmationPanel({
 }
 
 /** What the protected clinical field says. No inputs — see the note at the top of this file. */
-function ProtectedField({ state }: { state: ClinicalFieldState }) {
+function ProtectedField({ state }: { state: BackupHistory }) {
   const report = describeClinicalField(state);
 
   return (
@@ -385,6 +409,9 @@ export function ClientsScreen({ destination }: { destination: Destination }) {
   // Who he is being asked about, held BY NAME as well as by identity: the moment the removal
   // commits there is nothing left on the device that could answer "who was that", and the sentence
   // afterwards is owed his name rather than a reference.
+  // Whose progress report is open, or null. One at a time: the card reads a whole history, and two
+  // open at once would be two long reads racing to say something about different people.
+  const [reporting, setReporting] = useState<ClientSummary | null>(null);
   const [confirming, setConfirming] = useState<{ recordId: string; name: string } | null>(null);
   // The identity of whichever write is in flight, or null. One at a time, from any row.
   const [working, setWorking] = useState<string | null>(null);
@@ -526,20 +553,38 @@ export function ClientsScreen({ destination }: { destination: Destination }) {
       : { items: [], cursor: null, done: true },
     includingArchived: includeArchived,
   });
-  const clinicalState: ClinicalFieldState =
-    everSynchronised === null ? 'unknown' : (everSynchronised ? 'connected' : 'never-connected');
-  // The SAME fact, and deliberately the same three words: whether a backup can be taken before a
-  // removal and whether a clinical note can be locked are one question wearing two hats, and two
-  // answers to it would eventually disagree in front of the coach.
-  const backupState: BackupOfferState = clinicalState;
+  // THE BACKUP HISTORY, DERIVED IN ONE PLACE AND IN THE HISTORY'S OWN WORDS — `backup-history.ts`.
+  //
+  // Whether a backup can be taken before a removal and whether a clinical note can be locked are one
+  // question wearing two hats, so both read this one state. What this is NOT is the question the
+  // permanent backup indicator answers — whether Google is reachable now. This screen used to answer
+  // the historical question in that indicator's vocabulary, and the two were measured contradicting
+  // each other on this very screen: "This device is connected to your Google account" under a bar
+  // reading "Google has not been connected on this device". One fact, one derivation, its own words.
+  const backupHistory = backupHistoryOf(everSynchronised);
   const confirmation = confirming === null
     ? null
-    : describeRemovalConfirmation(confirming.name, backupState);
+    : describeRemovalConfirmation(confirming.name, backupHistory);
   // THE SEAM ITSELF, not a second read of the same fact: the register and the removals surface are
   // now reading one page, so they cannot disagree about what is waiting or about what "nothing is
   // waiting" means. Discarding a page belonging to a store no longer in play is the seam's own job,
   // done where the page is read, which is why there is nothing to do about it here.
-  const outstanding = describeRegisterRemovals(awaitingRemoval);
+  /**
+   * THE REGISTER'S PANEL, and a failed read is the one state it may not stay silent in.
+   *
+   * This panel is drawn only when something is OUTSTANDING — `client-removal.ts` defends that at
+   * length, and the argument holds: a panel saying "nothing is waiting" on every visit is one he
+   * stops reading. But a read that FAILED is not "nothing is waiting". It used to publish nothing,
+   * leave the seam at its empty literal, and take this panel away — so the busiest screen in the
+   * application went quiet, which on a surface whose silence MEANS all clear is the reassuring
+   * answer arrived at by not having looked.
+   */
+  const removalsCouldNotBeRead = awaitingRemoval.status === 'failed'
+    ? describeFailedRemovalsRead(awaitingRemoval.failure)
+    : null;
+  const outstanding = awaitingRemoval.status === 'failed'
+    ? null
+    : describeRegisterRemovals(awaitingRemoval);
   // The person he came back about, if they are among the rows on screen. The register is PAGED, so
   // "not shown yet" is an ordinary answer rather than an error, and the notice words both.
   const arrived = describeArrivedAbout(
@@ -626,6 +671,14 @@ export function ClientsScreen({ destination }: { destination: Destination }) {
                         client={client}
                         busy={working !== null}
                         cameAbout={client.recordId === cameAbout ? arrived.markWords : null}
+                        onReport={(person) => {
+                          // The question and the outcome both belong to whoever was on screen a
+                          // moment ago; leaving either up under a different person reads as an
+                          // answer about them.
+                          setConfirming(null);
+                          setOutcome(null);
+                          setReporting(person);
+                        }}
                         onReversible={(person) => void runReversible(person)}
                         onRemove={(person) => {
                           // The question replaces whatever was on screen: an outcome from a moment
@@ -637,6 +690,22 @@ export function ClientsScreen({ destination }: { destination: Destination }) {
                       />
                     ))}
                   </ul>
+                )}
+
+                {/*
+                  THE PROGRESS REPORT HE SENDS A CLIENT, drawn where he pressed for it.
+
+                  Its own component so this screen holds none of it: the card reads the whole
+                  history, refuses an empty one and an incomplete one differently, and words its own
+                  outcome. `store` is non-null inside this branch — the surfaces on this screen only
+                  appear once the local store has OPENED.
+                */}
+                {reporting !== null && store !== null && (
+                  <ClientReportCard
+                    store={store}
+                    client={{ recordId: reporting.recordId, name: reporting.name }}
+                    onClose={() => setReporting(null)}
+                  />
                 )}
 
                 {report.moreWords !== null && (
@@ -681,7 +750,37 @@ export function ClientsScreen({ destination }: { destination: Destination }) {
               sentence about what "not confirmed" means is imported verbatim and is NOT a warning
               band: it is equally true on the good day.
             */}
-            {outstanding.present && (
+            {/*
+              AND THE PANEL A FAILED READ DRAWS INSTEAD, with no count and no reassurance. The chip
+              carries a WORD rather than a nought, the same choice the Admin card makes and for the
+              same reason: a figure here would be one this app never counted.
+            */}
+            {removalsCouldNotBeRead !== null && (
+              <section className="card card-tight" aria-labelledby="clients-removals">
+                <div className="card-header">
+                  <h3 id="clients-removals" className="title-section">
+                    {removalsCouldNotBeRead.title}
+                  </h3>
+                  <span className="spacer" />
+                  <span className="chip chip-warning">Could not read</span>
+                </div>
+
+                <div className="card-body stack" role="status">
+                  <p className="read">{removalsCouldNotBeRead.headline}</p>
+                  <p className="read">{removalsCouldNotBeRead.notAVerdict}</p>
+                  <p className="muted read">{removalsCouldNotBeRead.whatToDo}</p>
+
+                  <p>
+                    <Link className="btn" to={`/${REMOVALS_PATH}`}>
+                      <Glyph name="link-forward" size="inline" decorative />
+                      <span>See what happened</span>
+                    </Link>
+                  </p>
+                </div>
+              </section>
+            )}
+
+            {outstanding !== null && outstanding.present && (
               <section className="card card-tight" aria-labelledby="clients-removals">
                 <div className="card-header">
                   <h3 id="clients-removals" className="title-section">
@@ -798,7 +897,7 @@ export function ClientsScreen({ destination }: { destination: Destination }) {
             </p>
           </div>
 
-          <ProtectedField state={clinicalState} />
+          <ProtectedField state={backupHistory} />
 
           <div className="spread">
             <button type="submit" className="btn btn-primary" disabled={!known || saving}>

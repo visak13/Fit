@@ -52,6 +52,9 @@ import { PlatformStatusProvider } from './platform/platform-status';
 import { LocalStorageJournal, StoragePersistence } from './platform/storage-persistence';
 import type { PersistenceRecord } from './platform/storage-persistence';
 import { DivergenceProvider, NOTHING_TO_DECIDE } from './shell/Divergences';
+import { NewVersionProvider } from './shell/NewVersion';
+import { A_NEW_VERSION_IS_WAITING, NO_NEW_VERSION_WAITING } from './shell/new-version';
+import type { NewVersionReading } from './shell/new-version';
 import { KeyMaterialProvider, NO_KEY_MATERIAL_CONDITION } from './shell/KeyMaterial';
 import { NOTHING_STOPPED, StoppedChangesProvider } from './shell/StoppedChanges';
 import { createAppRouter } from './shell/routes';
@@ -93,6 +96,15 @@ const OFFLINE_START_PENDING: OfflineStartOutcome = {
 export function Application({ backup }: { backup: BackupAccess }) {
   const [persistence, setPersistence] = useState<PersistenceRecord | null>(null);
   const [offlineStart, setOfflineStart] = useState<OfflineStartOutcome>(OFFLINE_START_PENDING);
+  /*
+    WHETHER A NEWER BUILD HAS ARRIVED UNDER THIS RUNNING PAGE.
+
+    It starts at "no", which is what is true and stays true almost every time the application opens,
+    and it is only ever moved by the watch armed inside `startOfflineSupport` — never by a timer, never
+    by anything this component decides. `platform/offline-start.ts` holds why the signal is a new worker
+    reaching `installed` while this page was ALREADY controlled, rather than one sitting in `waiting`.
+  */
+  const [newVersion, setNewVersion] = useState<NewVersionReading>(NO_NEW_VERSION_WAITING);
 
   useEffect(() => {
     let stillMounted = true;
@@ -123,7 +135,9 @@ export function Application({ backup }: { backup: BackupAccess }) {
       if (stillMounted) setPersistence(record);
     });
 
-    void startOfflineSupport(import.meta.env.BASE_URL).then((outcome) => {
+    void startOfflineSupport(import.meta.env.BASE_URL, () => {
+      if (stillMounted) setNewVersion(A_NEW_VERSION_IS_WAITING);
+    }).then((outcome) => {
       if (stillMounted) setOfflineStart(outcome);
     });
 
@@ -143,7 +157,7 @@ export function Application({ backup }: { backup: BackupAccess }) {
         `SyncFromStore` opens nothing: it uses the store opened by the root, calls
         `accountabilityStatus(store, { in_progress, last_attempt, credential })` and pushes each
         result into the seam UNCHANGED — the reading is a subset of that object, field for field and
-        name for name. It re-reads after every attempt, on each of the five opportunities
+        name for name. It re-reads after every attempt, on each of the six opportunities
         `SYNC_TRIGGERS` declares, and on a modest interval besides, because the escalation ladder
         climbs with the clock even when nothing happens.
 
@@ -246,7 +260,21 @@ export function Application({ backup }: { backup: BackupAccess }) {
                 other moment. `shell/RemovalsFromStore.tsx` states the whole of it.
               */}
               <RemovalsFromLastPass>
-                <RouterProvider router={router} />
+                {/*
+                  THE UPDATE PATH, WIRED. Without this line the frame's notice is silent for ever and
+                  nothing anywhere is red — which is why `shell/new-version-notice.test.ts` reads THIS
+                  FILE for this wiring rather than trusting it, and break-probes that check by removing
+                  it. `shell/NewVersion.tsx` holds why a missing seam here draws nothing instead of
+                  throwing, and why that is not in tension with the five seams that do throw.
+
+                  Taking the newer version is a RELOAD and nothing else: the new worker has already
+                  claimed the page by the time he is told, so the next document load comes out of the
+                  new build's cache. It is supplied here, at the composition root, for the reason
+                  everything else here is — so the component is the same component in a test.
+                */}
+                <NewVersionProvider reading={newVersion} take={() => window.location.reload()}>
+                  <RouterProvider router={router} />
+                </NewVersionProvider>
               </RemovalsFromLastPass>
             </StoppedChangesProvider>
           </KeyMaterialProvider>

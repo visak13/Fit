@@ -67,8 +67,8 @@ import { PlatformStatusProvider } from '../platform/platform-status.tsx';
 import { DivergenceProvider, NOTHING_TO_DECIDE } from './Divergences.tsx';
 import { KeyMaterialProvider, NO_KEY_MATERIAL_CONDITION } from './KeyMaterial.tsx';
 import {
-  DEFAULT_DESTINATION_PATH, DESTINATIONS, DIVERGENCES_PATH, KEY_MATERIAL_PATH, REMOVALS_PATH,
-  SESSION_PATH, STOPPED_CHANGES_PATH,
+  DEFAULT_DESTINATION_PATH, DESTINATIONS, DIVERGENCES_PATH, JOURNAL_PATH, KEY_MATERIAL_PATH,
+  REMOVALS_PATH, SESSION_PATH, SETUP_PATH, STOPPED_CHANGES_PATH,
 } from './navigation.ts';
 import { NOTHING_AWAITING_REMOVAL, RemovalsProvider } from './Removals.tsx';
 import { ROUTE_TABLE } from './routes.tsx';
@@ -326,10 +326,36 @@ describe('every destination the navigation surface offers', () => {
       checked += 1;
     }
 
-    // NON-VACUITY, derived rather than recorded: the walk must have found real screens to check AND
-    // at least one destination still legitimately unbuilt, or one of the two branches proved nothing.
+    // NON-VACUITY, derived rather than recorded — AND THE CONTROL HAS HAD TO CHANGE, which is worth
+    // stating rather than quietly editing.
+    //
+    // It used to require at least one destination to still be a placeholder, so that the second
+    // branch was proven to have run. That was really a MILESTONE wearing a control's clothes: it
+    // could only hold while some destination was unbuilt, and s9 built the last one. Waiting for a
+    // control to become unsatisfiable and then deleting it is how a guard quietly stops guarding, so
+    // it is REPLACED by two assertions that do the same work and do not expire.
+    //
+    // ONE — the matcher that decides "this destination has a screen" is proven to DISCRIMINATE, by
+    // asking it about a destination that demonstrably has none. Without this, a `built` list that
+    // matched everything would send every destination down the first branch and the second would
+    // never run again with nobody noticing.
+    //
+    // TWO — the two branches are proven to be TOTAL. Every destination went down one of them, so a
+    // destination cannot escape both and be checked by neither.
     assert.ok(checked >= 3, `only ${String(checked)} destinations have a built screen to check`);
-    assert.ok(placeholders >= 1, 'no destination is a placeholder, so that branch checked nothing');
+    assert.equal(
+      built.includes(componentFor('a-destination-nobody-has-built')),
+      false,
+      'the screens directory reports a file for a destination nobody has built, so the branch that '
+      + 'requires an unbuilt destination to draw the placeholder can never have discriminated',
+    );
+    assert.equal(
+      checked + placeholders,
+      DESTINATIONS.length,
+      `${String(checked)} destinations were checked against a built screen and `
+      + `${String(placeholders)} against the placeholder, out of ${String(DESTINATIONS.length)}. `
+      + 'One went down neither branch and was checked by nothing.',
+    );
   });
 
   /**
@@ -457,7 +483,7 @@ describe('an address the application does not have', () => {
 /**
  * Every route this table carries that is not a destination, as an address a coach could restore.
  *
- * FIVE of them now, and the second is why each entry carries the identifier of the screen it must
+ * The second of them is why each entry carries the identifier of the screen it must
  * produce rather than the suite asserting one screen by name. All of them would fall through to
  * not-found in exactly the same way; an assertion that only ever named the picker would have gone on
  * passing for the picker while the others resolved to nothing.
@@ -466,8 +492,8 @@ describe('an address the application does not have', () => {
  * and the pending-removal list that `core/sync/deletions.js` had been keeping honestly with nobody
  * reading it.
  *
- * THE FIFTH IS THE ONE THE APPLICATION EXISTS FOR, and it is the first that is not reached from Admin:
- * the session runner is reached from the CALENDAR, which is where both doors into a session are. It is
+ * THE SESSION RUNNER IS THE ONE THE APPLICATION EXISTS FOR, and it is the only one not reached from
+ * Admin: it is reached from the CALENDAR, which is where both doors into a session are. It is
  * addressed with no session named here on purpose — that is the state a coach meets when he follows the
  * standing link without a session running, and it is the state that must still be a screen with words
  * on it rather than a blank frame.
@@ -477,7 +503,14 @@ const UNLISTED_SCREENS = [
   { what: 'the key-material condition screen', published: `${PUBLISHED_ORIGIN}#/${KEY_MATERIAL_PATH}`, id: 'id="screen-key-material"' },
   { what: 'the stopped-changes review', published: `${PUBLISHED_ORIGIN}#/${STOPPED_CHANGES_PATH}`, id: 'id="screen-stopped-changes"' },
   { what: 'the pending-removal list', published: `${PUBLISHED_ORIGIN}#/${REMOVALS_PATH}`, id: 'id="screen-removals"' },
+  { what: 'the setup surface', published: `${PUBLISHED_ORIGIN}#/${SETUP_PATH}`, id: 'id="screen-setup"' },
   { what: 'the session runner', published: `${PUBLISHED_ORIGIN}#/${SESSION_PATH}`, id: 'id="screen-session"' },
+  // THE ACTIVITY LOG, and it is the first entry here that MOUNTS ITS OWN SEAM rather than reading one
+  // this file provides. Its filter is a changed READ over an unindexed store, so the query cannot live
+  // above the router — which means nothing has to be added to `render` below for it. In this suite the
+  // store is deliberately STILL_OPENING, so what is exercised is the state a coach meets on every cold
+  // start: the screen says its database has not answered rather than reporting an empty, verified log.
+  { what: 'the activity log', published: `${PUBLISHED_ORIGIN}#/${JOURNAL_PATH}`, id: 'id="screen-journal"' },
 ];
 
 const UNLISTED_ADDRESSES = UNLISTED_SCREENS.map((entry) => entry.published);
@@ -529,6 +562,69 @@ describe('a way onward that is not the browser back button', () => {
       }
     });
   }
+});
+
+describe('every route answers a failure with a screen of this application’s own', () => {
+  /**
+   * A ROUTE WITH NO BOUNDARY IS A DEAD END THIS SUITE COULD NOT SEE.
+   *
+   * Everything above proves where the coach can GO. This proves what he meets when a screen cannot
+   * finish — and until it existed, the answer was react-router's own developer screen: "Unexpected
+   * Application Error!", a sentence addressed to a programmer, and a raw stack trace. MEASURED in
+   * the production bundle rather than assumed to be development-only: the default boundary's
+   * developer fragment is assigned UNCONDITIONALLY there, so the guard did not survive minification
+   * as a branch, and the router picks it with `route.errorElement || <that default>`.
+   *
+   * It is asserted over EVERY route the table carries, flattened, because the router walks UP from
+   * the route that threw: a leaf without one is answered by its parent, and the top of the tree has
+   * nobody above it at all. `routes.tsx` fills them in from ONE declaration, so this holds by
+   * construction — which is exactly why it is checked rather than trusted, since a table built a
+   * different way tomorrow would lose the property silently.
+   */
+  it('declares an errorElement, so no failure is answered by react-router’s developer screen', () => {
+    const without = ALL_ROUTES.filter((entry) => entry.route.errorElement === undefined);
+    assert.deepEqual(
+      without.map((entry) => entry.id),
+      [],
+      'these routes declare no errorElement. React Router answers an unhandled render or loader '
+      + 'error under them with its own default boundary, which in THIS application’s production '
+      + 'bundle shows "Unexpected Application Error!" and a raw JavaScript stack trace to a coach '
+      + 'in the middle of a session. `screens/ErrorScreen.tsx` is the screen; `routes.tsx` puts it '
+      + 'on every route from one declaration.',
+    );
+  });
+
+  /**
+   * NON-VACUITY. The assertion above is absence-shaped over a list this file derives, so it passes
+   * for free the day `flatten` stops finding routes — the shape this build has been bitten by
+   * repeatedly. So the list is proven to be REAL: it has to hold every route, and the boundary it
+   * finds has to be the screen this application built rather than any element at all.
+   */
+  it('and that check is looking at a real, complete list of routes with THIS application’s screen on it', async () => {
+    const { ErrorScreen } = await import('../screens/ErrorScreen.tsx');
+
+    assert.ok(
+      ALL_ROUTES.length > 10,
+      `the route walk found only ${String(ALL_ROUTES.length)} routes, so the check above is `
+      + 'asserting an absence over almost nothing',
+    );
+    assert.equal(
+      SCREEN_ROUTES.length + 1 + 1,
+      ALL_ROUTES.length,
+      'the flattened list no longer accounts for every route as a screen leaf, the index route and '
+      + 'the layout — so it is not the complete list the boundary check believes it is',
+    );
+
+    const drawn = new Set(
+      ALL_ROUTES.map((entry) => (entry.route.errorElement as { type?: unknown } | undefined)?.type),
+    );
+    assert.deepEqual(
+      [...drawn],
+      [ErrorScreen],
+      'a route answers a failure with something other than screens/ErrorScreen.tsx. Every route in '
+      + 'this table is meant to reach the one screen whose words were written for a coach.',
+    );
+  });
 });
 
 describe('the check itself cannot go stale', () => {

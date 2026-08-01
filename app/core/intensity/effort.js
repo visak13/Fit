@@ -235,7 +235,7 @@ function chooseReference(exercise, level, entryOverride, exerciseBaseline) {
       work_unit: unit,
       rest_seconds: rest,
       recorded_at: measured.recorded_at,
-      note: `Built from what he did on ${dayOf(measured.recorded_at)}: ${sets} `
+      note: `Built from what this client did on ${dayOf(measured.recorded_at)}: ${sets} `
         + `${sets === 1 ? 'set' : 'sets'} of ${describeWork(measured.work, unit)}, `
         + `resting ${rest} seconds, at the ${at} point.`,
     });
@@ -353,14 +353,14 @@ function applyCeilings(shaped, ceilings) {
  * Deliberately never names a load: a ceiling here is about work done and work written down.
  */
 function describeSource(source, amount, exercise) {
-  if (source === 'measured') return `${amount} is the most he has actually managed here`;
+  if (source === 'measured') return `${amount} is the most this client has actually managed here`;
   if (source === 'routine') return `${amount} is what this routine asks for at ${exercise.name}`;
   return `${amount} is what your library asks for at this point`;
 }
 
 /** The same, for the rest floor, where the binding number is the SHORTEST rather than the largest. */
 function describeRestSource(source, seconds, exercise) {
-  if (source === 'measured') return `${seconds} seconds is the least he has actually rested here`;
+  if (source === 'measured') return `${seconds} seconds is the least this client has actually rested here`;
   if (source === 'routine') return `${seconds} seconds is the rest this routine gives at ${exercise.name}`;
   return `${seconds} seconds is the rest your library gives at this point`;
 }

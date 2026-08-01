@@ -44,6 +44,32 @@ function ruleFor(css: string, selector: string): string {
   return found[4];
 }
 
+/**
+ * The DECLARATIONS of a rule, with its comment taken off.
+ *
+ * `ruleFor` returns the rule body verbatim, comment included, and this file's house style puts the
+ * reason for a rule inside the rule. That is fine for a match — a declaration is still there to find
+ * — and it is fatal for an ABSENCE: an assertion that a rule does not mention `--target-touch` reads
+ * the paragraph explaining why it does not, and fails on it. The only way to make such a sweep green
+ * is to delete the reasoning, which is the single thing standing between the next editor and undoing
+ * the decision. So the comment comes off before an absence is asserted, and never the other way
+ * round.
+ */
+function declarationsOf(css: string, selector: string): string {
+  const body = ruleFor(css, selector);
+  const stripped = body.replace(/\/\*[\s\S]*?\*\//gu, '');
+  // The positive control. A stripper that ate the declarations too would make every absence below
+  // pass by having nothing left to read — which is the same clean-because-broken result it exists to
+  // rule out. Assert it left something a rule certainly has.
+  assert.match(
+    stripped,
+    /[a-z-]+\s*:\s*[^;]+;/u,
+    `stripping comments off the ${selector} rule left no declarations, so every absence asserted `
+      + 'against it would pass vacuously',
+  );
+  return stripped;
+}
+
 describe('elements the browser draws below the reading floor', () => {
   it('rebinds every one of them to the inherited size', async () => {
     const css = await consoleCss();
@@ -72,6 +98,67 @@ describe('elements the browser draws below the reading floor', () => {
     assert.ok(
       declared[1].split(',').length > 2,
       'a single-entry fallback chain is the case the correction fires on',
+    );
+  });
+});
+
+/**
+ * THE SAME FAMILY, ONE FLOOR OVER: the element whose own default breaks the TAP floor.
+ *
+ * `<a>` has no box of its own. An INLINE box's height is the font's content area — measured at
+ * 21.6px for this face at 16px — and it does not follow `line-height`, so a link sitting on a 24px
+ * line still measures 21.6. It does not follow the wrapping either: a link wrapped over two lines is
+ * two 21.6px fragments and not one 43.2px target. Measured on the running application at 390px, the
+ * two "Open the page it is on now" links inside the setup screen's console-traps disclosure came out
+ * 216.1 x 21.6, under the 24px floor of WCAG 2.2 SC 2.5.8. Every other anchor in the application
+ * cleared it, and every one of them cleared it because a CLASS or a flex parent had already given it
+ * a box — those two are the only anchors the application draws with no class at all.
+ *
+ * WHY THREE ASSERTIONS AND NOT ONE. `min-block-size` on an inline box is SILENTLY INERT: the
+ * declaration computes, `getComputedStyle` reports it, and the element is still 21.6px tall. So a
+ * guard that only reads the minimum would go on passing over a rule that had stopped doing anything,
+ * which is this build's own recurring shape. The box type is asserted separately because it is the
+ * half that actually carries the fix.
+ */
+describe('the element whose own default breaks the tap floor', () => {
+  it('gives the anchor a minimum tappable height', async () => {
+    assert.match(
+      ruleFor(await consoleCss(), 'a'),
+      /min-block-size:\s*var\(--target-minimum\)/u,
+      'the anchor has no minimum tappable height. An inline link measures the font’s content area — '
+        + '21.6px at the reading floor — which is under the 24px of WCAG 2.2 SC 2.5.8, and no amount '
+        + 'of wording or wrapping lifts it over.',
+    );
+  });
+
+  it('gives it a box that can honour that minimum, which an inline box cannot', async () => {
+    // The silent half. `display: inline` accepts the declaration above and ignores it.
+    const rule = ruleFor(await consoleCss(), 'a');
+    assert.match(
+      rule,
+      /display:\s*inline-block/u,
+      'the anchor is back to an inline box, so its minimum height is inert: the declaration computes, '
+        + 'getComputedStyle reports it, and the link still renders at the font’s content area.',
+    );
+  });
+
+  it('binds the reading floor and not the session floor, in that direction and the other', async () => {
+    // Both numbers are real and this build has already shipped a defect from binding the looser one
+    // where the tighter belonged. Here it is the other way round, and it is equally wrong: 44px on
+    // every anchor puts 20px of dead space under every link in a paragraph. Named so a later edit
+    // has to be a decision.
+    const rule = declarationsOf(await consoleCss(), 'a');
+    assert.doesNotMatch(
+      rule,
+      /--target-touch/u,
+      'the anchor binds --target-touch (44px), which is what this application holds anything TAPPED '
+        + 'DURING A SESSION to. A link inside reading matter is not that control.',
+    );
+    assert.doesNotMatch(
+      rule,
+      /min-block-size:\s*\d/u,
+      'the tap floor is written as a literal beside the token that names it, so the two are free to '
+        + 'disagree',
     );
   });
 });

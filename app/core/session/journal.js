@@ -240,6 +240,23 @@ export function appendNoteAfterwards(store, note) {
 /**
  * Refuse a fact offered against somebody who is not attending.
  *
+ * ## THE SECOND SENTENCE NAMES A CONTROL THAT EXISTS, AND IT DID NOT USED TO
+ *
+ * It read "Add them to the session first" while NOTHING in the application could do that: `addClient`
+ * sat on `live-session.js` called by no screen, so the refusal was an instruction with nothing to
+ * perform it. A coach with a late arrival in front of him was told to go and do something the app
+ * offered no way to do, which reads as his own mistake rather than as the application's gap.
+ *
+ * The control now exists — `screens/SessionArrival.tsx`, drawn on the session screen — and this
+ * sentence names it by its own label, QUOTED. The quoting is the house rule that makes a referent
+ * extractable from finished prose, and `src/shell/refusal-names-a-real-control.test.ts` sweeps a
+ * universe walked from the filesystem that reaches this file, so the name below is checked against
+ * the application's real inventory of labels rather than against an author's memory of it.
+ *
+ * IF THAT CONTROL IS RENAMED, THIS SENTENCE MUST BE RENAMED WITH IT. `modular-control.ts`'s
+ * `ARRIVAL_TITLE` is the single place the words are decided; this is prose in the other tree and
+ * cannot import it, which is exactly why the guard holds the two together instead.
+ *
  * @param {any} session A session envelope.
  * @param {string} clientId
  */
@@ -247,7 +264,7 @@ export function assertAttending(session, clientId) {
   if (participantsOf(session).includes(clientId)) return;
   throw new SessionParticipantError(
     'That person is not in this session, so nothing can be recorded against them here. '
-    + 'Add them to the session first.',
+    + 'Tap "Someone arrived late" on the session screen to add them.',
     { session_id: session?.record_id, client_id: clientId },
   );
 }

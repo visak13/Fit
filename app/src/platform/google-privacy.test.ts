@@ -306,12 +306,18 @@ describe('nothing raw reaches anything durable', () => {
         (scope) => readChainPage(scope, store.device, { limit: 200 }),
       );
       const readiness = eraseReadiness({
+        // The reading was TAKEN — the gate refuses one that was not, and this test is about what a
+        // real refusal's words may carry rather than about the unread state.
+        status: 'read',
         pending: 1,
         waiting_for_credential: 1,
         rejected: 0,
         ambiguous: 0,
         oldest_undelivered_label: 'backup of the exercise library',
         oldest_undelivered_age_ms: 60_000,
+        // Work held on a dead credential is what this state is, so this is the reason the indicator
+        // would be showing beside it — and the refusal's remedy is read from it.
+        reason: { action: 'reconnect_google' },
       });
 
       const found = [

@@ -29,10 +29,14 @@
  *
  * ## Cost, because a status line that is expensive stops being shown
  *
- * Two reads: the outbox's own status pass, which is index range counts plus one cursor step, and one
- * meta row. Nothing here walks the queue and nothing here walks the record stores. An indicator that is
- * not always visible is not an accountability surface, and the surest way to make it invisible is to
- * make it cost something.
+ * The outbox's own status pass, which is index range counts plus one cursor step; two meta rows; and
+ * ONE BOUNDED INDEX PAGE PER RECORD KIND, on the same `by_updated_at` index and the same cursor bound
+ * the push itself uses. Nothing here walks the queue and nothing here walks a record store. The last
+ * of those three is new and it is the price of the surface answering "is his work backed up" instead
+ * of "is the queue empty" — the two were being confused, and the confusion was measured saying
+ * everything is backed up about a record that was nowhere but here. An indicator that is not always
+ * visible is not an accountability surface, so the read stays bounded rather than exact: see
+ * `on-this-device.js` for why the count is a floor and the boolean is not.
  */
 
 import { timestamp } from '../model/model.js';
@@ -41,7 +45,8 @@ import { completionAgeMs, lastSyncedAt, readLastCompletedSync } from './completi
 import { LEVELS, deriveLevel } from './levels.js';
 import { deriveReasons } from './reasons.js';
 import { PLATFORM_STATEMENT } from './statement.js';
-import { skippedFiles } from '../sync/sync.js';
+import { workNotInTheBackup } from './on-this-device.js';
+import { refusedApplies, skippedFiles } from '../sync/sync.js';
 
 /**
  * The one and only answer to "may this stop the coach working?".
@@ -78,6 +83,11 @@ export const BLOCKS_APPLICATION = false;
  * @property {boolean} blocks_application         Always false. See {@link BLOCKS_APPLICATION}.
  * @property {boolean} in_progress                A synchronisation is running RIGHT NOW. Never the only
  *                                                thing here: every field above is populated regardless.
+ * @property {boolean} work_not_in_the_backup     Answered from the STORE: is there work on this device
+ *                                                that no pass has carried out of it? True forbids
+ *                                                `up_to_date`, whatever the queue says.
+ * @property {number} work_not_in_the_backup_at_least A FLOOR, never a total. See `on-this-device.js`.
+ * @property {number} refused_applies             Records the last pass could not write here.
  * @property {{code: string, message: string, action: string|null, queue_wide: boolean}|null} reason
  *                                                The worst applicable reason, for a one-line indicator.
  * @property {{code: string, message: string, action: string|null, queue_wide: boolean}[]} reasons
@@ -126,6 +136,30 @@ async function oldestUndelivered(store, outbox, at) {
 }
 
 /**
+ * The oldest thing not in the backup, WITH the work that never reached the queue.
+ *
+ * The ladder climbs on the oldest thing that is not backed up, and until now "not backed up" meant
+ * "in the queue and not delivered". A record saved four hours ago that no pass has picked up yet is
+ * older than anything in the queue and is just as absent from the backup; leaving it out meant the
+ * escalation could not climb at all in the state it most needed to.
+ *
+ * It has no label — there is no queue entry to name it, and inventing one would put a description of
+ * a record on a surface that is not allowed to carry record content.
+ *
+ * @param {{at: string|null, age_ms: number|null, label: string|null}} oldest
+ * @param {import('./on-this-device.js').WorkNotInTheBackup} onDevice
+ * @param {string} at
+ * @returns {{at: string|null, age_ms: number|null, label: string|null}}
+ */
+function withUnbackedUpWork(oldest, onDevice, at) {
+  if (!onDevice.oldest_at) return oldest;
+  const age = Date.parse(at) - Date.parse(onDevice.oldest_at);
+  if (!Number.isFinite(age) || age < 0) return oldest;
+  if (oldest.age_ms !== null && oldest.age_ms >= age) return oldest;
+  return { at: onDevice.oldest_at, age_ms: age, label: null };
+}
+
+/**
  * How many files the last pass passed over, and how many of those a newer version of this
  * application had written.
  *
@@ -170,12 +204,23 @@ export async function accountabilityStatus(store, options = {}) {
   const outbox = await outboxStatus(store, { now: options.now });
   const { completion, unverifiable } = await readLastCompletedSync(store);
 
+  // THE QUESTION, asked of the store rather than of the queue. Everything else on this surface is a
+  // figure about the QUEUE, and the queue only knows what a pass put in it — so between a save and
+  // the next opportunity every queue figure reads clean about work that is on one device and nowhere
+  // else. See `on-this-device.js` for the measurement that made this necessary.
+  const onDevice = await workNotInTheBackup(store);
+  const refused = refusedApplies(options.last_attempt);
+
   const lastAt = lastSyncedAt(completion);
   const neverSynchronised = lastAt === null;
 
   const reasons = deriveReasons({
     never_synchronised: neverSynchronised,
     unverifiable_sync_claim: unverifiable,
+    work_not_in_the_backup: onDevice.any,
+    // Records the other device sent that this store would not take. The pass reports them; a pass
+    // that could not take them did not complete, and this is the same fact reaching the words.
+    refused_applies: refused.length,
     credential: options.credential || null,
     waiting_for_credential: outbox.waiting_for_credential,
     rejected: outbox.rejected,
@@ -189,13 +234,14 @@ export async function accountabilityStatus(store, options = {}) {
     skipped_unreadable: skippedUnreadable(options.last_attempt),
   });
 
-  const oldest = await oldestUndelivered(store, outbox, at);
+  const oldest = withUnbackedUpWork(await oldestUndelivered(store, outbox, at), onDevice, at);
 
   const level = deriveLevel({
     undelivered: outbox.undelivered,
     needs_attention: outbox.needs_attention,
     oldest_undelivered_age_ms: oldest.age_ms,
     never_synchronised: neverSynchronised,
+    work_not_in_the_backup: onDevice.any,
   });
 
   return Object.freeze({
@@ -229,6 +275,12 @@ export async function accountabilityStatus(store, options = {}) {
 
     // Beside the figures, never instead of them.
     in_progress: options.in_progress === true,
+
+    // THE QUESTION, and its answer, on the surface rather than only inside the derivation — so that
+    // what stopped the green can be read off the same object that stopped showing it.
+    work_not_in_the_backup: onDevice.any,
+    work_not_in_the_backup_at_least: onDevice.at_least,
+    refused_applies: refused.length,
 
     reason: reasons[0] || null,
     reasons,

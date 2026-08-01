@@ -769,6 +769,206 @@ export function substituteRows(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// Somebody arrived after the session had already started
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * THE NAME OF THE CONTROL THAT ADDS A LATE ARRIVAL — AND THE THING A REFUSAL PROMISES EXISTS.
+ *
+ * `core/session/journal.js` refuses a fact offered against somebody who is not attending, and its
+ * sentence names THIS control, QUOTED. The quoting is the house rule that makes a referent
+ * extractable from finished prose rather than from an author's memory, and
+ * `shell/refusal-names-a-real-control.test.ts` holds the two against each other over a universe
+ * walked from the filesystem — which reaches `core/` as well as `src/`, so that sentence is inside a
+ * live guard rather than beside one.
+ *
+ * CHANGING THIS WORDING CHANGES WHAT THAT REFUSAL POINTS AT, and the refusal has to change with it.
+ * Until this control existed the sentence read "Add them to the session first", naming an act with
+ * nothing to perform it — the coach was told to do something the application offered no way to do.
+ */
+export const ARRIVAL_TITLE = 'Someone arrived late';
+
+/**
+ * WHAT ADDING SOMEBODY DOES, which is the half a list of names cannot show.
+ *
+ * A session drives ONE routine however many people are in it, so a late arrival joins the routine
+ * that is already running rather than bringing one of their own. Said out loud because the
+ * alternative is a coach discovering it from the rows that appear.
+ */
+export const ARRIVAL_WORDS =
+  'They join the session already running, on the same routine as everybody else in it. '
+  + 'Nothing already recorded is changed.';
+
+/** The words on the field that narrows the register. */
+export const ARRIVAL_FILTER_LABEL = 'Find a person';
+
+/** What to say when nobody in the register matches what he typed. */
+export const ARRIVAL_NONE_MATCH = 'Nobody in your register matches that.';
+
+/**
+ * What to say when there is nobody left to add.
+ *
+ * A DIFFERENT FACT FROM "nothing matches what you typed", and never worded as an empty register: a
+ * coach whose whole register is already in the room is looking at a full session, not a fault.
+ */
+export const ARRIVAL_EVERYONE_HERE = 'Everybody in your register is already in this session.';
+
+/** What to say when the register page does not hold everybody. Honest rather than silent. */
+export const ARRIVAL_MORE_THAN_SHOWN =
+  'Your register holds more people than these. Type to narrow them.';
+
+/**
+ * HOW MANY ROWS THE PICKER DRAWS AT ONCE.
+ *
+ * The same bound and the same reason as {@link SUBSTITUTE_ROWS_SHOWN}: the read is already one page,
+ * and what the bound protects is the session underneath it on a phone. NOT A HIDDEN LIMIT —
+ * {@link arrivalRows} reports how many matched and the screen says so, because a silently truncated
+ * list reads as "this is everybody you train".
+ */
+export const ARRIVAL_ROWS_SHOWN = 12;
+
+/** The words on the control that adds one person to the running session. */
+export const ARRIVAL_ADD_LABEL = 'Add to this session';
+
+/** What is happening while the record is being written. */
+export const ARRIVAL_ADDING_WORDS = 'Adding them to this session…';
+
+/**
+ * WHAT IT LEFT BEHIND, named, once somebody has been added.
+ *
+ * It claims exactly what the record now supports and not a word more: they are in the session, so a
+ * fact may now be recorded against them. That second clause is the whole point of the control — it
+ * is the thing the refusal was telling him to go and make true.
+ */
+export function arrivalAddedWords(name: string): string {
+  return `${name} is in this session. You can record against them now.`;
+}
+
+/** One person offered as a late arrival. */
+export interface ArrivalChoice {
+  readonly clientId: string;
+  readonly name: string;
+}
+
+/**
+ * The people who could still be added, narrowed by what he has typed.
+ *
+ * WHO IS IN THE REGISTER AT ALL IS THE READ'S QUESTION AND NOT THIS ONE'S. `readTheArrivalRegister`
+ * asks the register's own query, which leaves out people the coach has archived — his register's
+ * convention rather than an opinion invented here.
+ *
+ * What this subtracts is the people already in the room. They are not somebody he can add, and
+ * offering them would make the control's one act mean nothing on half its rows.
+ */
+export function arrivalChoices(
+  register: readonly ArrivalChoice[],
+  typed: string,
+  attending: readonly string[],
+): readonly ArrivalChoice[] {
+  const wanted = typed.trim().toLowerCase();
+  return register.filter((choice) => {
+    if (attending.includes(choice.clientId)) return false;
+    if (wanted.length === 0) return true;
+    return choice.name.toLowerCase().includes(wanted);
+  });
+}
+
+/** The rows the picker draws, and what it says about the ones it did not. */
+export interface ArrivalRows {
+  readonly shown: readonly ArrivalChoice[];
+  /** How many matched altogether. Reported, so nothing is truncated in silence. */
+  readonly matched: number;
+  /** The sentence about what is not drawn, or null when everything that matched is. */
+  readonly moreWords: string | null;
+}
+
+/** THE ROWS TO DRAW, bounded, with the count said out loud. */
+export function arrivalRows(
+  register: readonly ArrivalChoice[],
+  typed: string,
+  attending: readonly string[],
+): ArrivalRows {
+  const matching = arrivalChoices(register, typed, attending);
+  const shown = matching.slice(0, ARRIVAL_ROWS_SHOWN);
+  return {
+    shown,
+    matched: matching.length,
+    moreWords: matching.length > shown.length
+      ? `${shown.length} of ${matching.length} in your register. Type above to narrow them.`
+      : null,
+  };
+}
+
+/**
+ * THE ARRIVAL PICKER'S OWN SMALL LIFE — whether it is open, what he typed, and what the write said.
+ *
+ * This screen's own transient state, held at screen level for the same reason every other panel's is
+ * (`SESSION.md` §2: anything describing where a session has got to is DERIVED, never persisted). It
+ * is passed to no writer and it dies with the window. WHETHER THE CONTROL IS OFFERED AT ALL is not
+ * held here — that is read off the record's own status, so the control goes because the session
+ * ended rather than because this remembers anything.
+ */
+export interface ArrivalState {
+  readonly open: boolean;
+  readonly typed: string;
+  /** True while the write is in flight, so the row cannot be pressed twice. */
+  readonly adding: boolean;
+  /** The name of the person who was added, once one has been. Null before that. */
+  readonly added: string | null;
+  /** Why it did not land, in the coach's words. Null when nothing has been refused. */
+  readonly refusal: RefusalReport | null;
+}
+
+/** Nobody has reached for it yet. */
+export const noArrival: ArrivalState = {
+  open: false, typed: '', adding: false, added: null, refusal: null,
+};
+
+/**
+ * He opened it.
+ *
+ * A REFUSAL FROM A PREVIOUS ATTEMPT IS CLEARED and what was added is not: the refusal was about the
+ * press that produced it and reopening the panel is a fresh attempt, while somebody who was added IS
+ * STILL IN THE SESSION and a sentence saying so does not stop being true because a panel was shut.
+ */
+export function arrivalOpened(held: ArrivalState): ArrivalState {
+  return { ...held, open: true, refusal: null };
+}
+
+/** He put it away. What he typed goes with it; the panel opens fresh on the whole register. */
+export function arrivalPutAway(held: ArrivalState): ArrivalState {
+  return { ...held, open: false, typed: '' };
+}
+
+/** He narrowed the register. */
+export function arrivalTyped(held: ArrivalState, typed: string): ArrivalState {
+  return { ...held, typed };
+}
+
+/** He pressed a row. Anything a previous press said is cleared as this one starts. */
+export function arrivalAdding(held: ArrivalState): ArrivalState {
+  return { ...held, adding: true, added: null, refusal: null };
+}
+
+/** It landed, and the panel closes onto the sentence saying who is now in the session. */
+export function arrivalAdded(held: ArrivalState, name: string): ArrivalState {
+  return {
+    ...held, open: false, typed: '', adding: false, added: name, refusal: null,
+  };
+}
+
+/**
+ * It was refused, and the panel STAYS OPEN on it.
+ *
+ * The refusal is drawn where he pressed, beside the rows, because closing the panel onto a sentence
+ * about a failure would take away the thing he was trying to use in the same motion as telling him
+ * it did not work.
+ */
+export function arrivalRefused(held: ArrivalState, refusal: RefusalReport): ArrivalState {
+  return { ...held, adding: false, refusal };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // What the record already says about one line
 // ═══════════════════════════════════════════════════════════════════════════════
 

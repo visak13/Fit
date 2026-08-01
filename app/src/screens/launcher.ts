@@ -58,6 +58,7 @@
  * a screen ends up heading itself something the navigation surface disagrees with.
  */
 
+import { viewportClass } from '../design/viewport';
 import { groupCallWarning } from '../platform/google-meet';
 import type { MintOutcome } from '../platform/google-meet';
 
@@ -365,7 +366,10 @@ export interface StartReport {
   readonly label: string;
   /** The choice read back to him in one line, or null before there is anything to read back. */
   readonly summary: string | null;
-  /** Shown when more than one person is attending. See {@link SECOND_INSTANCE_HINT}. */
+  /**
+   * Shown when more than one person is attending AND the app is being drawn somewhere a second
+   * window can actually be opened. See {@link SECOND_INSTANCE_HINT} and {@link canOpenASecondWindow}.
+   */
   readonly secondInstanceHint: string | null;
   /**
    * THE SIXTY-MINUTE CUT ON A GROUP CALL, SAID HERE — at the moment he books the session.
@@ -390,10 +394,36 @@ export const START_BUTTON = 'Start this session';
  * He cannot be expected to guess that, so it is said — at the moment more than one person is
  * attending, which is the only moment it means anything. A hint shown always is one he stops
  * reading, and it would take this sentence with it.
+ *
+ * IT IS ALSO NOT SHOWN WHERE IT CANNOT BE FOLLOWED — see {@link canOpenASecondWindow}. The sentence
+ * itself is CORRECT and is not the defect; where it was reachable was.
  */
 export const SECOND_INSTANCE_HINT =
   'Everyone here does the same routine. If two of them need different programmes today, open the '
   + 'app in a second window and run that one there.';
+
+/**
+ * WHETHER THIS DEVICE CAN DO WHAT {@link SECOND_INSTANCE_HINT} ASKS OF IT.
+ *
+ * Running two sessions side by side is a LAPTOP capability and a recorded decision says so. An
+ * installed home-screen app has no second window to open and no way to make one, so on a phone that
+ * sentence is advice that cannot be followed — and it arrives at the exact moment he has two people
+ * in front of him and no time, where he will read it as his own failure to find the window rather
+ * than as something the app should not have said. Nothing crashes, which is why it survived: it
+ * fails as ADVICE rather than as a control, and advice that cannot be followed looks like help.
+ *
+ * THE BOUNDARY IS THE FRAME'S OWN, `EXPANDED_VIEWPORT_MIN`, and not a number chosen here. Below it
+ * the interface is already the phone's — the bottom bar rather than the rail — and `viewport.ts`
+ * says out loud why the 600-840 band cannot be split further: a tablet and an unmaximised laptop
+ * window are indistinguishable from the markup. A capability offered on a guess is offered wrongly
+ * half the time, and the half that is wrong is the one standing in front of a client. So the hint
+ * is offered at `expanded` and withheld everywhere narrower.
+ *
+ * @param viewportWidth the viewport's width in CSS pixels, as the screen measured it
+ */
+export function canOpenASecondWindow(viewportWidth: number): boolean {
+  return viewportClass(viewportWidth) === 'expanded';
+}
 
 /** What is still needed, worded as the thing to do rather than as a fault. */
 const MISSING_WORDS = Object.freeze({
@@ -415,14 +445,23 @@ export function canStart(selection: Selection): boolean {
 /**
  * Everything the start control says.
  *
+ * `viewportWidth` is MEASURED by the screen and JUDGED here, which is the same split the rest of
+ * this module keeps: `CalendarScreen.tsx` knows how wide the window is and decides nothing, and the
+ * one place that decides what a width MEANS is {@link canOpenASecondWindow}. It is required rather
+ * than defaulted for the reason `mode` is: a default would be this function answering a question
+ * about the coach's device that nobody asked it, and the safe-looking default — assume a laptop —
+ * is precisely the one that puts the unfollowable advice back on his phone.
+ *
  * @param selection what has been chosen
  * @param names the chosen clients' names, in the order he chose them
  * @param routineName the chosen routine's name, or null
+ * @param viewportWidth the viewport's width in CSS pixels
  */
 export function describeStart(
   selection: Selection,
   names: readonly string[],
   routineName: string | null,
+  viewportWidth: number,
 ): StartReport {
   const missing: string[] = [];
   if (selection.clientIds.length === 0) missing.push(MISSING_WORDS.clients);
@@ -434,7 +473,9 @@ export function describeStart(
     missing,
     label: START_BUTTON,
     summary: summarise(names, routineName, selection.mode),
-    secondInstanceHint: selection.clientIds.length > 1 ? SECOND_INSTANCE_HINT : null,
+    secondInstanceHint: selection.clientIds.length > 1 && canOpenASecondWindow(viewportWidth)
+      ? SECOND_INSTANCE_HINT
+      : null,
     groupCallWarning: groupCallWarning(selection.clientIds.length, selection.mode),
   };
 }
@@ -776,19 +817,27 @@ export interface OutcomeReport {
 }
 
 /**
- * WHAT IS TRUE THE MOMENT A SESSION STARTS, AND THE HALF THAT IS NOT BUILT.
+ * WHAT IS TRUE THE MOMENT A SESSION STARTS.
  *
  * The session is real: a record is written, it is moved to `in_progress`, and everything recorded
- * into it from here is kept. What does not exist yet is the screen that RUNS one — that is the next
- * step and the largest in this plan. So this screen starts the session, lets its handle go, and says
- * so, and the session then appears among the unfinished ones where picking it up is the same
- * operation. Saying it plainly is the point: a screen that started a session and then showed him
- * nothing would read as a fault, and a screen that pretended to run one would be worse.
+ * into it from here is kept. This screen hands the live handle to the runner — `session-handover.ts`
+ * — and `CalendarScreen.tsx` then goes straight to `sessionAddress(...)`, so pressing start OPENS the
+ * session rather than leaving it somewhere to be found.
+ *
+ * CORRECTED, and the correction is the point of this note surviving. Both this sentence and this
+ * comment used to say the screen that RUNS a session was still being built and that the session was
+ * merely "waiting below" — true when they were written, false since the runner shipped, and shipped
+ * copy telling the coach a screen is unbuilt while he is standing on it is the same kind of untruth
+ * as a claim about a condition nobody measured. It went wrong a second time when the finish control
+ * was wired: picking it up stopped being the only thing he can do with a started session.
+ *
+ * WHAT IT STILL DOES NOT PROMISE: nothing here says a session ENDS by itself. It does not — leaving
+ * the runner leaves the session open, deliberately, and finishing it is a control he presses there.
  */
 export const STARTED_WORDS =
-  'Started and saved on this device. Nothing is lost while the screen that runs a session is being '
-  + 'built: it is waiting below under "Sessions you have not finished", and picking it up will be '
-  + 'the same button.';
+  'Started and saved on this device. It opens on the session screen now. If you leave without '
+  + 'finishing it, nothing is lost: it waits below under "Sessions you have not finished", and '
+  + 'picking it up is the same button.';
 
 /**
  * What to say about the core's answer.
@@ -885,6 +934,96 @@ export const SECTION_TITLES = Object.freeze({
 export const NO_CLIENTS =
   'Nobody is on your register yet. Add the people you train under Clients, on the navigation, and '
   + 'they appear here.';
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// A READ THAT FAILED, WHICH IS NOT AN EMPTY REGISTER
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * WHICH THIRD of the first read did not come back. A closed set, declared here for the reason
+ * {@link MODE_CHOICES} is: this module must hold a sentence for every member, and the set it words
+ * and the set `launcher-source.ts` tags must be the same one.
+ */
+export type LaunchpadReadStage = 'clients' | 'routines' | 'unfinished';
+
+/**
+ * THE SENTENCE THAT MADE THE THIRD STATE WORTH HAVING, and every word of it is deliberate.
+ *
+ * {@link NO_CLIENTS} is what he used to be shown here, and it is worded as a real condition — a fact
+ * about his register, with an instruction attached. Over a read that FAILED it told a coach with
+ * forty clients that he had none and sent him off to add them. This says the opposite thing, and it
+ * says it plainly: the app could not look. AN UNREAD REGISTER IS NOT AN EMPTY ONE.
+ *
+ * It is deliberately NOT reassuring. He is standing in front of a client and this screen is how he
+ * starts the session, so a sentence that let him carry on believing the screen would cost him the
+ * one thing this surface is for.
+ */
+export const COULD_NOT_READ_THE_LAUNCHPAD =
+  'This app could not read your calendar from this device. What is below is not your register: it '
+  + 'is what this app can see, which right now is nothing.';
+
+/** Which third of the read it was. One sentence per member of {@link LaunchpadReadStage}. */
+export const LAUNCHPAD_STAGE_WORDS: Readonly<Record<LaunchpadReadStage, string>> = Object.freeze({
+  clients: 'It was the list of people you train that could not be read.',
+  routines: 'It was your routines that could not be read.',
+  unfinished: 'It was the sessions you have left unfinished that could not be read.',
+});
+
+/** Said when the tag is one this module has no sentence for. Never a blank where a fact should be. */
+export const LAUNCHPAD_STAGE_UNWORDED = 'This app has not recorded which part of the read it was.';
+
+/**
+ * WHAT A FAILED READ DID NOT DO, and this claim is CHECKABLE ON PURPOSE.
+ *
+ * A sentence about a failure makes a separate claim about the state it left behind, and this build
+ * has already shipped two that were false — refusal messages telling the coach a refused save had
+ * erased something, when a refusal changes nothing. So this one is kept to what a READ can be held
+ * to: reading is not writing, and nothing on the device moved. `launcher-source.test.ts` induces a
+ * real failure and READS THE STORE BACK to prove it rather than trusting this paragraph.
+ */
+export const A_FAILED_READ_CHANGED_NOTHING =
+  'Nothing on this device was changed by trying. Whatever is on your register is still on it — this '
+  + 'app just cannot see it at the moment.';
+
+/** What to do about it. Try again first, because a read that failed once may not fail twice. */
+export const WHAT_TO_DO_ABOUT_A_FAILED_LAUNCHPAD =
+  'Close this app and open it again. If it still cannot read your calendar, ask the person who set '
+  + 'this app up for you, and show them this screen.';
+
+/** Everything the calendar says when its first read failed. A different report: a different state. */
+export interface LaunchpadFailureReport {
+  /** The app tried and could not. The one sentence this state exists to make sayable. */
+  readonly headline: string;
+  /** Which third of the read it was. */
+  readonly whatFailed: string;
+  /** What this does NOT mean, because he will assume the worse of the two. */
+  readonly notAVerdict: string;
+  readonly whatToDo: string;
+  /** The stage tag, literal, because it is what somebody helping him will search for. */
+  readonly stage: string;
+  /** The class of what was thrown, literal, for the same reader and the same reason. */
+  readonly errorName: string;
+}
+
+/**
+ * A FAILED FIRST READ, WORDED.
+ *
+ * Deliberately NOT a variant of the empty-register wording. Every sentence there is a statement
+ * about who is on the register, and after a failed read this app has not been able to look at the
+ * register — a report that shared them would be one flag away from saying both things at once.
+ */
+export function describeFailedLaunchpadRead(
+  failure: { readonly stage: string; readonly errorName: string },
+): LaunchpadFailureReport {
+  return {
+    headline: COULD_NOT_READ_THE_LAUNCHPAD,
+    whatFailed: LAUNCHPAD_STAGE_WORDS[failure.stage as LaunchpadReadStage] ?? LAUNCHPAD_STAGE_UNWORDED,
+    notAVerdict: A_FAILED_READ_CHANGED_NOTHING,
+    whatToDo: WHAT_TO_DO_ABOUT_A_FAILED_LAUNCHPAD,
+    stage: failure.stage,
+    errorName: failure.errorName,
+  };
+}
 
 /**
  * Said when there is no routine in the library to choose from.

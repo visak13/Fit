@@ -94,8 +94,11 @@ named after the build, which is what lets the application open with no network.
 The nastier failure here is a worker that serves the old build forever, on a phone that is never
 reloaded. Three things prevent it and all three are needed: the cache name contains the build
 stamp so builds cannot mix; the new worker takes over immediately instead of waiting for tabs to
-close; and every cache that is not this build's is deleted on activation. The generated file
-explains this again at the point where someone would be tempted to change it.
+close; and every cache in this application's own namespace that is not this build's is deleted on
+activation. The generated file explains this again at the point where someone would be tempted to
+change it — including why the sweep stops at a prefix we own instead of deleting everything that
+is not ours: cache storage is per-ORIGIN, and this site shares its origin with every other project
+published under the same hosting account.
 
 The worker is **not** registered by `npm run dev`, on purpose — during development it would serve
 a stale bundle back at you, which is the same failure arriving much sooner.

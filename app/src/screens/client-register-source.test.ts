@@ -49,6 +49,7 @@ import { InMemoryRemoteStorage } from '../../core/remote/remote.js';
 import { SYNC_TRIGGERS } from '../../core/sync/sync.js';
 import { runSyncPass } from '../shell/sync-runner.ts';
 import { describeClinicalField } from './clients';
+import { backupHistoryOf } from './backup-history';
 import {
   FIRST_PAGE, REGISTER_PAGE_LIMIT, appendPage, archiveOnRegister, hasEverSynchronised, readRegister,
   readRegisterPage, registerClient, removeClientForGood, restoreOnRegister,
@@ -58,9 +59,30 @@ import {
 // gone and the surface the register reads is the seam. What these tests assert is unchanged: what
 // is waiting on the store after a real write. See `client-register-source.ts` for the convergence.
 import { readPendingRemovals as readRegisterRemovals } from '../shell/removals-source';
+import type { PendingRemovalsOutcome } from '../shell/removals-source';
 import type { RemovalsPage } from './removals';
 import { EMPTY_DRAFT } from './clients';
 import type { RegisterPage } from './clients';
+
+/**
+ * The pending page, from the seam's own read.
+ *
+ * The read publishes ONE OF THREE OUTCOMES since s11/a18 — not-yet, failed, read — because a failure
+ * that published nothing left the seam at its empty literal and the screen then said every removal
+ * was confirmed gone from a backup nothing had looked at. These tests are about what is WAITING
+ * after a real write, so a failure here is a fault in the fixture and is raised rather than folded
+ * into an empty page.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function pendingPage(store: any): Promise<RemovalsPage> {
+  const outcome = await new Promise<PendingRemovalsOutcome>((resolve) => {
+    readRegisterRemovals(store, resolve);
+  });
+  if (outcome.status !== 'read') {
+    throw new Error(`the pending read failed in a test that assumes it succeeds: ${outcome.failure.stage}`);
+  }
+  return outcome.page;
+}
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const applicationRoot = path.join(here, '..', '..');
@@ -337,9 +359,7 @@ describe('archiving and restoring, which is the ordinary path', () => {
     const person = await registerClient(store, draft('Test Person One'));
     await archiveOnRegister(store, person.record_id);
 
-    const page = await new Promise<RemovalsPage>((resolve) => {
-      readRegisterRemovals(store, resolve);
-    });
+    const page = await pendingPage(store);
 
     assert.deepEqual(
       page.items,
@@ -405,16 +425,12 @@ describe('removing a client for good', () => {
     const store = await aRealStore();
     const person = await registerClient(store, draft('Test Person One'));
 
-    const before = await new Promise<RemovalsPage>((resolve) => {
-      readRegisterRemovals(store, resolve);
-    });
+    const before = await pendingPage(store);
     assert.deepEqual(before.items, [], 'something was already waiting on a device nobody removed anybody from');
 
     await removeClientForGood(store, person.record_id);
 
-    const after_ = await new Promise<RemovalsPage>((resolve) => {
-      readRegisterRemovals(store, resolve);
-    });
+    const after_ = await pendingPage(store);
     assert.deepEqual(
       after_.items.map((item) => item.subject_client_id),
       [person.record_id],
@@ -714,18 +730,22 @@ describe('the window: a real synchronisation stops the clinical-note refusal', (
     );
   });
 
-  it('tells him he IS connected once a pass has completed, in the words the field actually shows', async () => {
+  it('tells him this device HAS BACKED UP once a pass has completed, in the words the field shows', async () => {
     const { store, remote } = await aDeviceWithSomethingToBackUp();
 
     // The screen's own derivation, from `ClientsScreen.tsx`: the answer to the one function is the
     // state, and the state is the words. This asserts the WORDS, because a state name is not what
-    // reaches him.
+    // reaches him. `backupHistoryOf` is that derivation, called here rather than copied.
     const wordsNow = async () => describeClinicalField(
-      (await hasEverSynchronised(store)) ? 'connected' : 'never-connected',
+      backupHistoryOf(await hasEverSynchronised(store)),
     ).whatHappened;
 
     const before = await wordsNow();
-    assert.match(before, /not connected/i, 'the field must say he is not connected while he is not');
+    assert.match(
+      before,
+      /not backed anything up/i,
+      'the field must say nothing has backed up here while nothing has',
+    );
 
     await runSyncPass(store, remote as never, { trigger: SYNC_TRIGGERS.MANUAL });
 
@@ -733,16 +753,24 @@ describe('the window: a real synchronisation stops the clinical-note refusal', (
     assert.notEqual(
       after,
       before,
-      'HIS ACCOUNT IS CONNECTED AND THE APP IS STILL TELLING HIM IT IS NOT. No error, no failure — '
-        + 'a sentence that quietly stopped being true, on the surface that decides whether he can '
-        + 'record a clinical note.',
+      'A PASS HAS COMPLETED AND THE APP IS STILL TELLING HIM NOTHING HAS BACKED UP. No error, no '
+        + 'failure — a sentence that quietly stopped being true, on the surface that decides whether '
+        + 'he can record a clinical note.',
     );
     assert.doesNotMatch(
       after,
-      /not connected/i,
-      'the field goes on telling him to connect an account that is already connected',
+      /not backed anything up/i,
+      'the field goes on telling him to back up a device that has backed up',
     );
-    assert.match(after, /connected to your Google account/i, 'and it says what is now true instead');
+    assert.match(after, /has backed up to your Google account before/i, 'and it says what is now true');
+    // AND IT SAYS ONLY WHAT THIS PASS PROVED. The completion is a fact about the past; whether Google
+    // is reachable now is the backup indicator's question, asked of the credential and answered `no`
+    // on this same device the moment he signs out. This sentence used to claim both.
+    assert.equal(
+      /\bconnected\b/iu.test(after),
+      false,
+      `the field turns a completed pass into a claim about the present connection: ${after}`,
+    );
   });
 });
 

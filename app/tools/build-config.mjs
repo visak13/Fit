@@ -89,7 +89,7 @@ export const BUNDLER_MANIFEST_FILE = '.vite/manifest.json';
 export const TOKEN_LAYER_DIRECTORY = '../design/tokens';
 
 /**
- * THE GLYPH FAMILY'S ONE HOME — forty-nine SVGs, also OUTSIDE this application.
+ * THE GLYPH FAMILY'S ONE HOME — the family's SVGs, also OUTSIDE this application.
  *
  * `design/icons/` is shared in the same sense `design/tokens/` is: it was drawn once, against all
  * three directions, and `design/icons/index.html` is the family sheet it was reviewed on. The

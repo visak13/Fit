@@ -35,8 +35,9 @@
  *     Nothing here answers it. `resolution.js` APPLIES an answer once he has given one, writing the
  *     side he chose above both — and it is the only thing in the application that ever records
  *     `sync.conflict_resolved`.
- *  5. **There is no background synchronisation and there cannot be.** Five opportunities, all of them
- *     in the foreground.
+ *  5. **There is no background synchronisation and there cannot be.** Six opportunities, all of them
+ *     in the foreground — including `reconnect`, which fires only while the application is open and
+ *     on screen.
  *
  * Nothing here makes a live call to any provider. Everything below was proved against the in-memory
  * double in `core/remote`, which is faithful to two MEASURED quirks and no more; a passing test
@@ -53,4 +54,7 @@ export * from './areas.js';
 export * from './withheld.js';
 export * from './snapshot.js';
 export * from './deletions.js';
+// There is deliberately no retention module here. Bounding the outbox's delivery evidence was briefly
+// this package's job — a prune called from the tail of a pass — and it is now `core/outbox`'s, applied
+// inside the one function that can grow the delivered set. See `core/outbox/retention.js`.
 export * from './engine.js';

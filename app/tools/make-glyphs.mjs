@@ -3,7 +3,7 @@
  *
  * ## What this is, and what it is not
  *
- * It invents no artwork. `design/icons/` holds forty-nine SVGs drawn on a 24-unit canvas at a 2-unit
+ * It invents no artwork. `design/icons/` holds the family’s SVGs, drawn on a 24-unit canvas at a 2-unit
  * stroke with round caps and joins, named for what they MEAN rather than what they look like, and
  * reviewed as a family on `design/icons/index.html`. This tool reads that directory and writes
  * `src/design/glyphs.generated.ts`: the one place a glyph is defined for the application.
@@ -13,10 +13,10 @@
  * what you want. It has one more: `src/design/glyphs.test.ts` re-derives the module on every shell
  * test run and fails if a byte differs, so an SVG edited without re-running this cannot ship.
  *
- * ## Why a generated module rather than forty-nine hand-copied components
+ * ## Why a generated module rather than one hand-copied component per glyph
  *
- * Because the family's value is that it IS a family, and forty-nine files maintained by hand is
- * forty-nine chances for one of them to acquire its own stroke, its own colour or its own canvas.
+ * Because the family's value is that it IS a family, and a directory of files maintained by hand is
+ * one chance per file for one of them to acquire its own stroke, its own colour or its own canvas.
  * Nobody would notice: a glyph half a unit heavier than its neighbours looks fine on its own and
  * only reads as wrong beside the other forty-eight, which is a comparison no reviewer makes twice.
  * One generated file cannot drift, and the drift test says so out loud.
@@ -24,12 +24,12 @@
  * ## Why the presentation attributes are DROPPED rather than carried over
  *
  * The authored SVGs carry `stroke-width="var(--glyph-stroke, 2)"` and `rx="var(--glyph-radius, 2)"`
- * — the family's shared properties, written out forty-nine times. Three reasons none of that comes
+ * — the family's shared properties, written out once per glyph. Three reasons none of that comes
  * across, in increasing order of how much they matter.
  *
  * A presentation attribute has LOWER precedence than any CSS rule, so the moment `.glyph` exists
  * these are dead weight: they describe the family in a second place that can never win an argument
- * with the first. Forty-nine copies of a value is forty-nine chances for one to be different, and
+ * with the first. One copy of a value per glyph is one chance per glyph for one to be different, and
  * the one that is different is the one nobody looks at twice.
  *
  * Second, they cannot express what the application needs. `--glyph-stroke` is no longer a constant:

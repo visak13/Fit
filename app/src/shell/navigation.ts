@@ -181,6 +181,77 @@ export const STOPPED_CHANGES_PATH = 'stopped-changes';
 export const REMOVALS_PATH = 'removals';
 
 /**
+ * THE SETUP SURFACE'S ADDRESS — the sixth non-destination, and the only one whose name was already
+ * being said out loud before it existed.
+ *
+ * `platform/google-meet.ts` has shipped `CALENDAR_NOTICE` since the Google step, on screen ahead of
+ * every meeting link it makes: "...then paste its id into Setup". A sentence that names a place is a
+ * promise about that place, and this application has been making it to a place that did not exist.
+ * The word here is therefore not a fresh choice — `screens/setup.ts` holds it as `SETUP_LABEL` and
+ * the screen's heading IS that constant, so the promise and the place cannot be renamed apart.
+ *
+ * NOT A DESTINATION, and the reason is a different one from all five above.
+ *
+ * Theirs is that they are episodic and would be empty almost every visit. Setup is not episodic and
+ * it is never empty — it is ONE-TIME. It is the screen a coach visits on the evening somebody helps
+ * him install this, and then perhaps once more in a year when he changes his calendar. A permanent
+ * sixth entry in the navigation surface would put a finished job in front of him every single day,
+ * beside the five places he actually works; and the five are the five places the application HAS,
+ * which is the property the surface exists to carry. An entry he has no reason to press is an entry
+ * he learns to read past, and he learns it about the whole surface rather than about that one.
+ *
+ * REACHED FROM ADMIN, permanently and never conditionally, like the four before it. That is already
+ * the claim Admin makes about itself: the `help` tooltip on the Admin destination above says in
+ * terms that Admin is where "Setting up your Google account" happens, and until now nothing behind
+ * it did. The link is not conditional on the setup being unfinished — a coach coming back to change
+ * a calendar id must be able to find it after everything is done, and a way in that disappears once
+ * it has been used is a way in he cannot use twice.
+ *
+ * Reachability is not free and is not assumed: `no-dead-ends.test.ts` proves the way in exists, is
+ * labelled, and resolves — and `setup-surface.test.ts` proves the word on the heading is the word
+ * the shipped notice tells him to look for, which is the half a resolving link cannot answer.
+ *
+ * Named once here and read by the route table and by the screen that links to it. A second spelling
+ * in the linking markup is how a link ends up pointing at an address the table does not answer to.
+ */
+export const SETUP_PATH = 'setup';
+
+/**
+ * THE ACTIVITY LOG'S ADDRESS — the seventh non-destination, and the only one that is never empty.
+ *
+ * `core/journal/` has been writing an entry for every unlock, every record change, every export and
+ * every synchronisation since it existed, one hash-linked chain per device, and NOTHING HAS EVER READ
+ * IT BACK. The application has been keeping an account of itself that the person it is kept for could
+ * not see.
+ *
+ * NOT A DESTINATION, and the reason is not the one the six above it give.
+ *
+ * Theirs is that they are EPISODIC and would be empty almost every visit. This one is the opposite: it
+ * is never empty and it grows every time he touches the application. What makes it not a destination is
+ * that it is a place he goes to CHECK rather than a place he WORKS. The five destinations are the five
+ * things the application is for — his clients, his calendar, his routines, his diets and the machinery
+ * behind them — and none of a coach's work happens in a log. A sixth entry sitting beside the five
+ * every day would be the application inviting him to audit it instead of using it, which is both the
+ * wrong emphasis and, on the day something IS wrong, a surface he has learned to scroll past.
+ *
+ * REACHED FROM ADMIN, permanently and never conditionally on there being something to say. Admin is
+ * already where this device's own record lives, and the log is the rest of that sentence: the device
+ * card says what this device HAS, and this says what it has DONE.
+ *
+ * AND WHAT IS BEHIND IT MAY NOT OVERCLAIM. The chain is TAMPER-EVIDENCE and not tamper-proofing —
+ * anyone who can get into the device can rewrite the list from any point and recompute it forward.
+ * `screens/journal.ts` owns that sentence and the screen is required to render it; the word is not
+ * softened here or on the way in.
+ *
+ * Reachability is not free and is not assumed: `no-dead-ends.test.ts` proves the way in exists, is
+ * labelled, and resolves.
+ *
+ * Named once here and read by the route table and by the screen that links to it. A second spelling in
+ * the linking markup is how a link ends up pointing at an address the table does not answer to.
+ */
+export const JOURNAL_PATH = 'journal';
+
+/**
  * THE SESSION RUNNER'S ADDRESS — the fifth non-destination, and the first one the coach reaches by
  * doing his job rather than by something having gone wrong.
  *

@@ -142,8 +142,14 @@ describe('sync/engine — the ordinary case, and the one that is not ordinary', 
 });
 
 describe('sync/engine — when it runs, and what it may claim', () => {
-  it('has exactly five opportunities, none of them in the background', () => {
-    assert.deepEqual([...SYNC_TRIGGER_VALUES].sort(), ['foreground', 'interval', 'leave', 'manual', 'open']);
+  it('has exactly the AUTHORISED opportunities, by name, and none of them is in the background', () => {
+    // NAMES, NEVER A COUNT. A test asserting "there are N" is a rubber stamp that gets its integer
+    // bumped by whoever adds the next one; a test asserting the SET forces the addition to be a
+    // deliberate edit to a list of authorised names. `reconnect` was added this way.
+    assert.deepEqual(
+      [...SYNC_TRIGGER_VALUES].sort(),
+      ['foreground', 'interval', 'leave', 'manual', 'open', 'reconnect'],
+    );
     assert.equal(SYNC_TRIGGER_VALUES.includes('background'), false);
     assert.equal(NO_BACKGROUND_SYNC, true);
   });

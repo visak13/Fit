@@ -4,9 +4,13 @@
  *
  * ## The gap this file closes
  *
- * `core/status/reasons.js` does not merely say why a synchronisation did not happen; for five of its
- * eight reasons it names an ACTION the coach can take, as a code. `SyncStatus.tsx` then listed all
- * five as things "the later step" must supply — and named no step. That sentence is how two of them
+ * `core/status/reasons.js` does not merely say why a synchronisation did not happen; for most of its
+ * reasons it names an ACTION the coach can take, as a code. (No count is written here on purpose: the
+ * table below is keyed off `REASONS` and the suite asserts the correspondence, so a figure typed into
+ * this paragraph would be the one part of this file that could rot. It was allowed to — this sentence
+ * read "five of its eight reasons" while the core declared nine and named an action for six.)
+ * `SyncStatus.tsx` then listed every one of them as something "the later step" must supply — and named
+ * no step. That sentence is how two of them
  * came to be waiting on the Google integration for no reason at all: `review_refused` and
  * `review_unconfirmed` are reads over the LOCAL outbox queue, and they had been carried along behind
  * the Google work by proximity rather than by need.
@@ -34,7 +38,7 @@
  * object. So the disposition says WHICH ACT, by name, and the indicator maps a code to an act through
  * this table rather than through a switch of its own.
  *
- * ## Why this is a table and not five branches in the indicator
+ * ## Why this is a table and not a branch per code in the indicator
  *
  * What was missing was never the button. It was any record of whether an action code HAS a destination
  * at all, which is why two of them sat unbuilt behind a step that never needed to own them.
@@ -51,6 +55,7 @@ import { REASON, REASONS } from '../../core/status/reasons.js';
 // `core/status/reasons.js` declares no action code for an unconfirmed removal, so there is nothing here
 // for it to be the destination OF. Adding it would be this table growing an entry no core reason
 // produces, which is the drift its own check exists to catch in the other direction.
+import { STOPPED_TITLE } from '../screens/stopped-changes.ts';
 import { STOPPED_CHANGES_PATH } from './navigation';
 
 /**
@@ -236,4 +241,113 @@ export const CODES_PERFORMED_HERE: readonly string[] = Object.freeze([
 export function performedFor(code: string | null): PerformedHere | null {
   if (code === null) return null;
   return ACTION_DESTINATIONS[code]?.performed ?? null;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// What a REFUSAL elsewhere in the application is allowed to tell him to do
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * WHAT THE COACH CAN ACTUALLY DO ABOUT A REASON, FOR PROSE WRITTEN SOMEWHERE ELSE.
+ *
+ * ## The defect this closes, which every unit test in this build passed straight through
+ *
+ * The erase gate refused with "Connect to Google and tap Sync, then come back" in EVERY refusing
+ * state, and s9/a3 walked to one and went looking for the control. The sentence was a second,
+ * unchecked opinion about what is on the screen: this table already decides that, and only four of
+ * the core's nine reasons name an act at all. Where the leading reason is `no_network`,
+ * `local_failure` or `backup_partly_unreadable` there is deliberately NO control — the indicator is
+ * right to draw none, `reasons.js` is right to give them no action, and the refusal was pointing at
+ * a button nobody had built or ever would.
+ *
+ * So the refusal stops describing the screen from memory and ASKS. One table, one answer, and a
+ * sentence that cannot disagree with the control beside it because both are read off this.
+ *
+ * ## Why it is derived here and not composed here
+ *
+ * The WORDS of the refusal belong to the mechanism that refuses — `platform/google-account.ts` —
+ * because one sentence must have one owner, and a second author of the remedy is how the two came
+ * apart in the first place. What that owner may not do is INVENT a control, so this hands it the
+ * facts and none of the prose: which kind of remedy exists, and the exact name of the thing he
+ * presses or opens. If there is no remedy, this says so, and the honest sentence is the caller's to
+ * write.
+ */
+export const REMEDY = Object.freeze({
+  /** A control on the indicator, performed where he is standing. */
+  ACT: 'act',
+  /** A screen he can open. Not a button on the indicator — a place. */
+  ADDRESS: 'address',
+  /**
+   * NOTHING IN THIS APPLICATION WILL HELP, and saying so is the fix rather than the consolation
+   * prize. It covers a reason with no action, a code this build has never heard of, an action whose
+   * destination is still owned by an unbuilt step, and a reading with no reason at all.
+   */
+  NONE: 'none',
+});
+
+/** @see REMEDY */
+export type RemedyKind = (typeof REMEDY)[keyof typeof REMEDY];
+
+/**
+ * The remedy for one reason, as facts a sentence can be built from.
+ *
+ * `named` is the ONE thing a refusal may name — the words on the control, or the title of the screen
+ * — and it is null exactly when there is nothing to name. A refusal naming anything else is naming
+ * something this application does not offer, which is what `refusal-names-a-real-control.test.ts`
+ * exists to catch.
+ */
+export interface Remedy {
+  readonly kind: RemedyKind;
+  /** The exact words on the control he presses, or the exact title of the screen he opens. */
+  readonly named: string | null;
+  /** The address of that screen, for an {@link REMEDY.ADDRESS} remedy alone. */
+  readonly path: string | null;
+}
+
+/**
+ * NOTHING TO NAME, written down once.
+ *
+ * Exported because a caller that KNOWS there is nothing to remedy — the erase gate when everything
+ * is already backed up — should say so with this rather than build a second object shaped like it.
+ */
+export const NO_REMEDY: Remedy = Object.freeze({ kind: REMEDY.NONE, named: null, path: null });
+
+/**
+ * What each address in this table is CALLED, taken from the screen's own constant.
+ *
+ * One entry today, and it is a record rather than a branch for the same reason the dispositions are:
+ * an address added above without a name here is a refusal that would have to invent one, so the
+ * absence is checked rather than papered over.
+ */
+const SCREEN_TITLE_FOR_PATH: Readonly<Record<string, string>> = Object.freeze({
+  [STOPPED_CHANGES_PATH]: STOPPED_TITLE,
+});
+
+/**
+ * What this application genuinely offers for an action code, or {@link REMEDY.NONE}.
+ *
+ * FAIL-CLOSED, in every direction: an unknown code, a null code and a code still owned by a later
+ * step all come back as no remedy. Naming nothing when there might be something costs him a hunt
+ * around a screen; naming something that is not there costs him his trust in the sentence.
+ */
+export function remedyForAction(code: string | null): Remedy {
+  if (code === null) return NO_REMEDY;
+
+  const destination = ACTION_DESTINATIONS[code];
+  if (destination === undefined) return NO_REMEDY;
+
+  if (destination.performed !== null) {
+    return Object.freeze({ kind: REMEDY.ACT, named: destination.performed.words, path: null });
+  }
+  if (destination.path !== null) {
+    // The screen's own title, from the screen's own constant, so the refusal cannot call it one
+    // thing while the header calls it another. An address with no title here falls through to no
+    // remedy — fail-closed on his screen — and `refusal-names-a-real-control.test.ts` asserts that
+    // every address in the table HAS one, so a new one is loud in the suite rather than silent in
+    // front of him.
+    const named = SCREEN_TITLE_FOR_PATH[destination.path];
+    if (named === undefined) return NO_REMEDY;
+    return Object.freeze({ kind: REMEDY.ADDRESS, named, path: destination.path });
+  }
+  return NO_REMEDY;
 }

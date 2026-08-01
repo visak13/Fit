@@ -60,12 +60,14 @@ import { LocalStoreProvider } from '../platform/LocalStore.tsx';
 import { describeOpeningFailure, STILL_OPENING } from '../platform/local-store.ts';
 import type { LocalStoreOpening } from '../platform/local-store.ts';
 import { NOTHING_AWAITING_REMOVAL, RemovalsProvider } from '../shell/Removals.tsx';
-import type { RemovalsReading } from '../shell/Removals.tsx';
+import type { RemovalsReading, RemovalsWasRead } from '../shell/Removals.tsx';
+import { performedFor } from '../shell/action-destinations.ts';
 import { remoteConfirmationFrom } from '../shell/removals-source.ts';
 import { RemovalsScreen } from './RemovalsScreen.tsx';
 import {
   NOT_CONFIRMED_IS_NOT_STILL_THERE, NO_NAME_IS_DELIBERATE, NO_PASS_HAS_REPORTED, REMOVALS_TITLE,
-  UNRESOLVED_MEANS, WILL_NOT_CLEAR_ON_ITS_OWN, describeRemovals, describeRemovalsAdminEntry,
+  UNRESOLVED_MEANS, WILL_NOT_CLEAR_ON_ITS_OWN, describeFailedRemovalsAdminEntry, describeRemoval,
+  describeRemovals, describeRemovalsAdminEntry,
 } from './removals.ts';
 
 /** The departed client's name. Known HERE and deliberately unknown to everything the surface reads. */
@@ -119,13 +121,28 @@ async function anUnconfirmedRemoval() {
   const manifest = await purgeClient(laptop.store, departing.record_id, { now: world.now() });
   assert.equal(manifest.status, 'pending', 'a removal is recorded as work to carry out, not as a wish');
 
-  // Break the one write that takes the departed client's old copy out of the area, and nothing else.
+  // Break the writes that take the departed client's old copies out of the area, and nothing else.
+  //
+  // TWO, not one, and the count is asserted rather than over-armed. Pass one leaves TWO files in this
+  // device's area, so compaction queues a removal for each — measured, s11/a5, invariant over 300
+  // repetitions. The arm used to be three, which was one more than the pass can consume, and a spare
+  // armed failure is the fixture being INSENSITIVE to the thing it exists to control: if compaction
+  // ever queued a third removal it would have been broken too, silently, and this file would have gone
+  // on passing while inducing a different failure from the one it documents. The leftover count is the
+  // cheapest possible check on that, so it is read back rather than cleared unexamined.
   world.advance(60_000);
-  world.adversity.failNext(3, { operation: 'remove' });
+  world.adversity.failNext(2, { operation: 'remove' });
   const report = await syncNow(laptop.store, world.remote, {
     trigger: SYNC_TRIGGERS.MANUAL,
     now: world.now(),
   });
+  assert.equal(
+    world.adversity.pendingFailures,
+    0,
+    'the induction must break EXACTLY the removals this pass makes: every armed failure has to be '
+      + 'consumed. A leftover means the pass made fewer removals than this fixture thinks, and an '
+      + 'unconsumed break is a break that did not happen.',
+  );
   world.adversity.clear();
 
   const settled = await deletionForClient(laptop.store, departing.record_id);
@@ -156,11 +173,15 @@ async function readingFrom(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   store: any,
   report?: unknown,
-): Promise<RemovalsReading> {
+): Promise<RemovalsWasRead> {
   return {
+    // A READ THAT HAPPENED. The seam carries three states since s11/a18 and every reading built
+    // here is one the read produced, so it is tagged as one — a fixture left untagged would be
+    // exercising a state the screen no longer reaches by this path.
+    status: 'read',
     pending: await pendingDeletions(store, { limit: 25 }),
     remote: report === undefined ? NO_PASS_HAS_REPORTED : remoteConfirmationFrom(report),
-  } as RemovalsReading;
+  } as RemovalsWasRead;
 }
 
 /**
@@ -280,12 +301,56 @@ describe('a removal the core has not confirmed reached the backup', () => {
     const { laptop } = await anUnconfirmedRemoval();
     const report = describeRemovals(await readingFrom(laptop.store));
 
-    assert.match(report.items[0].whatToDo, /tap Sync|while you have a connection/i);
     assert.match(
       report.items[0].whatToDo,
       /reading your backup back/i,
       'and it says WHY a connected moment is needed, so the instruction is not arbitrary',
     );
+  });
+
+  /**
+   * ALL THREE BRANCHES NAME THE CONTROL THAT EXISTS, AND THE OLD ASSERTION COULD NOT SEE IT.
+   *
+   * These three sentences said "Tap Sync" and NOTHING IN THIS APPLICATION IS CALLED SYNC — the act is
+   * "Back up now", and a search for a control named Sync across the whole tree returns only those
+   * three lines. The assertion that stood here was `/tap Sync|while you have a connection/i`, which
+   * passed on its second alternative for ever, so the defect it looks like it guarded was invisible
+   * to it. The name is taken from `action-destinations.ts` here as well as in the screen, so the two
+   * cannot be corrected apart.
+   *
+   * AND THE SECOND HALF, which is why this is more than a spelling fix: that control is drawn only
+   * when the leading reason's action is `sync_now`, and `not_yet_backed_up` is LAST of eleven in
+   * `REASON_PRECEDENCE` — so on an offline device, or one whose credential expired, the button is not
+   * there at all. Measured in a real browser: on a device that has never connected the indicator
+   * offers "Connect Google" and no other control. A sentence that merely swapped one name for
+   * another would still send him hunting, so the always-true half leads and the control is named
+   * with its condition rather than asserted to be present.
+   */
+  it('names the act the table declares, in every branch, and never one called Sync', async () => {
+    const { laptop } = await anUnconfirmedRemoval();
+    const manifest = (await readingFrom(laptop.store)).pending.items[0];
+    const words = performedFor('sync_now')?.words;
+    assert.ok(words !== undefined && words.length > 0, 'the table no longer declares the act that runs a pass');
+
+    const branches = {
+      'never tried': describeRemoval({ ...manifest, attempts: 0, last_error: null }),
+      tried: describeRemoval({ ...manifest, attempts: 1, last_error: null }),
+      'found still present': describeRemoval({ ...manifest, attempts: 1, last_error: null }, ['a-record']),
+    };
+
+    for (const [branch, item] of Object.entries(branches)) {
+      assert.ok(item.whatToDo.includes(words),
+        `the ${branch} branch does not name "${words}", the act this application really offers: ${item.whatToDo}`);
+      assert.equal(/\bSync\b/u.test(item.whatToDo), false,
+        `the ${branch} branch names a control called Sync, and this application has none: ${item.whatToDo}`);
+      assert.ok(/Open the app while you have a connection/u.test(item.whatToDo),
+        `the ${branch} branch leads with the named control rather than with the thing that is always `
+        + `true, and that control is absent whenever a worse reason leads: ${item.whatToDo}`);
+    }
+
+    // The three branches really are three sentences, not one repeated — otherwise the loop above is
+    // one assertion wearing three hats.
+    assert.equal(new Set(Object.values(branches).map((item) => item.whatToDo)).size, 3);
   });
 
   it('says how much the removal covers, including the shared records it CHANGES rather than removes', async () => {
@@ -383,7 +448,11 @@ describe('what this surface cannot say, and says it cannot', () => {
 
     assert.deepEqual(
       Object.keys(reading).sort(),
-      ['pending', 'remote'],
+      // `status` joined the two halves in s11/a18 and it is asserted here rather than allowed: the
+      // seam carries THREE mutually exclusive states because "the read failed" and "nothing is
+      // waiting" used to be the same value, and a fourth field arriving quietly is what this
+      // assertion exists to catch.
+      ['pending', 'remote', 'status'],
       'the seam carries the local page AND the remote half — a field on this same reading, which is '
         + 'what `shell/Removals.tsx` specified, rather than a second screen or a second wire',
     );
@@ -773,7 +842,7 @@ describe('the way in from Admin', () => {
     assert.equal(real.pending.items.length, 1, 'the premise: exactly one real manifest to talk about');
 
     const manifest = real.pending.items[0];
-    const stillThere: RemovalsReading = {
+    const stillThere: RemovalsWasRead = {
       ...real,
       remote: remoteConfirmationFrom({
         deletions: {
@@ -870,5 +939,122 @@ describe('when the local store has not opened', () => {
       'the screen put the machinery in front of the coach. The browser\'s own words are kept verbatim '
         + 'because he may have to read them out, but they are never what the screen SAYS.',
     );
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+
+/**
+ * A READ THAT FAILED, ON THE SURFACE WHERE IT COSTS THE MOST — s11/a18.
+ *
+ * `readPendingRemovals` used to catch a rejected read, log it and PUBLISH NOTHING. The seam stayed
+ * at {@link NOTHING_AWAITING_REMOVAL}, and this screen words that value as
+ *
+ *     "Every client you have removed is confirmed gone from your Google Drive backup as well as
+ *      from this device"
+ *
+ * THAT IS NOT A DEGRADED SCREEN. It is this application VOUCHING FOR A DELETION IT NEVER VERIFIED —
+ * a positive claim about a REMOTE system, published by a read that looked at nothing, on the one
+ * surface built so a coach can trust that a departed client's data is gone.
+ *
+ * The `storeIsOpen` guard did not cover it and looked as though it did: it discriminates
+ * STORE-DID-NOT-OPEN from OPEN, and a read can reject perfectly well AFTER the store has opened.
+ *
+ * These read the PAINTED WORDS — the markup with every tag stripped — because that is what he reads.
+ * A guard over the report's exports would not notice a correct sentence inside a card that stopped
+ * being drawn, and every absence is pointed at a known presence in the same run.
+ */
+describe('the removals screen after a read that failed', () => {
+  const FAILED: RemovalsReading = {
+    status: 'failed',
+    failure: { stage: 'pending', errorName: 'StoreWriteError' },
+  };
+
+  /** The markup with every tag removed, which is what the coach actually reads. */
+  const wordsOf = (reading: RemovalsReading): string =>
+    render(reading)
+      .replace(/&#x27;|&#39;/gu, "'")
+      .replace(/&quot;/gu, '"')
+      .replace(/&amp;/gu, '&')
+      .replace(/<[^>]*>/gu, ' ')
+      .replace(/\s+/gu, ' ')
+      .trim();
+
+  it('never says a removal is confirmed gone from a backup it did not read', () => {
+    const words = wordsOf(FAILED);
+
+    // NON-VACUITY, IN THE SAME RUN. This scan reports the same clean result over an empty string, so
+    // it is pointed at what it MUST find before its absences are worth anything.
+    assert.ok(words.includes(REMOVALS_TITLE), 'the screen did not name itself, so this scanned nothing');
+    assert.ok(words.length > 200, 'the painted words are too short to be a rendered screen');
+
+    assert.equal(
+      words.includes('confirmed gone from your Google Drive backup'),
+      false,
+      'THE SENTENCE. A read that looked at nothing told the coach his removals are confirmed gone '
+        + 'from a remote system. That is the app vouching for a deletion it never verified.',
+    );
+    assert.equal(
+      words.includes('Nothing is waiting'),
+      false,
+      'the failed read still reports a clear queue',
+    );
+  });
+
+  it('says the app could not read, and says what that does NOT mean', () => {
+    const words = wordsOf(FAILED);
+
+    assert.ok(
+      words.includes('could not read your removals'),
+      'the one sentence this state exists to make sayable is not on the screen',
+    );
+    assert.ok(
+      words.includes('has NOT confirmed'),
+      'the screen does not say what it has failed to establish, which is the whole of the state',
+    );
+    // The AFTERMATH claim is worded here and CHECKED in `removals-source.test.ts`, where a real read
+    // is made to throw and the store is read back: a sentence about a failure is a separately
+    // checkable claim about the state it left behind, and two in this build were false.
+    assert.ok(
+      words.includes('Nothing was changed by trying'),
+      'the screen leaves him to guess whether the failure cost him something',
+    );
+    // The stage and the class, literal, for whoever helps him.
+    assert.ok(words.includes('pending'), 'the stage tag is not on the screen for the person helping him');
+    assert.ok(words.includes('StoreWriteError'), 'the class of the failure is not on the screen');
+  });
+
+  it('draws NO figure, because a nought here is one this app never counted', () => {
+    const failed = wordsOf(FAILED);
+    const settled = wordsOf(NOTHING_AWAITING_REMOVAL);
+
+    // The control: the genuinely-empty reading DOES draw its nought, so the absence above is caused
+    // by the failure and not by the figure having been removed from the screen altogether.
+    assert.ok(
+      / 0 /u.test(` ${settled} `),
+      'the empty reading stopped drawing its count, so the assertion below is about nothing',
+    );
+    assert.equal(
+      / 0 /u.test(` ${failed} `),
+      false,
+      'a failed read drew a count of nought. It is the first thing on the screen, and it is a figure '
+        + 'this app never counted.',
+    );
+  });
+
+  it('gives the Admin way in its own summary rather than the settled one', () => {
+    const entry = describeFailedRemovalsAdminEntry();
+
+    assert.equal(entry.settled, false, 'a failed read reported itself as a settled queue');
+    assert.ok(entry.intro.includes('could not read'), 'the card does not say the read failed');
+    assert.equal(
+      entry.intro.includes('Nothing is waiting'),
+      false,
+      'the card still says the queue is clear, which is the sentence that decides whether he opens it',
+    );
+    // And the settled sentence it must not be confused with is genuinely still there for the state
+    // that earns it — otherwise this is comparing against a sentence nothing produces.
+    const settled = describeRemovalsAdminEntry(NOTHING_AWAITING_REMOVAL);
+    assert.ok(settled.intro.includes('Nothing is waiting'), 'the settled sentence has gone entirely');
   });
 });

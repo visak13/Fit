@@ -21,24 +21,43 @@
  *    build's cache. Two builds cannot become mixed.
  * 2. `skipWaiting()` on install — the new worker takes over instead of waiting for every tab to
  *    close, which on an installed home-screen application may be never.
- * 3. `clients.claim()` plus deleting every cache that is not this build's on activate — the new
- *    worker starts answering immediately and the old cache does not outlive the worker that made
- *    it. An orphaned cache is exactly how a stale asset survives.
+ * 3. `clients.claim()` plus deleting every cache in THIS APPLICATION'S OWN NAMESPACE that is not
+ *    this build's, on activate — the new worker starts answering immediately and the old cache
+ *    does not outlive the worker that made it. An orphaned cache is exactly how a stale asset
+ *    survives, so the sweep has to reach every cache we have ever written and not only the ones
+ *    the CURRENT naming scheme produces. See {@link OUR_CACHE_PREFIX} for why it stops there.
  *
  * Taking over promptly means an open tab can be serving the old build's page while the new
  * worker answers its next request. For this application that is the right trade: it is
  * single-user, it is reopened constantly, and a stuck install is far worse than a reload.
  */
 
-const BUILD_STAMP = "c2cb717d18815ecb";
+const BUILD_STAMP = "5869755d414e0718";
 const BASE_PATH = "/Fit/";
 const CACHE_NAME = `fit-shell-${BUILD_STAMP}`;
+
+/**
+ * THE NAMESPACE THIS APPLICATION OWNS, and the boundary of what activate is allowed to delete.
+ *
+ * CACHE STORAGE IS PER-ORIGIN, NOT PER-PATH, and this origin is shared. The site is published to
+ * a project path on a hosting account that serves EVERY project of that account from the SAME
+ * origin, so `caches.keys()` here returns caches belonging to OTHER SITES THE SAME PERSON HAS
+ * PUBLISHED. "Delete everything that is not this build's" would therefore reach into a
+ * NEIGHBOURING PROJECT and destroy its offline cache from inside our activate handler —
+ * silently, on a phone, with no error raised and nothing naming us as the cause. That is the same
+ * species of defect this cleanup exists to prevent, so the sweep is scoped by a prefix WE OWN.
+ *
+ * `fit-` is that prefix. It covers this build's `fit-shell-<stamp>` AND any earlier cache of
+ * ours under a different naming scheme, which is what makes the cleanup reach the predecessor it
+ * exists to replace; and it cannot reach a cache we did not write.
+ */
+const OUR_CACHE_PREFIX = 'fit-';
 
 /** Written by the build from the files it actually emitted, so the list cannot drift. */
 const PRECACHE_URLS = [
   "/Fit/",
-  "/Fit/assets/index-Dv_hVoTc.js",
-  "/Fit/assets/index-UPxct_at.css",
+  "/Fit/assets/index-BDreLcB9.js",
+  "/Fit/assets/index-DPOJMHWB.css",
   "/Fit/icons/apple-touch-icon-180.png",
   "/Fit/icons/icon-192.png",
   "/Fit/icons/icon-512.png",
@@ -76,7 +95,7 @@ self.addEventListener('activate', (event) => {
       const names = await caches.keys();
       await Promise.all(
         names
-          .filter((name) => name.startsWith('fit-shell-') && name !== CACHE_NAME)
+          .filter((name) => name.startsWith(OUR_CACHE_PREFIX) && name !== CACHE_NAME)
           .map((name) => caches.delete(name)),
       );
       await self.clients.claim();

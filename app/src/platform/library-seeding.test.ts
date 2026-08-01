@@ -314,12 +314,25 @@ describe('seeding happens ONCE and never on the application’s own initiative',
       'the cross-window lock was never taken, so two real windows are not held apart',
     );
 
-    // ── NON-VACUITY PROBE ──────────────────────────────────────────────────────────────────────
+    // ── NON-VACUITY PROBE, RE-AIMED (s11/a27) ──────────────────────────────────────────────────
     // "neither was told it failed" is an absence, and it would pass just as happily if nothing here
     // could ever produce that answer. So run the SAME race past the guard, on a second device, and
-    // require the failure to appear. It does, and not in the shape first assumed: the library is not
-    // doubled, because `by_content_key` is a UNIQUE index — the second transaction is refused whole.
-    // What the coach would have got is a seeding failure on a device that seeded perfectly well.
+    // require the thing the guard prevents to appear.
+    //
+    // WHAT IT USED TO REQUIRE, AND WHY THAT EVIDENCE IS GONE. It required a REJECTION: the second
+    // import was refused whole by the unique content-key index, and what the coach would have got is
+    // a seeding failure on a device that seeded perfectly well. That refusal was the same mechanism
+    // that stopped two DEVICES ever merging (s11/a9), and the store now reconciles a library record
+    // arriving under another identity instead of colliding with it — so the unguarded race no longer
+    // throws, and the probe went hollow. **It is re-aimed, not weakened.** A probe that passes because
+    // there is nothing left to catch and a probe that passes because it was softened produce the same
+    // green, and this step has paid for that four times.
+    //
+    // WHAT IT REQUIRES NOW is the SAME QUANTITY the guarded assertion above measures — how many of the
+    // two openings report a first-run import. Guarded: exactly one. Unguarded: two, measured. The
+    // second import is redundant work rather than an error now, which is a better outcome and a
+    // weaker signal, so the signal is taken from the guard's own subject instead of from an index
+    // that happened to be standing nearby.
     const { a: c, b: d } = createTwoWindowLaptop();
     const third = await openLocalStore({ platform: c, device: 'coach-laptop' });
     const fourth = await openLocalStore({ platform: d, device: 'coach-laptop' });
@@ -327,12 +340,14 @@ describe('seeding happens ONCE and never on the application’s own initiative',
 
     const unguarded = await Promise.allSettled([seedIfNeeded(third), seedIfNeeded(fourth)]);
     assert.equal(
-      unguarded.filter((outcome) => outcome.status === 'rejected').length, 1,
-      'the unguarded race did not fail, so the guard above was never shown doing anything',
+      unguarded.filter((outcome) => outcome.status === 'fulfilled'
+        && (outcome.value as { imported: boolean }).imported === true).length, 2,
+      'the unguarded race imported once, so the guard above was never shown doing anything',
     );
     assert.deepEqual(
       await liveCounts(third), { ...seedCounts() },
-      'the refused import was not refused whole — a half-applied library is worse than none',
+      'and the doubled import did NOT double the library — which is the store reconciling on the '
+      + 'content key, not the guard, and is asserted here so that the two are not confused',
     );
   });
 });

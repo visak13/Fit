@@ -175,13 +175,23 @@ export async function verifyChain(entries, options = {}) {
   }
   const anchor = options.anchor ?? null;
 
-  /** @param {object} result */
+  let truncatedHead = false;
+
+  /**
+   * TRUNCATION AND A BREAK ARE INDEPENDENT, so `truncated_head` is carried out of EVERY exit and not
+   * only the clean one. A device whose oldest entries retention discarded can also hold a corrupted
+   * entry further along its chain; reporting `truncated_head: false` alongside that divergence would
+   * deny a truncation that genuinely happened, and a caller comparing the two fields would conclude
+   * the missing entries were part of the tampering.
+   *
+   * @param {object} result
+   */
   const done = (result) => Object.freeze({
     ok: result.first_divergence === null,
     device: result.device ?? null,
     checked: result.checked,
     first_divergence: result.first_divergence,
-    truncated_head: result.truncated_head ?? false,
+    truncated_head: result.truncated_head ?? truncatedHead,
     head_hash: result.head_hash ?? null,
   });
 
@@ -190,7 +200,6 @@ export async function verifyChain(entries, options = {}) {
   }
 
   const device = looksLikeEntry(entries[0]) ? entries[0].device : null;
-  let truncatedHead = false;
   let previous = /** @type {object|null} */ (null);
 
   for (let index = 0; index < entries.length; index += 1) {

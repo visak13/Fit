@@ -178,12 +178,30 @@ export interface Choice {
 
 /** What the screen says about the queue as a whole. */
 export interface Queue {
-  readonly count: number;
+  /**
+   * How many are waiting, or NULL WHERE NOTHING COMPARED THE DEVICES.
+   *
+   * Null rather than nought, for the reason the admin screen already gives about the removals count:
+   * a figure is a claim, and a green nought reached by never having looked is the most reassuring
+   * thing this screen can say made out of nothing at all.
+   */
+  readonly count: number | null;
   readonly title: string;
   /** The one line under the title. */
   readonly intro: string;
   /** True when there is genuinely nothing to answer — a normal state, not an empty screen. */
   readonly settled: boolean;
+  /** False where nothing compared the devices. Then {@link settled} is not a state anyone measured. */
+  readonly checked: boolean;
+  /**
+   * The words on the admin card's link into this screen.
+   *
+   * They live HERE rather than in the markup that draws them, with the rest of this screen's words
+   * and beside the state that chooses them: a link's promise is judged against what the screen
+   * behind it actually delivers, and that judgement is made in this file. Never "fix" or "resolve",
+   * and never "check for yourself" where nothing has checked.
+   */
+  readonly linkLabel: string;
 }
 
 /** The screen's own title, one constant so the link into it and the screen itself cannot disagree. */
@@ -437,9 +455,57 @@ export function describeChoices(
  * Nothing to decide is a NORMAL state and it is worded like one. An empty screen that reads as a
  * fault teaches him that the surface cries wolf, and this is a surface he will see empty almost
  * every time he opens it — the clash it exists for is rare.
+ *
+ * BUT AN EMPTY LIST IS TWO STATES AND ONLY ONE OF THEM IS THAT ONE. `checked` says whether a
+ * comparison was surfaced TO THIS SCREEN, and it is REQUIRED rather than defaulted so that every
+ * call site has to say which world it is in — a default would put the answer back where it was, in a
+ * place nobody looks.
+ *
+ * IT DOES NOT MEAN "NOTHING HAS COMPARED THEM", AND THE OLD WORDING OF THE FALSE BRANCH SAID IT DID.
+ * A synchronisation pass compares the two areas; what does not exist is the SEAM that brings a
+ * clash to this screen — `App.tsx` hands it a frozen `NOTHING_TO_DECIDE` and nothing calls
+ * `resolveDivergence`. That is a missing surface, not a comparison never made, and the false branch
+ * now says so. `divergence-picker.test.ts` drives the true branch through a real synchronisation
+ * pass.
  */
-export function describeQueue(divergences: readonly Divergence[]): Queue {
+export function describeQueue(divergences: readonly Divergence[], checked: boolean): Queue {
   const count = divergences.length;
+
+  if (!checked) {
+    return {
+      // No figure at all. See {@link Queue.count}: a nought here is a measurement nobody took.
+      count: null,
+      title: PICKER_TITLE,
+      // WHAT THIS SENTENCE MAY NOT DO, IN BOTH DIRECTIONS.
+      //
+      // It may not reassure him about a condition nobody measured — no "nothing to worry about so
+      // far", no figure, no "your devices agree". That is the defect the previous wording replaced.
+      //
+      // AND IT MAY NOT SAY THE APP HAS NOT COMPARED THEM, WHICH IS WHAT THE PREVIOUS WORDING DID AND
+      // WHICH STOPPED BEING TRUE. s11/a10 watched the other device's record arrive in this device's
+      // store on a pass, which cannot happen without the two areas being read against each other,
+      // while this sentence still said the app had not looked. It was academic until s11/a27 made
+      // reconciliation work: a real two-device clash is reachable in the real application only now.
+      // So the app can now produce a genuine disagreement, and a screen saying it has not looked is
+      // a claim its own engine falsifies. A screen that draws a blank is honest; a screen that
+      // disclaims a capability it actually exercises is not.
+      //
+      // WHAT IT SAYS INSTEAD is the three true things, and the third is the one that gets dropped:
+      // that the devices CAN disagree, that this application does not help him choose — present
+      // tense, no promise about a later version — and THAT NOTHING IS LOST WHILE HE WAITS. The third
+      // is not a softener: a27 built the compaction gate so that tidying-up refuses to delete a side
+      // of an unanswered clash, and a10 re-measured that both sides survive it. Without it this
+      // tells a non-technical man his devices may silently disagree and leaves him nothing.
+      intro:
+        'Your two devices can end up disagreeing about the same record. This app does not show you '
+        + 'those disagreements and cannot help you choose between them. Nothing is lost while that '
+        + 'is so: both versions are kept, and this app will not tidy away either side of a '
+        + 'disagreement nobody has answered.',
+      settled: false,
+      checked: false,
+      linkLabel: 'Read what this means',
+    };
+  }
 
   if (count === 0) {
     return {
@@ -448,11 +514,15 @@ export function describeQueue(divergences: readonly Divergence[]): Queue {
       intro:
         'Nothing needs your decision. Your devices agree on everything they have both been used for.',
       settled: true,
+      checked: true,
+      linkLabel: 'Check for yourself',
     };
   }
 
   return {
     count,
+    checked: true,
+    linkLabel: 'Decide now',
     title: PICKER_TITLE,
     intro: count === 1
       ? 'You changed one thing on both of your devices before they could tell each other. Both '

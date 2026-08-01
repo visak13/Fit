@@ -61,14 +61,16 @@ import { createContext, useContext } from 'react';
 import type { ReactNode } from 'react';
 
 import { NO_PASS_HAS_REPORTED } from '../screens/removals';
-import type { RemoteConfirmation, RemovalsPage } from '../screens/removals';
+import type { RemoteConfirmation, RemovalsPage, RemovalsReadStage } from '../screens/removals';
+import type { ReadFailure } from '../screens/read-failure';
 
 export type {
-  DeletionManifest, RemoteConfirmation, RemovalsPage, StillPresentEntry,
+  DeletionManifest, RemoteConfirmation, RemovalsPage, RemovalsReadStage, StillPresentEntry,
 } from '../screens/removals';
 export { NO_PASS_HAS_REPORTED } from '../screens/removals';
 
-export interface RemovalsReading {
+/** The facts a read of this surface produces, in the core's own fields. */
+export interface RemovalsFacts {
   /**
    * The removals not yet confirmed gone from the backup, as the core paged them.
    *
@@ -84,6 +86,50 @@ export interface RemovalsReading {
   readonly remote: RemoteConfirmation;
 }
 
+/** The read has not happened yet: what a store nothing has been read from genuinely yields. */
+export interface RemovalsNotYetRead extends RemovalsFacts {
+  readonly status: 'not_yet';
+}
+
+/** The read happened, and these are its facts. */
+export interface RemovalsWasRead extends RemovalsFacts {
+  readonly status: 'read';
+}
+
+/**
+ * The read was attempted and did not come back.
+ *
+ * IT CARRIES NO PAGE, and that is the protection rather than an omission: there is nothing to draw,
+ * and a shape that offered an empty page here is the shape that let a failed read be worded as a
+ * confirmed deletion.
+ */
+export interface RemovalsReadFailed {
+  readonly status: 'failed';
+  readonly failure: ReadFailure<RemovalsReadStage>;
+}
+
+/**
+ * Everything the seam carries — THREE mutually exclusive states, not one.
+ *
+ * ## WHY, AND IT IS THE SHARPEST INSTANCE OF THIS DEFECT IN THE APPLICATION
+ *
+ * `removals-source.ts` used to catch a rejected read, log it to the console and PUBLISH NOTHING. The
+ * seam therefore stayed at {@link NOTHING_AWAITING_REMOVAL} — and that literal is not drawn as a
+ * blank, it is worded by `screens/removals.ts` as *"Every client you have removed is confirmed gone
+ * from your Google Drive backup as well as from this device"*.
+ *
+ * THAT IS NOT A DEGRADED SCREEN. It is this application VOUCHING FOR A DELETION IT NEVER VERIFIED —
+ * a positive claim about a REMOTE system, published by a read that looked at nothing, on the one
+ * surface built so the coach can trust that a departed client's data is gone. The old comment beside
+ * the catch called publishing-nothing deliberate, and it was reasoned rather than measured: it is
+ * true that publishing the empty page would be worse, and false that publishing nothing avoids it,
+ * because the empty page WAS ALREADY THERE.
+ *
+ * The discriminant is what makes the compiler refuse to let a caller reach `pending` without first
+ * saying which of the three it is looking at. A flag beside the page would not have.
+ */
+export type RemovalsReading = RemovalsNotYetRead | RemovalsWasRead | RemovalsReadFailed;
+
 /**
  * What is true in this build: no local store is wired, so no client has ever been removed on this
  * device, so nothing can be waiting to be confirmed. It is not a placeholder standing in for a real
@@ -92,7 +138,8 @@ export interface RemovalsReading {
  * Its `remote` is `NO_PASS_HAS_REPORTED` for the same kind of reason and not as a default: nothing
  * has run a synchronisation pass, so nothing has been read back, so nothing is confirmed present.
  */
-export const NOTHING_AWAITING_REMOVAL: RemovalsReading = Object.freeze({
+export const NOTHING_AWAITING_REMOVAL: RemovalsNotYetRead = Object.freeze({
+  status: 'not_yet',
   pending: Object.freeze({
     items: Object.freeze([]) as RemovalsPage['items'],
     cursor: null,

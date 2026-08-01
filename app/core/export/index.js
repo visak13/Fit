@@ -18,6 +18,7 @@
 
 import './table.test.js';
 import './zip.test.js';
+import './unzip.test.js';
 import './workbook.test.js';
 import './separated-values.test.js';
 import './file-name.test.js';

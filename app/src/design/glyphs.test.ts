@@ -1,5 +1,5 @@
 /**
- * THE FAMILY CANNOT DRIFT — which is the only property that makes forty-nine glyphs one family.
+ * THE FAMILY CANNOT DRIFT — which is the only property that makes a directory of drawings one family.
  *
  * Three separate ways this could quietly stop being true, and one test for each.
  *
@@ -66,7 +66,7 @@ describe('the generated module against the family it was derived from', () => {
   });
 });
 
-describe('what makes the forty-nine one family', () => {
+describe('what makes the whole set one family', () => {
   it('gives every glyph the words it is announced as when it stands alone', () => {
     for (const [name, glyph] of Object.entries(GLYPHS)) {
       assert.ok(glyph.title.trim().length > 0, `${name} has no title`);

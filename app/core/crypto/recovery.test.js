@@ -147,5 +147,14 @@ test('an envelope with no way in for this device says so, loudly and with the ro
   assert.match(err.userMessage, /sign in|restore access/i,
     'a vanished device slot must never present as "decryption failed" — the coach needs the '
     + 'way back, not a diagnosis');
-  assert.match(err.userMessage, /safe/i, 'and must be told the notes themselves are intact');
+  // THE MEANING, NEVER THE WORD — the same correction d214 made to the screen that words this
+  // condition. This asserted the message contained "safe", which protected a string rather than
+  // the reassurance: the copy could keep the word and lose the meaning and still pass, and the
+  // word was the wrong one. NOT LOST is a fact about storage this error can stand behind; SAFE is
+  // a security claim nothing in this application is entitled to make.
+  assert.match(err.userMessage, /not been lost|not lost|still (?:there|in your)/i,
+    'and must be told the notes themselves are still there, or this reads as data loss');
+  assert.doesNotMatch(err.userMessage, /\bsafe\b|\bsecure\b/i,
+    'the reassurance reaches for a security word. It may say the notes are not lost; it may not '
+    + 'say they are safe or secure');
 });

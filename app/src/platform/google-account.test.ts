@@ -33,7 +33,7 @@ import {
 } from './google-account.ts';
 import type { LocalStore } from '../../core/store/store.js';
 
-import type { DeliveryReading, DeviceErasure } from './google-account.ts';
+import type { DeliveryReading, DeliveryReadingOutcome, DeviceErasure } from './google-account.ts';
 import { GOOGLE_CONNECTION_KEY, GOOGLE_SCOPES, GoogleConnection, UserGesture } from './google-identity.ts';
 import type { GoogleIdentityLike, SmallFactStorage, TokenResponseLike } from './google-identity.ts';
 
@@ -106,14 +106,22 @@ const kindsOn = async (store: LocalStore): Promise<string[]> =>
   (await entriesOn(store)).map((entry) => entry.kind);
 
 /** Everything the gate reads, in one place, so a test can say what state it is describing. */
-function reading(overrides: Partial<DeliveryReading> = {}): DeliveryReading {
+function reading(overrides: Partial<DeliveryReading> = {}): DeliveryReadingOutcome {
   return {
+    // A READING THAT WAS ACTUALLY TAKEN, said out loud. The gate now refuses anything else, and the
+    // point of this default is that every test below is describing a device whose queue was counted
+    // — which is what makes `sync-failed-read.test.ts`'s refusals about something.
+    status: 'read',
     pending: 0,
     waiting_for_credential: 0,
     rejected: 0,
     ambiguous: 0,
     oldest_undelivered_label: null,
     oldest_undelivered_age_ms: null,
+    // The leading reason the indicator is showing. Null by default and overridden per state: a
+    // refusal may name a control only where this says the interface offers one, so a fixture that
+    // left it out would be describing a screen it has not looked at.
+    reason: null,
     ...overrides,
   };
 }
@@ -344,12 +352,12 @@ describe('the erase gate', () => {
     const dev = await aDevice();
 
     const clear = await accountabilityStatus(dev.store, { now: dev.now() });
-    assert.equal(eraseReadiness(clear).verdict, 'clear');
+    assert.equal(eraseReadiness({ status: 'read', ...clear }).verdict, 'clear');
 
     await queueOne(dev, { label: 'a backup that is still trying' });
     const waiting = await accountabilityStatus(dev.store, { now: dev.now() });
     assert.equal(waiting.pending, 1, 'fixture check: the queue really does hold something');
-    assert.equal(eraseReadiness(waiting).verdict, 'wait');
+    assert.equal(eraseReadiness({ status: 'read', ...waiting }).verdict, 'wait');
 
     await queueOne(dev, { baseName: 'refused.json', label: 'a refused backup' });
     serviceRefuses(dev, 10);
@@ -361,7 +369,7 @@ describe('the erase gate', () => {
     // And the shape the gate declares really is a subset of what the surface returns: this line is
     // the assertion, and it is checked by the type checker rather than at runtime.
     const asReading: DeliveryReading = afterRefusal;
-    assert.ok(eraseReadiness(asReading).verdict !== 'clear');
+    assert.ok(eraseReadiness({ status: 'read', ...asReading }).verdict !== 'clear');
 
     await dev.store.close();
   });
@@ -521,8 +529,18 @@ describe('erasing the device', () => {
       // by design and a calendar id is an address — but both say WHO used this device and with what
       // account, which is what erasing is for when the computer belongs to somebody else.
       'fit.google-client-id',
+      // And which VALUE of each has been proven to work, from `platform/setting-proof.ts` — the
+      // evidence behind the setup screen's statement about whether an id has ever been used. Each
+      // holds a copy of the id itself, so the argument above applies word for word; and a proof left
+      // behind says not only that this account was set up here but that it got as far as working.
+      'fit.google-client-id.proven',
       'fit.google-coaching-calendar',
+      'fit.google-coaching-calendar.proven',
       'fit.google-connection',
+      // How far he got through the one-time setup, from `screens/setup-surface.ts`. Not a Google
+      // setting and not a record — his own note of where he stopped — and swept for the reason the
+      // preference and the acknowledgement above are: it says the app was used on this machine.
+      'fit.setup.steps-ticked',
       'fit.storage-persistence',
       'fit.theme',
     ], 'a promise that erasing removes everything is only as true as the least-swept copy, and the '

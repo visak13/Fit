@@ -174,8 +174,11 @@ export class NoUsableSlot extends CryptoError {
         userMessage:
           'This device can no longer open your clinical notes on its own — its saved encryption '
           + 'details are gone, which can happen if the app was removed from the home screen or the '
+          // NOT LOST, NEVER "SAFE" — the same correction d214 made to the screen that words this
+          // same condition. This copy is the SOURCE the screen was written from, so leaving it here
+          // would have put the claim back the next time anyone quoted the error message.
           + 'browser cleared its storage. Sign in to your Google account to restore access. The '
-          + 'notes themselves are safe.',
+          + 'notes themselves have not been lost and are still in your Google account.',
       });
     /** @type {string[]} */
     this.triedKinds = triedKinds;

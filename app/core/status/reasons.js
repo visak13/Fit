@@ -36,6 +36,13 @@
  * Every reason this surface can give. All specific; none of them is "something went wrong".
  *
  * - `never_synchronised`      — this installation has never completed one. Nothing is in the backup.
+ * - `not_yet_backed_up`       — there is work in this device's STORE that no pass has carried out of
+ *                               it. Asked of the store, not of the queue: a record written since the
+ *                               last pass is in neither, and the surface used to read that state as
+ *                               clean. Not a fault — it is the ordinary state between a save and the
+ *                               next opportunity — but it is NOT "everything is backed up".
+ * - `records_refused`         — the other device's work arrived and this store would not take it, so
+ *                               this device does not hold it. Never a completion.
  * - `credential_missing`      — Google has never been connected on this device.
  * - `credential_expired`      — it was connected and the access has run out. QUEUE-WIDE. One tap.
  * - `no_network`              — the service could not be reached.
@@ -47,6 +54,8 @@
  */
 export const REASON = Object.freeze({
   NEVER_SYNCHRONISED: 'never_synchronised',
+  NOT_YET_BACKED_UP: 'not_yet_backed_up',
+  RECORDS_REFUSED: 'records_refused',
   BACKUP_PARTLY_UNREADABLE: 'backup_partly_unreadable',
   CREDENTIAL_MISSING: 'credential_missing',
   CREDENTIAL_EXPIRED: 'credential_expired',
@@ -82,12 +91,23 @@ export const REASON_PRECEDENCE = Object.freeze([
   REASON.UNVERIFIABLE_SYNC_CLAIM,
   REASON.NEVER_SYNCHRONISED,
   REASON.BACKUP_PARTLY_UNREADABLE,
+  // Immediately below the skipped files, because it is the same fact — the copy is not what he thinks
+  // it is — arriving through a door that is more definite: a NAMED record came and is not here.
+  REASON.RECORDS_REFUSED,
   REASON.ENTRY_REJECTED,
   REASON.OUTCOME_UNKNOWN,
   REASON.LOCAL_FAILURE,
   REASON.CREDENTIAL_MISSING,
   REASON.CREDENTIAL_EXPIRED,
   REASON.NO_NETWORK,
+  // LAST, AND THE ORDER IS THE WHOLE OF WHY IT IS SAFE TO ADD. This one is the SYMPTOM and every
+  // reason above it is a CAUSE: work waiting on this device is also true when the credential died,
+  // when the service is unreachable, and when an entry was refused. Ranked any higher it would stand
+  // in front of the reason that actually explains it and take the tap with it — the coach would read
+  // "some of your work is not in Drive yet" where he should have read "your Google connection has
+  // expired" with a button beside it. Last, it says the honest thing in the one state nothing else
+  // explains: nothing is wrong, and it is not backed up yet.
+  REASON.NOT_YET_BACKED_UP,
 ]);
 
 /**
@@ -140,6 +160,24 @@ export const REASONS = Object.freeze({
     message: 'This device has never backed up. Nothing here is in your Google Drive yet.',
     action: 'connect_google',
     queue_wide: true,
+  }),
+  [REASON.NOT_YET_BACKED_UP]: Object.freeze({
+    // What it says is a STORAGE fact and stops there: it is here, it is not there yet. It does not
+    // say his work is safe and it does not say it is at risk — neither is known, and the sentence
+    // that guesses either way is the one that teaches him to stop reading the indicator.
+    message: 'Some of your work is saved on this device and is not in your Google Drive yet.',
+    // THE ONE THING HE CAN ACTUALLY DO, and it existed in the engine while no control reached it.
+    action: 'sync_now',
+    queue_wide: false,
+  }),
+  [REASON.RECORDS_REFUSED]: Object.freeze({
+    // Says what happened and which way round it is: this is the OTHER device's work not arriving,
+    // not his own work failing to leave. Those need different responses and reading one as the other
+    // sends him looking in the wrong place.
+    message: 'Changes from your other device could not be saved on this device, so this device does '
+      + 'not have all of your work. What is on your other device has not been lost.',
+    action: 'sync_now',
+    queue_wide: false,
   }),
   [REASON.BACKUP_PARTLY_UNREADABLE]: Object.freeze({
     // The figure-less form of the same sentence, from the same writer, for a caller holding the
@@ -228,6 +266,7 @@ export function reasonForFailure(failure) {
  *          waiting_for_credential?: number, rejected?: number, ambiguous?: number,
  *          failures?: readonly {code?: string, retryable?: boolean, needs_reauth?: boolean}[],
  *          unverifiable_sync_claim?: boolean,
+ *          work_not_in_the_backup?: boolean, refused_applies?: number,
  *          skipped_unreadable?: {count?: number, newer_version?: number}|null}} figures
  *   `skipped_unreadable` is the pass's own count of files it could not read, and how many of those a
  *   newer version of this app had written. It arrives from the synchronisation report; the surface
@@ -242,6 +281,10 @@ export function deriveReasons(figures) {
 
   if (f.unverifiable_sync_claim) codes.add(REASON.UNVERIFIABLE_SYNC_CLAIM);
   if (f.never_synchronised) codes.add(REASON.NEVER_SYNCHRONISED);
+
+  // Asked of the store, by the caller, before it got here. See `core/status/on-this-device.js`.
+  if (f.work_not_in_the_backup) codes.add(REASON.NOT_YET_BACKED_UP);
+  if ((f.refused_applies || 0) > 0) codes.add(REASON.RECORDS_REFUSED);
 
   const skipped = f.skipped_unreadable || null;
   if ((skipped?.count || 0) > 0) codes.add(REASON.BACKUP_PARTLY_UNREADABLE);

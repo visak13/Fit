@@ -145,7 +145,14 @@ async function anInducedAmbiguity(dev: any) {
 /** The reading, taken from the core's own two-page call and nothing else. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function readingFrom(dev: any): Promise<StoppedChangesReading> {
-  return needsAttention(dev.store, { limit: 25 }) as Promise<StoppedChangesReading>;
+  const pages = (await needsAttention(dev.store, { limit: 25 })) as Omit<
+    StoppedChangesReading,
+    'checked'
+  >;
+  // `checked: true` is the truth about THIS reading and it is the shell's to state: the core call
+  // above really ran over a real store. The application has no call site for it, which is why the
+  // constant the screens actually receive says the opposite.
+  return { checked: true, ...pages };
 }
 
 /** The screen, rendered exactly as the router renders it: through the seam and nothing else. */
@@ -235,6 +242,10 @@ describe('a change the service REFUSED', () => {
     assert.equal(again.attempted, 0, 'the CORE really does not retry it');
 
     const review = describeStoppedChanges(await readingFrom(dev));
+    assert.ok(
+      review.nothingHappensByItself !== null,
+      'a queue that was actually read always says what will happen next',
+    );
     assert.match(review.nothingHappensByItself, /will not try these again by itself/i);
     assert.ok(
       render(await readingFrom(dev)).includes('will not try these again by itself'),
@@ -472,9 +483,12 @@ describe('nothing on this surface can act', () => {
 });
 
 describe('when nothing has stopped', () => {
-  it('reads as a normal state rather than as an empty screen', () => {
-    const review = describeStoppedChanges(NOTHING_STOPPED as StoppedReading);
+  it('reads as a normal state rather than as an empty screen, ONCE THE QUEUE HAS BEEN READ', async () => {
+    const dev = await aQueue();
+    const reading = await readingFrom(dev);
+    const review = describeStoppedChanges(reading);
 
+    assert.equal(review.checked, true, 'this reading came from a real call over a real store');
     assert.equal(review.count, 0);
     assert.equal(review.settled, true);
     assert.match(review.intro, /Nothing has stopped/);
@@ -484,22 +498,48 @@ describe('when nothing has stopped', () => {
       assert.ok(group.nothingWords.length > 0, 'and neither is a blank section');
     }
 
-    const html = render(NOTHING_STOPPED);
+    const html = render(reading);
     assert.ok(html.includes(STOPPED_TITLE));
     assert.ok(html.includes('id="screen-stopped-changes"'));
   });
 
-  it('is what a store with nothing ever queued actually produces, not a hand-written blank', async () => {
-    const dev = await aQueue();
-    const reading = await readingFrom(dev);
+  it('SAYS IT HAS NOT LOOKED on the reading this build actually ships, which is a different state', async () => {
+    const unread = describeStoppedChanges(NOTHING_STOPPED as StoppedReading);
+    assert.equal(unread.checked, false);
+    assert.equal(unread.count, null, 'a nought nobody counted is the reassuring answer for free');
+    assert.match(unread.intro, /Not checked yet/);
 
-    assert.deepEqual(reading.rejected.items, []);
-    assert.deepEqual(reading.ambiguous.items, []);
-    assert.equal(
-      describeStoppedChanges(reading).intro,
-      describeStoppedChanges(NOTHING_STOPPED as StoppedReading).intro,
-      'the seam\'s empty value says exactly what the real call over an untouched store says',
+    const dev = await aQueue();
+    const read = describeStoppedChanges(await readingFrom(dev));
+
+    // THE ASSERTION THAT USED TO STAND HERE WAS THE DEFECT, WRITTEN DOWN. It required these two
+    // intros to be IDENTICAL — "the seam's empty value says exactly what the real call over an
+    // untouched store says" — and they are not the same state at all. Nothing in this application
+    // calls `needsAttention`, so the coach only ever reads the first one, worded as the second.
+    assert.notEqual(
+      unread.intro,
+      read.intro,
+      'the unread seam and a real read of an empty queue say the same sentence again',
     );
+
+    const html = render(NOTHING_STOPPED);
+    assert.ok(html.includes('Not checked yet'), 'the unchecked state is not said out loud');
+    assert.ok(
+      !html.includes('Nothing has stopped'),
+      'THE SCREEN STILL TELLS HIM NOTHING HAS STOPPED. Nothing has read the outbox: this reading is '
+        + 'a frozen literal with no source module behind it.',
+    );
+    assert.ok(
+      !html.includes('Everything that was sent was confirmed'),
+      'the group card makes the same unmeasured claim two cards further down, where a correction to '
+        + 'the headline would never have reached it',
+    );
+    assert.ok(!html.includes('Google has not refused anything'), 'and so does the other group');
+    assert.ok(
+      !html.includes('class="value-display"'),
+      'a figure is a claim and nothing counted',
+    );
+    assert.ok(html.includes('id="screen-stopped-changes"'), 'the screen still renders itself');
   });
 });
 
@@ -510,7 +550,10 @@ describe('the count is honest about being a page', () => {
     const full = await readingFrom(dev);
 
     // The core's own paging, asked for one at a time, which is what a long queue produces.
-    const paged = (await needsAttention(dev.store, { limit: 1 })) as StoppedChangesReading;
+    const paged = {
+      checked: true,
+      ...((await needsAttention(dev.store, { limit: 1 })) as Omit<StoppedChangesReading, 'checked'>),
+    };
     assert.equal(paged.rejected.items.length, 1);
 
     const review = describeStoppedChanges(paged);

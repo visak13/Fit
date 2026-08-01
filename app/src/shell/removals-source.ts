@@ -28,7 +28,11 @@
 import { pendingDeletions } from '../../core/store/purge.js';
 import type { LocalStore } from '../../core/store/store.js';
 import { NO_PASS_HAS_REPORTED } from '../screens/removals';
-import type { RemoteConfirmation, RemovalsPage, StillPresentEntry } from '../screens/removals';
+import type {
+  RemoteConfirmation, RemovalsPage, RemovalsReadStage, StillPresentEntry,
+} from '../screens/removals';
+import { failureFrom } from '../screens/read-failure';
+import type { ReadFailure } from '../screens/read-failure';
 
 /**
  * How many manifests are read in one page.
@@ -41,31 +45,52 @@ import type { RemoteConfirmation, RemovalsPage, StillPresentEntry } from '../scr
 export const REMOVALS_PAGE_LIMIT = 25;
 
 /**
- * Read the first page of removals not yet confirmed gone, and publish it.
+ * What a read of the pending page can come back as. THREE outcomes, and the third is the fix.
+ *
+ * `not_yet` is not produced here — it is the seam's own starting literal. This function publishes
+ * either of the other two and never nothing.
+ */
+export type PendingRemovalsOutcome =
+  | { readonly status: 'read'; readonly page: RemovalsPage }
+  | { readonly status: 'failed'; readonly failure: ReadFailure<RemovalsReadStage> };
+
+/**
+ * Read the first page of removals not yet confirmed gone, and publish the OUTCOME.
  *
  * Extracted from the component for the same reason `beginOpening` was: a static render never runs an
  * effect, so a read living inside one is a read the interface suite cannot check. Here it can be
- * driven against a REAL store holding a REAL unconfirmed removal.
+ * driven against a REAL store holding a REAL unconfirmed removal — and against one that throws.
  *
- * A failure is reported to the console and nothing is published. That is deliberate: the seam's
- * empty reading says "nothing is waiting", and publishing it after a failed read would turn a
- * failure into the reassuring answer, which is the one thing this surface exists to prevent. The
- * surfaces guard on the store's own state instead — see `platform/LocalStore.tsx`.
+ * ## IT USED TO PUBLISH NOTHING ON A FAILURE, AND THE REASONING FOR THAT WAS BACKWARDS
+ *
+ * The comment here said publishing the empty page after a failed read would turn a failure into the
+ * reassuring answer. The first half was right and the conclusion did not follow: THE EMPTY PAGE WAS
+ * ALREADY THERE. Publishing nothing left the seam at `NOTHING_AWAITING_REMOVAL`, which
+ * `screens/removals.ts` words as "Every client you have removed is confirmed gone from your Google
+ * Drive backup" — so a read that looked at nothing produced this application VOUCHING FOR A DELETION
+ * IT NEVER VERIFIED.
+ *
+ * The store-did-not-open guard the old comment pointed at does not cover this: it discriminates
+ * STORE-DID-NOT-OPEN from OPEN and says nothing about a read failing AFTER opening.
+ *
+ * The console line is kept beside the publish. It is where a developer looks and it was never what
+ * the coach reads.
  *
  * @returns cancel, so a page arriving after the caller has gone is dropped rather than set
  */
 export function readPendingRemovals(
   store: LocalStore,
-  publish: (page: RemovalsPage) => void,
+  publish: (outcome: PendingRemovalsOutcome) => void,
 ): () => void {
   let live = true;
 
   void pendingDeletions(store, { limit: REMOVALS_PAGE_LIMIT }).then(
     (page: RemovalsPage) => {
-      if (live) publish(page);
+      if (live) publish({ status: 'read', page });
     },
     (error: unknown) => {
       console.error('[removals] the pending removals could not be read from the local store', error);
+      if (live) publish({ status: 'failed', failure: failureFrom(error, 'pending') });
     },
   );
 

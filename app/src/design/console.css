@@ -332,6 +332,47 @@ p {
  */
 a {
   color: var(--text-accent);
+
+  /*
+   * AND A LINK IS A TAP TARGET, BOUND AT THE SAME ELEMENT AND FOR THE SAME REASON.
+   *
+   * MEASURED, at 390px, on the running application: the two "Open the page it is on now" links
+   * inside the setup screen's console-traps disclosure rendered 216.1 x 21.6, under the 24px floor
+   * WCAG 2.2 SC 2.5.8 sets. Every other anchor in the application already clears it, and every one
+   * of them clears it because a CLASS gave it a box — `.nav-item` (44/56px), `.btn` (44px),
+   * `.back-link` (44px), or membership of a flex container, which blockifies the anchor and hands
+   * it the 24px line box. The two that failed are the only two the application draws with no class
+   * at all, so they kept the anchor's own `display: inline`.
+   *
+   * THE MECHANISM, because the obvious reading of those numbers is the wrong one. An INLINE box's
+   * height is the font's content area — 21.6px for this face at 16px — and it does NOT follow
+   * `line-height`, which is why a link sitting on a 24px line still measures 21.6. It also does not
+   * follow the number of lines: an inline link wrapped over two lines is two 21.6px fragments, not
+   * one 43.2px target. So neither longer wording nor a narrower column can lift an inline anchor
+   * over the floor, and neither can shorter wording drop a block one under it — MEASURED both ways
+   * on this screen: the six numbered step links forced to a one-word title stayed at exactly 24.0,
+   * and the trap links forced to a one-word title stayed at 21.6. The discriminator is the box
+   * type, not the wording.
+   *
+   * `inline-block` is therefore the fix rather than padding: it gives the anchor a box that honours
+   * a minimum at all, while still shrinking to the column and wrapping its own text. `min-block-size`
+   * is the belt — an inline-block's content height is its line box, so a screen that ever lowers
+   * `line-height` under a link would otherwise walk back under the floor silently.
+   *
+   * `--target-minimum` (24px) and NOT `--target-touch` (44px), and that is a decision rather than a
+   * reflex — this build has already shipped a defect from binding the looser of these two. 44px is
+   * what this application holds anything TAPPED DURING A SESSION to, with a client in front of the
+   * coach and often without him looking straight at the screen; those are `.btn`, `.choice` and the
+   * navigation surface, and they bind `--target-touch` themselves and keep it. A link inside
+   * reading matter is not that control, and giving every anchor a 44px box would put 20px of dead
+   * space under every link in a paragraph. 24px is the floor for reading matter; 44px stays the
+   * floor for the session.
+   *
+   * Bound HERE, at the element, for the reason the colour above is: six screens are written by six
+   * authors, and the anchor with no class is exactly the one nobody remembers.
+   */
+  display: inline-block;
+  min-block-size: var(--target-minimum);
 }
 
 /*
@@ -409,6 +450,28 @@ samp {
   font-weight: var(--weight-bold);
   line-height: var(--leading-tight);
   font-variant-numeric: tabular-nums;
+}
+
+/*
+ * A LITERAL HE COPIES BY EYE — an address rather than a figure, and deliberately NOT
+ * `.value-display` above it.
+ *
+ * MEASURED AT 390px IN s10/a4, ON THE RUNNING APPLICATION. The authorised JavaScript origin was
+ * drawn with `.value-display`, which is display size, bold, and correct for the one NUMBER a screen
+ * exists to show. An address is not a number and has no space to break at, so it overran its own
+ * card — 345px of content in a 311px box, spilling with nothing hidden and nothing truncated, which
+ * is the failure no computed check reports. It happened on the one card whose entire job is to hand
+ * him a value to copy WHEN THE CLIPBOARD IS REFUSED, so the part he could not read was the part the
+ * card exists for.
+ *
+ * Body size, because it is read character by character to be retyped or checked; wrapping anywhere,
+ * because the alternative to a second line is a value that leaves the card.
+ */
+.copy-value {
+  margin: 0;
+  min-width: 0;
+  font-weight: var(--weight-bold);
+  overflow-wrap: anywhere;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────────────
@@ -548,10 +611,18 @@ samp {
  *
  * WHAT IS DRAWN IS THREE FACTS, NOT ONE LADDER OF SIX. `src/shell/sync-indicator.ts` carries the
  * reasoning in full and is worth reading before changing anything here. In short: the SILHOUETTE
- * carries the rung and only the rung — five of them, all driven by time — while *working offline*
- * and *something is stopped* are MARKS beside it, because neither is a rung. Both can be present at
- * once with the rung still fully readable, which a single ranked list could not do: it would hide a
- * refusal behind a dropped connection, and the refusal is the one that never resolves by itself.
+ * carries a rung — five of them, all driven by time — while *working offline* and *something is
+ * stopped* are MARKS beside it, because neither is a rung. Both can be present at once with the rung
+ * still fully readable, which a single ranked list could not do: it would hide a refusal behind a
+ * dropped connection, and the refusal is the one that never resolves by itself.
+ *
+ * IT IS NOT ALWAYS THE CORE'S OWN RUNG, AND THAT IS ONE NAMED EXCEPTION RATHER THAN A LOOSENING. A
+ * pass that SKIPPED FILES it could not read leaves every rung figure honestly clean, so the state
+ * layer stays at `up_to_date` while the sentence underneath says the backup does not hold everything
+ * from the other device. Measured on the real application, the calm disc sat beside that sentence —
+ * and the ring is the first thing read and the only part legible in the collapsed rail, so a glance
+ * returned the reassuring half. `drawnRungOf` escalates that ONE rung to the attention shape while a
+ * skip is outstanding, and returns it when a clean pass completes. Nothing in this file decides it.
  *
  * FOUR CHANNELS, AND COLOUR IS THE LAST OF THEM. Outline, then glyph, then word, then fill. The
  * first three survive a colour-blind reader, sunlight on a phone, a greyscale screenshot and the
@@ -679,7 +750,11 @@ samp {
 /* The chip's own edge climbs with the last two rungs, so the escalation is visible at the size of
  * the whole chip and not only at the size of the shape inside it. */
 .sync[data-rung='severely_overdue'],
-.sync[data-rung='persistent_warning'] {
+.sync[data-rung='persistent_warning'],
+/* NOT A RUNG. A read that did not come back stands on no step of the ladder, and it takes the loud
+ * edge for the reason the ceiling does: an unread backup state must not be mistakable for the calm
+ * one. It still does not block — see `SyncStatus.tsx`, CouldNotRead. */
+.sync[data-rung='could_not_read'] {
   border-inline-start: var(--border-strong) solid var(--text-danger);
 }
 
@@ -859,6 +934,26 @@ samp {
   min-block-size: 0;
   min-inline-size: 0;
   overflow-y: auto;
+
+  /* THE CONTAINING BLOCK, AND IT IS LOAD-BEARING RATHER THAN TIDY. `.visually-hidden` is
+   * `position: absolute` with no offsets; without a positioned ancestor its containing block is the
+   * PAGE, so it escapes this panel's clip and the DOCUMENT grows to fit it. Measured on /admin by
+   * s11/a14 and reproduced by a39: docScrollHeight 6633 against a client height of 844 at 390, and
+   * 4846 against 900 at 1440 — /admin was the ONE route of fourteen where the document itself
+   * scrolled — and at the bottom of that scroll the destination surface sat at top -5055 with
+   * `document.elementFromPoint` at its own centre returning NULL. The navigation was not merely
+   * hard to reach; it was not on the screen, and our navigation guard was green throughout because
+   * link EXISTENCE is not link AVAILABILITY.
+   *
+   * This is the SECOND time this exact mechanism has been paid for. DietEditor met it at
+   * forty-nine hidden spans and worked around it in its own markup — an `aria-label` instead of a
+   * hidden span — leaving the foundation untouched, so the next author of a hidden control met it
+   * again. It is bound here, once, because `.content` is the panel the escape crosses.
+   *
+   * `.tip-bubble` is `position: fixed` and is deliberately positioned against the VIEWPORT; a
+   * `relative` ancestor does not create a containing block for a fixed element, so this does not
+   * reach it. */
+  position: relative;
 }
 
 /*
@@ -1237,7 +1332,7 @@ samp {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────────────
- * GLYPHS — the whole of what the forty-nine share, in one rule.
+ * GLYPHS — the whole of what the family shares, in one rule.
  *
  * `src/design/Glyph.tsx` draws the geometry and sets none of this, deliberately. Colour comes from
  * the text around it, so a glyph is the shape of the word beside it rather than a second decision
@@ -1439,7 +1534,25 @@ button[disabled],
  * FIELDS. A control the coach types into during a session is the last place in the application
  * that should be the smallest target on the screen — which is exactly what happened once, to a
  * heart-rate input that sat outside this block and inherited none of its sizing at 21px tall.
- * Any input, anywhere, gets these sizes.
+ *
+ * THAT FIX GENERALISED THE SENTENCE AND LEFT THE SELECTOR ALONE, so it happened a second time. This
+ * comment read "Any input, anywhere, gets these sizes" above a rule scoped `.field input`, and
+ * s11/a39 measured the consequence on /admin: FOUR password boxes at 326 x 21.2 px and 13.3333px at
+ * 390, 1300 x 21 at 1440 — under the 24px tap floor and under the 16px reading floor at both widths
+ * — because each sits in a `label.stack` rather than a `.field`. Two of them carried
+ * `className="input"`, which matches NO RULE IN ANY STYLESHEET; enumerating every rule that matched
+ * those elements returned an EMPTY LIST. A comment that promises more than its selector delivers is
+ * worse than no comment, because the next reader trusts it and stops looking. So the SELECTOR is now
+ * what the sentence always claimed, rather than a third narrow rule added underneath it.
+ *
+ * BOUND AT ELEMENT LEVEL, like `fieldset`, `legend` and the radio/checkbox block further down: every
+ * text-entry input anywhere, every textarea and every select, inside a `.field` or not. The excluded
+ * types are the ones that are not text entry — `checkbox` and `radio` are 24px MARKS sized in that
+ * block below and drew as empty boxes with a dot in them when they last met these declarations
+ * (CalendarScreen says so in its own words), and a `file` input is visually hidden behind a button of
+ * its own on this build. iOS is the only tested target and Safari ZOOMS THE VIEWPORT on focus of an
+ * input under 16px, so `font: inherit` here is not only a reading floor: it is what stops the page
+ * jumping under his thumb while he types the passphrase for his encrypted archive.
  * ───────────────────────────────────────────────────────────────────────────────────── */
 .field {
   display: flex;
@@ -1456,9 +1569,10 @@ button[disabled],
   color: var(--text-muted);
 }
 
-.field input,
-.field textarea,
-.field select {
+input:not([type='checkbox'], [type='radio'], [type='file'], [type='range'], [type='color'],
+  [type='button'], [type='submit'], [type='reset'], [type='image'], [type='hidden']),
+textarea,
+select {
   min-height: var(--control-height);
   padding: var(--space-2) var(--space-3);
   border: var(--border-control) solid var(--line-control);
@@ -1468,7 +1582,11 @@ button[disabled],
   font: inherit;
 }
 
-.field textarea {
+/* A textarea is two control heights WHEREVER IT IS, for the same reason the rule above it is no
+ * longer scoped to `.field`: nothing about needing room to write depends on the wrapper a screen
+ * happened to choose. It follows the rule above so that the two `min-height` declarations, now equal
+ * in specificity, resolve in the order they are written. */
+textarea {
   min-height: calc(var(--control-height) * 2);
   line-height: var(--leading-body);
   resize: vertical;
@@ -2318,4 +2436,28 @@ input[type='checkbox'] {
  */
 .status-held {
   min-height: calc(2em * var(--leading-loose));
+}
+
+/*
+ * A NEWER VERSION IS READY — the frame's quiet line, added by the update path (s11/a19).
+ *
+ * IT TAKES ITS OWN ROW rather than sharing one. `.content-header` is a wrapping flex row holding the
+ * application's name and the contextual line, and both of those are about WHERE HE IS; this is about
+ * the application itself. Sharing a row would let it compete with the crumb for the same horizontal
+ * space and push the way back off the line on a narrow screen, which is a navigation defect caused by
+ * an announcement — the exact trade this line is not allowed to make.
+ *
+ * QUIET IS THE REQUIREMENT AND NOT A PREFERENCE. It carries no fill, no border and no colour of its
+ * own: the sentence sits at reading size and the control is the ordinary small button. Nothing here
+ * covers, overlays or reserves space when it is absent, because it is absent almost always, and a
+ * permanent gap held open for a rare line is chrome that says nothing.
+ */
+.new-version {
+  flex: 1 1 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin: 0;
+  min-width: 0;
 }

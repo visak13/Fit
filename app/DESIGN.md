@@ -221,9 +221,16 @@ know why before you are surprised by it:
   floor, and it was found doing exactly that on a real screen with every gate green. It keeps its
   meaning and gives up its size. If the text really is a timestamp, a unit or a record identifier,
   ask for that with `.meta`.
-- **`<a>` is bound to `--text-accent`.** An unstyled link is the browser's own blue, and its own
-  purple once visited: two colours that are in no palette, were measured against no surface, and do
-  not change with the theme.
+- **`<a>` is bound to `--text-accent`, and to a tap floor.** An unstyled link is the browser's own
+  blue, and its own purple once visited: two colours that are in no palette, were measured against
+  no surface, and do not change with the theme. It is also `inline-block` with
+  `min-block-size: var(--target-minimum)`, because an **inline** box's height is the font's content
+  area — 21.6px at 16px — and it does not follow `line-height` or the number of lines it wraps over.
+  Measured at 390px: the two links in the setup screen's console-traps disclosure rendered
+  216.1 × 21.6, under the 24px floor, while every other anchor cleared it only because a class
+  (`.nav-item`, `.btn`, `.back-link`) or a flex parent had already given it a box. 24px and not 44px
+  is deliberate: a link inside reading matter is not a control tapped during a session. See
+  *Controls, and the number that is not negotiable*.
 - **`<code>` no longer shrinks either, and it now has a face.** A browser resolving the generic
   family `monospace` applies its own monospace default size instead of the inherited one, so the
   element lands at about 13px with nobody having written a size anywhere. It was found doing exactly

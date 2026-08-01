@@ -254,6 +254,23 @@ test('a pruned chain with NO anchor is reported as truncated — never a silent 
   assert.equal(result.checked, 3);
 });
 
+test('truncation and a break are INDEPENDENT: a pruned chain that is also altered reports BOTH', async () => {
+  const entries = await chainOf(6);
+  const survivors = entries.slice(3);
+  // The third survivor, edited after the fact. Its own digest no longer matches its own fields.
+  survivors[2] = { ...survivors[2], at: new Date(Date.UTC(2020, 0, 1)).toISOString() };
+
+  const result = await verifyChain(survivors);
+
+  assert.equal(result.ok, false, 'the alteration is a break');
+  assert.equal(result.first_divergence.reason, DIVERGENCE.ALTERED);
+  assert.equal(result.first_divergence.index, 2);
+  // The head WAS truncated, and a divergence found later does not un-truncate it. Reporting false
+  // here would let a caller comparing the two fields read the missing entries as part of the
+  // tampering — retention's ordinary work, accused.
+  assert.equal(result.truncated_head, true, 'the head is still truncated, and the result still says so');
+});
+
 test('a WRONG anchor is a divergence at the head — retention cannot be used to hide a deletion', async () => {
   const entries = await chainOf(6);
   const result = await verifyChain(entries.slice(3), { anchor: entries[1][HASH_FIELD] });

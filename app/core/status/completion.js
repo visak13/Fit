@@ -53,7 +53,9 @@ const SEALED = Symbol('status.completion.sealed');
 /**
  * @typedef {Object} CompletedSync
  * @property {string} completed_sync_at The instant the flush that drained the queue finished.
- * @property {string|null} trigger      Which of the five opportunities it was, when known.
+ * @property {string|null} trigger      Which of the declared opportunities it was, when known. It is
+ *                                      read back to the coach in plain words, so it must be the
+ *                                      opportunity that genuinely happened and never a near neighbour.
  * @property {string|null} device       Which device completed it.
  */
 

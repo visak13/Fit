@@ -60,6 +60,7 @@
  * `client-removal.test.ts` asserts that absence rather than trusting this paragraph.
  */
 
+import type { BackupHistory } from './backup-history';
 import { verbatimOf } from './clients';
 import type { ClientSummary } from './clients';
 import { NOT_CONFIRMED_IS_NOT_STILL_THERE, NO_NAME_IS_DELIBERATE, REMOVALS_TITLE } from './removals';
@@ -148,15 +149,17 @@ export function removedWords(name: string): string {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * What is true about this device's ability to take a backup before a removal.
+ * What is true about this device's ability to take a backup before a removal IS ITS BACKUP HISTORY —
+ * `backup-history.ts`, the same state the protected clinical field reads.
  *
- * The same three states as `ClinicalFieldState`, read from the same one fact — whether a
- * synchronisation has ever COMPLETED on this device — because they are the same question wearing two
- * hats, and two answers to it would eventually disagree. `unknown` is not a hedge: on a cold start
- * the local store has not answered yet, and a confirmation that guessed either of the others while it
- * waited would be telling him something it had not looked up.
+ * One fact, one type, one set of words: whether a synchronisation has ever COMPLETED on this device.
+ * The clinical field and this offer really are the same question wearing two hats, and two answers to
+ * it would eventually disagree.
+ *
+ * WHAT IS NOT THE SAME QUESTION is whether Google is reachable NOW. This type used to spell its
+ * members `'connected' | 'never-connected'` — the backup indicator's vocabulary, for a fact about the
+ * past — and the two were measured contradicting each other on one screen. See `backup-history.ts`.
  */
-export type BackupOfferState = 'unknown' | 'never-connected' | 'connected';
 
 /** The offer to back up before removing somebody. */
 export interface BackupOffer {
@@ -216,7 +219,7 @@ export const BACKUP_OFFER_PURPOSE =
  * to connect an account that is already connected — no error anywhere, and the only symptom a
  * sentence that quietly stopped being true.
  */
-export function describeBackupOffer(state: BackupOfferState): BackupOffer {
+export function describeBackupOffer(state: BackupHistory): BackupOffer {
   const common = {
     title: BACKUP_OFFER_TITLE,
     whatItIsFor: BACKUP_OFFER_PURPOSE,
@@ -233,29 +236,43 @@ export function describeBackupOffer(state: BackupOfferState): BackupOffer {
         whatToDo: null,
       };
 
-    case 'never-connected':
+    case 'never-backed-up':
       return {
         ...common,
+        // IT NAMES THE FACT IT READ, WHICH IS THE HISTORY. It used to open "because your Google
+        // account has not been connected here yet" — a statement about the present connection, which
+        // this offer does not measure and the indicator does. Connecting is still named, as the ACT
+        // that makes a backup possible rather than as a claim about where this device stands now.
         whatHappened:
-          'This device has never backed anything up, because your Google account has not been '
-          + 'connected here yet. So there is nothing to back up to, and this app will not offer you '
-          + 'a button that would do nothing.',
+          'This device has never backed anything up. Connecting your Google account is what makes a '
+          + 'backup possible, and none has completed here, so there is nothing to back up to and this '
+          + 'app will not offer you a button that would do nothing.',
+        // WHERE THE CONNECTING IS SET UP, NAMED AS A SCREEN RATHER THAN AS A BUTTON — the same
+        // correction s11/a41 made to `clients.ts`'s WHERE_TO_CONNECT, and that constant's own note
+        // carries the measurement. In one line: Admin holds no connect act and is forbidden to, and
+        // neither control that does hold it can be promised to be on screen when he reads this, so
+        // this names Admin and "Open Setup" — both of which are permanent — and claims no third.
         whatToDo:
-          'Open Admin, on the navigation, and connect your Google account there if you want a backup '
-          + 'before you remove anybody. You can also go ahead without one — that is your decision to '
-          + 'make, and this app is telling you where you stand rather than making it for you.',
+          'Open Admin, on the navigation, then Open Setup — connecting your Google account is set up '
+          + 'on that screen. Do that first if you want a backup before you remove anybody. You can '
+          + 'also go ahead without one — that is your decision to make, and this app is telling you '
+          + 'where you stand rather than making it for you.',
       };
 
-    case 'connected':
+    case 'has-backed-up':
       return {
         ...common,
-        // This device HAS backed up, so "not connected yet" would be false. The honest answer is the
-        // uncomfortable one: taking a backup on demand is not built. Saying the wrong true-sounding
-        // thing here would send him to reconnect an account that is already connected.
+        // This device HAS backed up, so sending him off to connect would be false. The honest answer
+        // is the uncomfortable one: taking a backup on demand is not built.
+        //
+        // AND IT CLAIMS ONLY THE PAST. It used to open "This device is connected to your Google
+        // account and has backed up before" — the first half of which this offer never measured, and
+        // which the indicator flatly contradicted after a sign-out. The second half is the half that
+        // was read, so it is the only half said.
         whatHappened:
-          'This device is connected to your Google account and has backed up before. Taking a backup '
-          + 'on demand, from here, is part of the same piece of work and is not finished yet, so '
-          + 'there is nothing to press.',
+          'This device has backed up to your Google account before. Taking a backup on demand, from '
+          + 'here, is part of the same piece of work and is not finished yet, so there is nothing to '
+          + 'press.',
         whatToDo: null,
       };
 
@@ -287,7 +304,7 @@ export function describeBackupOffer(state: BackupOfferState): BackupOffer {
  */
 export function describeRemovalConfirmation(
   name: string,
-  state: BackupOfferState,
+  state: BackupHistory,
 ): RemovalConfirmation {
   return {
     title: `Remove ${name} for good?`,

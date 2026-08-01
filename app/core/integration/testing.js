@@ -84,7 +84,7 @@ export function aPractice(options = {}) {
 }
 
 /**
- * One synchronisation pass on a device. The trigger matters — there are five opportunities and
+ * One synchronisation pass on a device. The trigger matters — there are six opportunities and
  * none of them is a background one — so it is named rather than defaulted invisibly.
  *
  * @param {any} dev @param {any} world @param {string} [trigger]

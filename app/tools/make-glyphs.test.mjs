@@ -4,7 +4,7 @@
  * The accepting half is already proved every time the shell tests run: `src/design/glyphs.test.ts`
  * re-derives the whole family from `design/icons/` and compares it byte for byte with what shipped.
  * That is a better test of the happy path than anything here could be, because its input is the real
- * forty-nine rather than a fixture somebody wrote to pass.
+ * the real family rather than a fixture somebody wrote to pass.
  *
  * What that cannot reach is the refusals, and the refusals are the point. A generator that quietly
  * skips a shape it does not understand emits a glyph with a piece missing; one that reads a

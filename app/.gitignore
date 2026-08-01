@@ -2,8 +2,9 @@
 #
 # The project root carries its own .gitignore covering the throwaway spike tree and the preserved
 # spike evidence. This file is deliberately separate so the rules still hold if the repository is
-# ever rooted at this directory instead of at the project root — the repository does not exist
-# yet, and neither choice should be able to leak what the other one excluded.
+# ever rooted at this directory instead of at the project root — the repository is rooted at the
+# project root and has never been pushed, and neither choice should be able to leak what the other
+# one excluded.
 
 # Dependencies. Restored with `npm install`, never committed.
 node_modules/

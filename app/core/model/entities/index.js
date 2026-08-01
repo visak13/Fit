@@ -45,7 +45,10 @@ export {
   validateDietPlan,
 };
 
-export { EXERCISE_FIELDS, classifyLibraryKey, checkPrescription, checkScaling } from './exercise.js';
+export {
+  EXERCISE_FIELDS, SCALING_POINT_FIELDS, classifyLibraryKey, checkPrescription, checkScaling,
+  scalingContractFindings,
+} from './exercise.js';
 export { ROUTINE_FIELDS, ROUTINE_ENTRY_FIELDS } from './routine.js';
 export { INTENSITY_PATTERN_FIELDS } from './intensity-pattern.js';
 export { CLIENT_FIELDS, CLIENT_ENCRYPTED_FIELDS, classifyClientKey } from './client.js';
