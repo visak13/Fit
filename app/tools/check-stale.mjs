@@ -48,12 +48,30 @@ async function main() {
     return;
   }
 
-  console.error(`STALE: ${OUTPUT_DIRECTORY}/ was NOT built from the current source.`);
+  console.error(`STALE: your LOCAL ${OUTPUT_DIRECTORY}/ was NOT built from the current source.`);
   console.error(`  the artefact says it was built from : ${buildInfo.sourceStamp}`);
   console.error(`  the working tree hashes to          : ${currentStamp}`);
   console.error('');
+  // THIS SENTENCE WAS FALSE IN BOTH HALVES and is corrected rather than deleted, because the
+  // correction is the whole finding. It used to read "Publishing now would serve the previous
+  // build. Run `npm run build` and commit dist/." Neither half survived the untracking of
+  // dist/: CI builds from source and uploads its own artefact, so nothing on the publish path
+  // ever opens this directory and a stale local build cannot reach a visitor; and dist/ is
+  // ignored by both .gitignore files, so committing it is not something a reader can do.
   console.error(
-    `Publishing now would serve the previous build. Run \`npm run build\` and commit ${OUTPUT_DIRECTORY}/.`,
+    `This is a LOCAL fact and not a publishing one. Nothing on the publish path reads this`,
+  );
+  console.error(
+    `directory — CI builds from source and serves its own artefact — so a stale ${OUTPUT_DIRECTORY}/`,
+  );
+  console.error(
+    `cannot reach a visitor. What it does affect is anything you run against it here: a preview,`,
+  );
+  console.error(
+    `a walk, or a service worker registered from it will serve the PREVIOUS build. Run`,
+  );
+  console.error(
+    `\`npm run build\` to clear it. Do NOT commit ${OUTPUT_DIRECTORY}/ — it is ignored on purpose.`,
   );
   process.exitCode = 1;
 }

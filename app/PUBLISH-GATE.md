@@ -821,15 +821,28 @@ index needs the first number, not the second.
 
 ---
 
-# ADDENDUM — 2026-08-01, s12/a17: THIS AUDIT NOW EXITS 1 ON A CLEAN TREE, AND HERE IS WHY
+# ADDENDUM — 2026-08-01, s12/a17: THIS AUDIT EXITS 1 ON A CLEAN TREE, AND HERE IS WHY
+
+> **THE WINDOW, STATED FIRST BECAUSE IT IS THE PART A READER MUST NOT LOSE.**
+>
+> **The finding below was made on 2026-08-01 (s12/a17, at HEAD `bd859e3`). The gate was disabled
+> from that moment until it was repaired on 2026-08-01 by s12/a18 (repair recorded in the second
+> addendum, below). During that window `node tools/publish-audit.mjs` exited 1 on an untouched
+> tree and three of its eight probes did not run at all, and NOTHING REPORTED THAT — CI does not
+> run this script; it is invoked only by hand. Two publishes went out while it was in that state.
+> The record of a gate having been disabled is part of the gate, so this diagnosis is kept
+> verbatim rather than deleted.**
 
 **Everything above this line is the record as it was measured on 2026-08-01 by s12/a7 and is
 unedited.** This addendum is appended rather than folded in, because the sections above are a
-dated measurement and rewriting a measurement is not a correction.
+dated measurement and rewriting a measurement is not a correction. The same rule applies to this
+addendum: it is **historical as of the repair**, and it is left standing.
 
 ## Read this before you conclude the gate is broken
 
-`node tools/publish-audit.mjs` **currently exits 1 on the untouched tree, and three of its eight
+*(As written on 2026-08-01, before the repair. Superseded — see the next addendum.)*
+
+`node tools/publish-audit.mjs` **exits 1 on the untouched tree, and three of its eight
 probes do not run at all.** If you are the next person to run it, you were going to meet a red
 with no explanation, and the cheapest thing to do with an unexplained permanent red is to stop
 running the instrument. That is the outcome this addendum exists to prevent.
@@ -902,17 +915,9 @@ Both of these are true and neither may be quoted without the other:
   outside HEAD, the floor was satisfiable, and all eight probes had targets. **It certified
   validly, and it was made unsatisfiable by the success it certified.**
 
-## What you must still treat as a real finding
-
-The red above is a known, diagnosed exception — **it is not permission to ignore this gate.**
-
-- **Any A-family or B-family red is a genuine finding and stops a push.**
-- **Fewer than five probes firing is a genuine finding and stops a push.** The five that fire
-  today are **A1, A2, B1, B2 and B3**. Diff your run against that list; you should not have to
-  read the source to know what normal looks like.
-- Anything else that differs from the output quoted above is a finding.
-
 ## The repair is outstanding and is owed before the next push
+
+*(As written on 2026-08-01. It landed the same day — see below.)*
 
 **Repairing this instrument is a known outstanding action, and it must land BEFORE THE NEXT PUSH
 TO THIS REPOSITORY.** Nobody should publish twice through a disabled gate. Two things are wrong
@@ -927,3 +932,124 @@ for a one-off state becomes unsatisfiable the moment that state passes, and ther
 closed forever.* This file's own subject already forbids the shape — `publish-audit.mjs:404` says
 an allow that covers nothing today is a hole waiting for tomorrow's arrival at that site — and the
 lock ended up pointed at the instrument that wrote the rule.
+
+---
+
+# ADDENDUM — 2026-08-01, s12/a18: THE REPAIR. THE AUDIT EXITS 0 WITH ALL EIGHT PROBES FIRING
+
+**The addendum above is now HISTORICAL. It is kept, dated and unedited, because the window it
+records — the gate disabled from the 2026-08-01 finding until this repair, across two publishes,
+with nothing reporting it — is part of what a reader needs in order to trust this file at all.**
+
+## What normal looks like now
+
+`node tools/publish-audit.mjs` **exits 0 on the untouched tree with all EIGHT probes FIRED.** The
+five-that-fire list in the addendum above is superseded: **A1, A2, B1, B2, B3, C1a, C1b and C2
+must all report FIRED. Fewer than eight is a genuine finding and stops a push.**
+
+| Probe | What it asserts | What it plants | What makes it go red |
+|---|---|---|---|
+| **A1** | the `/spike/` and `/_spike-evidence/` exclusions are *exclusion*, not blindness | nothing — it re-enumerates with `git add --force`, manufacturing the forbidden paths | forcing ignores off surfaces no `_spike-evidence/` path or no `spike/` path |
+| **A2** | the path matcher itself recognises a forbidden prefix | two synthetic paths, `_spike-evidence/SYNTHETIC.md` and `spike/synthetic.js` | fewer than both planted paths come back flagged |
+| **B1** | all 15 needle and credential classes are detected in a real artefact — **COVERAGE REDUCED, see below** | one value per class, appended to a temp copy of the least line-structured file in the universe | any class goes undetected in the planted copy |
+| **B2** | the whole-file reader genuinely reads — **COVERAGE REDUCED, see below** | a denied value spliced *into the middle of the longest line* of that same subject, in a temp copy | the spliced value is not found, or the subject already contained it (probe did not apply) |
+| **B3** | the literal joiner sees a value this app's `'a' + 'b'` style splits across literals | a denied value cut in half across two adjacent string literals in a temp `.ts` file | the raw text already matches (probe did not apply), or the joined text does not |
+| **C1a** | the **enumeration reaches, and correctly classifies as outside HEAD, a path no commit has carried** — this is the non-vacuity floor | a denied value in a new untracked file, `app/.publish-audit-untracked-probe.tmp.mjs` | the file does not enter the universe, is not classified outside HEAD, or its value is not reported |
+| **C1b** | the content scan covers an existing real file of this repository, not only files the audit authored — **COVERAGE REDUCED, see below** | a denied value appended to the working copy of a deterministically chosen real file, restored byte-for-byte in the same run | the file is absent from the set the arm claims to cover, its value is not reported, or the byte-exact restore fails |
+| **C2** | the universe **excludes** what a commit excludes | the same denied value in `app/node_modules/.publish-audit-ignored-probe.tmp.mjs`, confirmed ignored by `git check-ignore` | the ignored plant is enumerated or reported (fires the other way), or git does not agree the path is ignored |
+
+## THE THREE REPAIRS
+
+### 1. The vacuity floor was pointed at a quantity the audited act empties
+
+`notInHead` is the universe minus `git ls-tree HEAD`. **That is not an invariant. It is a
+quantity committing drains by construction — 163 before the publish commit, 0 after.** The floor
+`notInHead.length === 0 ⇒ FAIL` was therefore structurally incapable of passing after the first
+commit it was written to precede.
+
+**The replacement is not the same shape with a different variable. It is a plant, not a census.**
+Probe C1a writes `app/.publish-audit-untracked-probe.tmp.mjs`, a path no commit has ever carried,
+and requires the enumeration to reach it, the not-in-HEAD derivation to classify it, and the
+content scan to catch the denied value inside it. **The subject is manufactured by the audit
+during the run**, so its existence does not depend on the repository's history and no commit can
+drain it — the next run makes its own. This is the discipline probe A1 already used: force the
+ignore rules off to *manufacture* the forbidden paths CHECK A asserts over, rather than requiring
+the tree to happen to contain one.
+
+`notInHead` is still derived and still printed on the universe line. It is now **descriptive**.
+Nothing fails because it is zero.
+
+**Demonstrated, not asserted** — the audit was run, a commit was made, and it was run again; both
+exit codes are transcribed in the worker's report for this action. The size floor
+(`universe < 200 paths ⇒ FAIL`) is the only count left, and "this repository has hundreds of
+files" is not a quantity committing touches either.
+
+### 2. One unsatisfiable precondition took three probes off the board
+
+`else if (!c1bTarget) { fail(...) }` at `:716` skipped the **only** block containing C1a, C2, the
+C1b restore assertion and the cleanup verification. **Nothing is gated on `c1bTarget` any more.**
+A missing C1b target is now a C1b failure and nothing else; every other arm runs regardless.
+
+### 3. `app/dist` is a forbidden prefix now, not a blessed one
+
+The operator untracked it: CI builds from source and uploads its own artefact, nothing on the
+publish path opens a committed `dist`, and both `.gitignore` files carry the rule and the reason.
+So:
+
+- the `:571` floor asserting *"no `app/dist/` file is in the staged universe — dist is committed
+  on purpose"* is **deleted**. It was also the immediate cause of the uncaught `TypeError` at
+  `:582`, which is why the audit crashed rather than merely failing.
+- **CHECK C reversed.** `app/dist/` no longer skips the built-output rules; it is caught by the
+  same `dist/` rule as any other bundle, and the rule's own matcher is checked against a synthetic
+  `app/dist/` path so a rule that reversed on paper only is a red.
+
+**This is the gate catching up with the repository, not a workaround for a crash.**
+
+## WHAT NOW COVERS LESS THAN IT DID — SAID PLAINLY
+
+A smaller true claim beats an equal-looking false one. Three probes were narrowed, and each says
+so on its own line in the audit's own output on every run:
+
+**B1's subject.** Its real subject was never *a large file* — it was **proving the reader survives
+a file with NO USEFUL LINE STRUCTURE**, which is why it planted into the minified one-line bundle
+(1,056,824 bytes on one line). **That property no longer has a subject at anything like that
+scale.** Measured across all 689 files of the universe: the longest single line left is **2,668
+bytes**, in `app/public/icons/icon-512.png` — a binary PNG carrying 97.2% of its bytes in one
+line. The property survives *qualitatively* and is gone *in scale*: three orders of magnitude
+smaller. `package-lock.json` and `design/contrast-report.json` are large but pretty-printed and
+line-broken, and **large was never the property** — reporting either as an equivalent swap would
+be exactly the substitution this file exists to refuse. B1 now picks its subject by measurement
+(greatest single-line length, ties by size then name, so it is reproducible) and prints the
+reduction on every run. **B1 no longer proves the reader survives a megabyte-scale single line,
+and nothing committed to this repository can prove that any more.**
+
+**B2's control.** It used to look for `sourceMappingURL` in the dist bundle. It now splices a
+denied value **into the middle of the longest line** of B1's subject and requires the whole-file
+reader to find it — stronger in kind, because it is a plant rather than a lookup of a string
+someone believed was there. But at 2,668 bytes a line-oriented reader would reach the same text,
+so **B2 proves the whole-file reader works and no longer distinguishes it from a line-oriented
+one.** The old dist bundle made that distinction; nothing committed here can.
+
+**C1b's subject.** It used to require its target to be a file **outside HEAD**. That requirement
+was the second half of the lock: on a fully committed tree no such file exists, so the arm
+reported DID NOT APPLY forever. It now prefers an outside-HEAD target and **falls back to any
+readable text file in the universe, reporting which arm it got**. On a tree carrying new material
+it proves exactly what it always did. On a fully committed tree — the state today — it proves
+coverage of an existing **tracked** file, which is **less**: it no longer proves coverage of
+never-commit-reviewed material, because there is none to cover.
+
+## What you must still treat as a real finding
+
+- **Any A-family or B-family red is a genuine finding and stops a push.**
+- **Fewer than EIGHT probes firing is a genuine finding and stops a push.**
+- **A C2 that fires the other way** — the audit reporting a value planted in an ignored file — means
+  its universe is wider than the commit set and its findings are not statements about what
+  publishing exposes.
+- Anything else that differs from a clean run is a finding.
+
+## The thing this gate still cannot do for you
+
+**CI does not run `publish-audit.mjs`.** It appears only as prose in this document and in the
+script itself. That is precisely why it stayed broken across two publishes without anything
+reporting it: **a binding enforced by nothing reports compliance by default.** Running it is a
+hand step before a push, and it will stay one until something invokes it.

@@ -146,18 +146,33 @@ const UNIVERSE_SENTENCE =
   `/spike/ and /_spike-evidence/ rules are honoured — and probe A1 below proves that is exclusion ` +
   `rather than blindness.`;
 note(UNIVERSE_SENTENCE);
+// A size floor, and it is the only COUNT this audit places on the tree. Its quantity — "this
+// repository has hundreds of files" — is not touched by committing, so it survives its own success.
 if (stagedPaths.length < 200) {
   fail(`the universe holds only ${stagedPaths.length} paths, which is too few to be this repository — the enumeration is broken, not the tree clean`);
 }
-if (universe.notInHead.length === 0) {
-  fail(
-    'the enumeration reports ZERO paths outside HEAD. This tree is known to carry a large region ' +
-      'that no commit has ever carried, and that region is the highest-risk part of a first ' +
-      'commit. An enumeration that reaches nothing new is vacuous — its clean verdict would be a ' +
-      'fact about an empty list rather than about the tree — so the audit reports that rather ' +
-      'than reporting clean.'
-  );
-}
+
+// THE NON-VACUITY FLOOR ON THE ENUMERATION IS NOT A COUNT, AND THIS IS THE SECOND ATTEMPT AT IT.
+//
+// The first version failed when `universe.notInHead.length === 0`. THAT WAS NEVER AN INVARIANT. It
+// is a quantity THE ACT UNDER AUDIT EMPTIES: notInHead is the universe minus `git ls-tree HEAD`, it
+// stood at 163 before the publish commit and at 0 after, by construction. The floor was therefore
+// structurally incapable of passing after the first commit it was written to precede — it failed
+// closed on a clean tree, and because it sat above the block that carried C1a, C2, the C1b restore
+// assertion and the cleanup check, one unsatisfiable precondition silently took three probes off
+// the board. A floor placed on a quantity the audited act drains is a lock, not a check.
+//
+// WHAT REPLACES IT IS NOT THE SAME SHAPE WITH A DIFFERENT VARIABLE. IT IS A PLANT, NOT A CENSUS.
+// Probe C1a below WRITES a file that no commit has ever carried and requires the enumeration to
+// reach it, the not-in-HEAD derivation to classify it, and the content scan to catch the denied
+// value inside it. The subject is MANUFACTURED BY THE AUDIT DURING THE RUN, so its existence does
+// not depend on the repository's history and no commit can drain it: the plant is created after
+// whatever the last commit was, and deleted before the run ends. This is the discipline probe A1
+// already uses — it forces the ignore rules off to manufacture the forbidden paths CHECK A asserts
+// over, rather than requiring the tree to happen to contain one. See "THE FLOOR, RESTATED" at C1a.
+//
+// notInHead is still derived and still reported: it is real information about what a commit would
+// publish for the first time. It is now DESCRIPTIVE. Nothing fails because it is zero.
 
 // ---------------------------------------------------------------------------
 // 2. CHECK A — the spike tree and the preserved spike evidence never appear.
@@ -198,20 +213,28 @@ if (probeA2.length !== hitsA.length + 2) {
 }
 
 // ---------------------------------------------------------------------------
-// 2b. CHECK C — what is committed as BUILD OUTPUT versus what is committed as SOURCE.
+// 2b. CHECK C — NO BUILT OUTPUT AND NO SCRATCH TREE IS COMMITTED, app/dist/ INCLUDED.
 //
-//     app/dist/ is tracked ON PURPOSE: the published site is a static host with no build step,
-//     so the built output has to be in the repository, and both .gitignore files say so in
-//     writing. That is a different thing from source, and the distinction has to survive here or
-//     the next reader treats a committed bundle as evidence that committing build output is
-//     normal. What must NOT be committed is a built artefact or a scratch tree ANYWHERE ELSE:
-//     a second dist/, a coverage or cache directory, or the leavings of a walk that ran in-tree.
+//     THIS RULE REVERSED, AND THE REVERSAL IS THE POINT. app/dist/ used to be tracked ON PURPOSE:
+//     the site was going to be served by a static host with no build step, so the built output had
+//     to be in the repository, and both .gitignore files carried a NOT-IGNORED note saying so.
+//     That is no longer how this application publishes. CI builds from source and uploads its own
+//     artefact; nothing on the publish path ever opens a committed dist; the operator untracked
+//     it and both .gitignore files now carry the ignore rule and the reason for it.
+//
+//     So app/dist/ is a FORBIDDEN PREFIX here rather than a blessed one, and it is caught by the
+//     ordinary `dist/` rule below because nothing skips it any more. THIS IS THE GATE CATCHING UP
+//     WITH THE REPOSITORY, NOT A WORKAROUND: a committed dist would be a second copy of the site
+//     sitting at the public address, served by nothing, going stale in silence — which is exactly
+//     the condition check-stale.mjs exists to detect and can no longer be fixed by committing.
+//     What must not be committed is a built artefact or a scratch tree ANYWHERE: a dist/, a
+//     coverage or cache directory, or the leavings of a walk that ran in-tree.
 // ---------------------------------------------------------------------------
 
-const BUILD_OUTPUT_ROOT = 'app/dist/';
-const distStaged = stagedPaths.filter((p) => p.startsWith(BUILD_OUTPUT_ROOT));
+const FORBIDDEN_BUILD_OUTPUT = 'app/dist/';
+const distStaged = stagedPaths.filter((p) => p.startsWith(FORBIDDEN_BUILD_OUTPUT));
 const SCRATCH_OR_BUILT_ELSEWHERE = [
-  [/(^|\/)dist\//, 'a built bundle outside app/dist'],
+  [/(^|\/)dist\//, 'a built bundle — this repository commits no dist, app/dist/ included'],
   [/(^|\/)build\//, 'a build directory'],
   [/(^|\/)coverage\//, 'a coverage report'],
   [/(^|\/)\.vite\//, 'a vite cache'],
@@ -220,27 +243,33 @@ const SCRATCH_OR_BUILT_ELSEWHERE = [
   [/scratchpad/i, 'a scratchpad artefact'],
   [/\.tsbuildinfo$/, 'a typescript build cache'],
 ];
+// No skip. Every path in the universe is measured against every rule, app/dist/ included.
 const misfiled = [];
 for (const p of stagedPaths) {
-  if (p.startsWith(BUILD_OUTPUT_ROOT)) continue;
   for (const [re, what] of SCRATCH_OR_BUILT_ELSEWHERE) {
     if (re.test(p)) misfiled.push(`${p} — ${what}`);
   }
 }
 if (misfiled.length) {
-  fail(`CHECK C: ${misfiled.length} path(s) would be committed as source but are built output or scratch:\n${misfiled.slice(0, 20).map((m) => '  ' + m).join('\n')}`);
+  fail(`CHECK C: ${misfiled.length} path(s) would be committed but are built output or scratch:\n${misfiled.slice(0, 20).map((m) => '  ' + m).join('\n')}`);
+}
+// Probe C3 is not a separate probe id — the matcher is checked here the way A2 checks CHECK A's,
+// because a rule that reversed direction is exactly the kind that gets left pointing the old way.
+const distMatcher = SCRATCH_OR_BUILT_ELSEWHERE[0][0];
+if (!distMatcher.test('app/dist/assets/index-abc123.js') || !distMatcher.test('some/other/dist/x.js')) {
+  fail("CHECK C's built-output matcher does not flag a synthetic app/dist/ path — the rule reversed on paper only");
 }
 note(
-  `build output vs source: ${distStaged.length} paths under ${BUILD_OUTPUT_ROOT} are committed ` +
-    `DELIBERATELY AS BUILD OUTPUT (static host, no build step; both .gitignore files record the ` +
-    // The active voice below is deliberate, and src/proof's forbidden-claims gate is what chose it.
-    // The passive phrasing this sentence first carried reads as a claim that the software has been
-    // through a certification, which is a claim this repository forbids anywhere in its prose — and
-    // it is the wrong claim besides. What is true is narrower: this script searched these files on
-    // this run. The gate caught the sentence; the sentence changed, and the rule did not.
-    `decision) and this script searches their content the same as source. The other ` +
-    `${stagedPaths.length - distStaged.length} paths are committed as source, and none of them is ` +
-    `a built artefact or a scratch tree.`
+  // The active voice below is deliberate, and src/proof's forbidden-claims gate is what chose it.
+  // The passive phrasing this sentence first carried reads as a claim that the software has been
+  // through a certification, which is a claim this repository forbids anywhere in its prose — and
+  // it is the wrong claim besides. What is true is narrower: this script searched these files on
+  // this run. The gate caught the sentence; the sentence changed, and the rule did not.
+  `build output: ${distStaged.length} paths under ${FORBIDDEN_BUILD_OUTPUT} are in the universe, and ` +
+    `the correct number is 0 — the committed dist was UNTRACKED because CI builds from source and ` +
+    `nothing on the publish path reads it, so a committed dist is now a finding rather than the ` +
+    `arrangement. All ${stagedPaths.length} paths are committed as source, and this run found none ` +
+    `of them to be a built artefact or a scratch tree.`
 );
 
 // ---------------------------------------------------------------------------
@@ -567,19 +596,58 @@ if (gitlinks.length) {
 // 5. NON-VACUITY PROBES for the content scan.
 // ---------------------------------------------------------------------------
 
-const distFiles = stagedPaths.filter((p) => p.startsWith('app/dist/'));
-if (!distFiles.length) fail('no app/dist/ file is in the staged universe — dist is committed on purpose and must be audited');
-const biggestDist = distFiles
-  .map((p) => ({ p, n: (() => { try { return readText(join(ROOT, p)).length; } catch { return 0; } })() }))
-  .sort((a, b) => b.n - a.n)[0];
-note(`dist in universe: ${distFiles.length} files; largest ${biggestDist?.p} at ${biggestDist?.n} bytes`);
+// B1's SUBJECT, AND WHAT IT NO LONGER COVERS. SAY THIS OUT LOUD RATHER THAN SWAP QUIETLY.
+//
+// B1 used to plant into a temp copy of app/dist/assets/index-*.js, and the floor above it asserted
+// that dist was committed. ITS SUBJECT WAS NEVER "A LARGE FILE". It was A FILE WITH NO USEFUL LINE
+// STRUCTURE: 1,056,824 bytes on ONE line — the artefact that defeated a line-based scan in this
+// build before, and the reason rule 3 at the top of this file exists. app/dist is no longer
+// committed, so that file is not in the universe and NOTHING LIKE IT IS EITHER.
+//
+// The subject is therefore chosen BY MEASUREMENT — greatest single-line length, ties broken by size
+// then by name, so two runs over the same tree pick the same file and a reader can reproduce it.
+// COVERAGE IS REDUCED AND THE NOTE BELOW SAYS SO ON EVERY RUN. B1 still proves the whole-file
+// reader and all fifteen matchers work on a file a line splitter gets nothing useful out of. It NO
+// LONGER proves they survive a megabyte-scale single line, and no file in this universe can prove
+// that any more — the largest line left is roughly three orders of magnitude shorter. Size is not
+// the property: package-lock.json and design/contrast-report.json are large and pretty-printed,
+// which is the substitution this comment exists to refuse.
+const lineStructureOf = (p) => {
+  let text;
+  try {
+    text = readText(join(ROOT, p));
+  } catch {
+    return null;
+  }
+  let longest = 0;
+  for (const line of text.split('\n')) if (line.length > longest) longest = line.length;
+  return { p, bytes: text.length, longest };
+};
+const b1Subject = stagedPaths
+  .map(lineStructureOf)
+  .filter((c) => c && c.bytes > 0)
+  .sort((a, b) => b.longest - a.longest || b.bytes - a.bytes || (a.p < b.p ? -1 : 1))[0];
+if (!b1Subject) {
+  fail(
+    'no readable file in the universe could be measured for line structure, so probe B1 has nothing ' +
+      'to plant into and the scanner is unproven. A clean verdict here would be a fact about an ' +
+      'unread tree.'
+  );
+}
 
-const tmp = mkdtempSync(join(tmpdir(), 'fit-publish-audit-'));
-try {
-  // Probe B1 — one plant per class, in a temp copy of the REAL largest dist bundle. Planting into
-  // the actual minified one-liner is the point: it proves the reader and the matcher survive the
-  // artefact that defeated a line-based scan here before, rather than proving it on a toy file.
-  const bundleText = readText(join(ROOT, biggestDist.p));
+if (b1Subject) {
+ note(
+  `B1 subject: ${b1Subject.p} — the LEAST LINE-STRUCTURED file in the universe, ${b1Subject.bytes} bytes ` +
+    `with its longest line at ${b1Subject.longest} (${((b1Subject.longest / b1Subject.bytes) * 100).toFixed(1)}% ` +
+    `of the file in one line). COVERAGE REDUCED: B1 used to plant into a committed 1,056,824-byte ` +
+    `single-line bundle; app/dist is no longer committed and nothing at that scale is left, so B1 no ` +
+    `longer proves the reader survives a megabyte-scale line.`
+ );
+ const tmp = mkdtempSync(join(tmpdir(), 'fit-publish-audit-'));
+ try {
+  // Probe B1 — one plant per class, in a temp copy of the real least-line-structured file in the
+  // universe. Planting into a real artefact rather than a toy file is the point that survives.
+  const bundleText = readText(join(ROOT, b1Subject.p));
   const plantedClasses = new Map();
   let planted = bundleText;
   for (const [needle, cls] of needles) {
@@ -607,29 +675,55 @@ try {
   // inner quotes to \" and the pattern stops matching, which reports as the probe going quiet.
   for (const [, sample] of shapeSamples) planted += `\n/*probe*/ ${sample} ;`;
 
-  const b1Path = join(tmp, 'planted-bundle.js');
+  // The planted copy keeps the subject's own extension, so the JOINABLE decision scanText makes is
+  // the one it would make on the real file rather than one this probe chose for it.
+  const b1Ext = extname(b1Subject.p).toLowerCase() || '.bin';
+  const b1Path = join(tmp, `planted-subject${b1Ext}`);
   writeFileSync(b1Path, planted, 'latin1');
-  const b1 = scanText('app/dist/planted-bundle.js', readText(b1Path));
+  const b1 = scanText(`app/planted-subject${b1Ext}`, readText(b1Path));
   const b1Classes = new Set(b1.map((f) => f.cls));
   const expected = [...plantedClasses.keys(), ...shapeSamples.map(([c]) => c)];
   const quiet = expected.filter((c) => !b1Classes.has(c));
   if (quiet.length) {
     fail(`PROBE B1 WENT QUIET for ${quiet.length} class(es): ${quiet.join(', ')}. The scanner cannot see values of these classes, so their absence from the tree is unproven.`);
   } else {
-    note(`probe B1 FIRED: all ${expected.length} classes detected when planted in a ${planted.length}-byte copy of the real dist bundle`);
+    note(
+      `probe B1 FIRED: all ${expected.length} classes detected when planted in a ${planted.length}-byte copy of ` +
+        `${b1Subject.p}, the real file in this universe with the least line structure`
+    );
   }
 
-  // Probe B2 — the positive control on dist. A reader that returns nothing reports a clean tree.
-  // Take a string that IS in the shipped bundle and require the whole-file test to find it.
-  const control = 'sourceMappingURL';
-  const distIndex = stagedPaths.find((p) => p === 'app/dist/index.html');
-  const controlHit =
-    bundleText.includes(control) ||
-    (distIndex ? readText(join(ROOT, distIndex)).includes('<script') : false);
-  if (!controlHit) {
-    fail('PROBE B2 WENT QUIET: neither a known bundle marker nor a script tag in dist/index.html was found by the whole-file reader — it is reading nothing, and "nothing found" above means nothing.');
+  // Probe B2 — the positive control. A reader that returns nothing reports exactly what a clean
+  // tree reports, so a value must be planted and found. This plant is SPLICED INTO THE MIDDLE OF
+  // THE SUBJECT'S LONGEST LINE rather than appended as its own line, because that is the property
+  // B1's old dist subject supplied: text a matcher can only reach by walking into a long line.
+  // WHAT THIS NO LONGER SHOWS: at this subject's line length a line-oriented reader would reach
+  // the same text, so B2 proves the whole-file reader works and no longer distinguishes it from a
+  // line-oriented one. The old dist bundle made that distinction; nothing committed here can.
+  const b2Needle = [...needles.keys()].sort((a, b) => b.length - a.length)[0];
+  const b2Lines = bundleText.split('\n');
+  let b2LineIndex = 0;
+  for (let i = 0; i < b2Lines.length; i += 1) if (b2Lines[i].length > b2Lines[b2LineIndex].length) b2LineIndex = i;
+  const b2Line = b2Lines[b2LineIndex];
+  const b2Cut = Math.floor(b2Line.length / 2);
+  b2Lines[b2LineIndex] = b2Line.slice(0, b2Cut) + b2Needle + b2Line.slice(b2Cut);
+  const b2Path = join(tmp, `planted-inline${b1Ext}`);
+  writeFileSync(b2Path, b2Lines.join('\n'), 'latin1');
+  const b2Text = readText(b2Path);
+  const b2 = scanText(`app/planted-inline${b1Ext}`, b2Text);
+  if (bundleText.includes(b2Needle)) {
+    fail(`PROBE B2 DID NOT APPLY: ${b1Subject.p} already contains the control value, so finding it proves nothing about the reader`);
+  } else if (!b2.some((f) => f.path === `app/planted-inline${b1Ext}`)) {
+    fail(
+      `PROBE B2 WENT QUIET: a denied value spliced into the middle of the ${b2Line.length}-byte longest line ` +
+        `of ${b1Subject.p} was not found by the whole-file reader — it is reading nothing, and "nothing ` +
+        `found" above means nothing.`
+    );
   } else {
-    note('probe B2 FIRED: the whole-file reader finds a string known to be in dist');
+    note(
+      `probe B2 FIRED: a denied value spliced INTO the middle of the ${b2Line.length}-byte longest line of ` +
+        `${b1Subject.p} was found by the whole-file reader (not appended as its own line)`
+    );
   }
 
   // Probe B3 — the literal joiner. Plant a needle SPLIT across two adjacent literals. The raw
@@ -649,8 +743,9 @@ try {
   } else {
     note('probe B3 FIRED: a denied value split across two adjacent literals is caught only after joining');
   }
-} finally {
+ } finally {
   rmSync(tmp, { recursive: true, force: true });
+ }
 }
 
 // ---------------------------------------------------------------------------
@@ -665,14 +760,21 @@ try {
 //            C1a — a NEW UNTRACKED file inside app/. s11 measured a prose gate that reported
 //               everything clean while planted claims sat in exactly that region, because its
 //               universe was `git ls-files`.
-//            C1b — an EXISTING member of the not-in-HEAD set, a STAGED one wherever one exists.
-//               On a staged tree — the only state a publish actually runs in — there are no
-//               untracked files, so C1a plants the only untracked file in the run and proves
-//               untracked coverage over a universe that has none. C1b plants where the risk
-//               actually is. The plant is an append to the WORKING COPY, restored byte-for-byte
-//               in the same run and asserted restored; the index is never touched.
-//          Both arms must fire, in either state, or the audit has not proven it covers the set
-//          its floor is placed on and it says so.
+//            C1b — an EXISTING REAL FILE OF THIS REPOSITORY, preferring a not-in-HEAD one and a
+//               STAGED one where either exists. C1a plants a file this audit authored, which
+//               proves nothing about the hundreds of files it did not; C1b plants where the risk
+//               actually is. The plant is an append to the WORKING COPY, restored byte-for-byte in
+//               the same run and asserted restored; the index is never touched.
+//               C1b's SUBJECT WIDENED, AND THAT IS A REDUCTION IN WHAT IT CLAIMS. It used to
+//               require its target to be outside HEAD, and that requirement was the second half of
+//               the lock repaired above: on a fully committed tree no such file exists, so the arm
+//               reported DID NOT APPLY forever and took C1a, C2 and the cleanup check with it.
+//               It now falls back to any readable text file in the universe and REPORTS WHICH ARM
+//               IT GOT. On a tree with new material it proves the same thing it always did; on a
+//               fully committed tree it proves coverage of an existing tracked file, which is
+//               less. The narrower claim is stated on the probe's own line rather than implied.
+//          Both arms must fire, in either state, or the audit has not proven the set it scanned is
+//          the set a commit would carry, and it says so.
 //
 //       C2 (negative) — the same denied value in a file the universe EXCLUDES (an ignored path,
 //          confirmed ignored by `git check-ignore`). This audit must NOT report it. A scanner
@@ -687,9 +789,12 @@ const posAbs = join(ROOT, posProbePath);
 const negAbs = join(ROOT, negProbePath);
 const probeBody = (p) => `// transient publish-audit probe (${p}); removed by the same run that wrote it\nexport const v = ${JSON.stringify(probeNeedle)};\n`;
 
-// C1b's target: an existing member of the set the floor measures, preferring one that got there by
-// being STAGED, since that is how every not-in-HEAD path arrives on the tree a publish runs against.
-// -z for the same quoting reason as the HEAD listing above.
+// C1b's target: an existing REAL file of this repository. Preference order — outside HEAD first
+// (that is where the risk is), then STAGED, then smallest, then alphabetical — so two runs of this
+// audit over the same tree plant in the same file and a reader can reproduce the arm rather than
+// take it on trust. THE FALL-BACK IS THE REPAIR: requiring a not-in-HEAD target made this arm
+// unsatisfiable the moment the tree was fully committed, and the arm was a PRECONDITION for the
+// whole block below. -z for the same quoting reason as the HEAD listing above.
 const stagedNotInHead = new Set(
   git('diff', '--cached', '--name-only', '--diff-filter=A', '-z', 'HEAD').split('\0').filter(Boolean)
 );
@@ -701,30 +806,39 @@ const sizeOnDisk = (p) => {
     return 0;
   }
 };
-// Deterministic: staged first, then smallest, then alphabetical — so two runs of this audit over the
-// same tree plant in the same file, and a reader can reproduce the arm rather than take it on trust.
-const c1bTarget = universe.notInHead
-  .filter((p) => p !== posProbePath && !p.startsWith(BUILD_OUTPUT_ROOT) && C1B_TEXT.has(extname(p).toLowerCase()))
-  .map((p) => ({ p, staged: stagedNotInHead.has(p), n: sizeOnDisk(p) }))
+const c1bTarget = stagedPaths
+  .filter((p) => p !== posProbePath && !p.startsWith(FORBIDDEN_BUILD_OUTPUT) && C1B_TEXT.has(extname(p).toLowerCase()))
+  .map((p) => ({ p, outsideHead: !headSet.has(p), staged: stagedNotInHead.has(p), n: sizeOnDisk(p) }))
   .filter((c) => c.n > 0 && c.n < 262144)
-  .sort((a, b) => Number(b.staged) - Number(a.staged) || a.n - b.n || (a.p < b.p ? -1 : 1))[0];
+  .sort(
+    (a, b) =>
+      Number(b.outsideHead) - Number(a.outsideHead) ||
+      Number(b.staged) - Number(a.staged) ||
+      a.n - b.n ||
+      (a.p < b.p ? -1 : 1)
+  )[0];
 
+// NOTHING BELOW IS GATED ON c1bTarget. That gate is repair (2): `else if (!c1bTarget) fail(...)`
+// skipped the ONLY block containing C1a, C2, the C1b restore assertion and the cleanup
+// verification, so ONE UNSATISFIABLE PRECONDITION TOOK THREE PROBES OFF THE BOARD SILENTLY. A
+// missing C1b target is now a C1b failure and nothing else; the other arms run regardless.
 if (existsSync(posAbs) || existsSync(negAbs)) {
   fail(`a probe file from a previous run is still on disk (${existsSync(posAbs) ? posProbePath : negProbePath}) — refusing to write over it or to report on a tree it is polluting`);
 } else if (!existsSync(dirname(negAbs))) {
   fail(`the negative-universe probe needs an ignored directory to plant in and ${dirname(negProbePath)} does not exist — without it the audit cannot show that its universe EXCLUDES anything, so it does not claim a clean result`);
-} else if (!c1bTarget) {
-  fail(`PROBE C1b DID NOT APPLY: no existing readable text file in the universe is outside HEAD, so the arm that proves coverage of the set the floor measures has nowhere to plant. The audit does not report clean on a set it could not probe.`);
 } else {
-  const c1bAbs = join(ROOT, c1bTarget.p);
+  if (!c1bTarget) {
+    fail(`PROBE C1b DID NOT APPLY: no existing readable text file in the universe could be planted in, so the arm that proves coverage of files this audit did not itself author has nowhere to go. The audit does not report clean on a set it could not probe.`);
+  }
+  const c1bAbs = c1bTarget ? join(ROOT, c1bTarget.p) : null;
   // Saved and written back as raw bytes: `git checkout --` is NOT a byte-exact revert in this
   // repository (core.autocrlf is true and the comparison normalises), so the restore is this
   // buffer and it is asserted, never delegated to git.
-  const c1bOriginal = readText(c1bAbs);
+  const c1bOriginal = c1bAbs ? readText(c1bAbs) : null;
   try {
     writeFileSync(posAbs, probeBody(posProbePath), 'latin1');
     writeFileSync(negAbs, probeBody(negProbePath), 'latin1');
-    writeFileSync(c1bAbs, c1bOriginal + `\n${probeBody(c1bTarget.p)}`, 'latin1');
+    if (c1bAbs) writeFileSync(c1bAbs, c1bOriginal + `\n${probeBody(c1bTarget.p)}`, 'latin1');
 
     // The negative plant is only a negative plant if git agrees it is ignored.
     let negIgnored = false;
@@ -744,24 +858,55 @@ if (existsSync(posAbs) || existsSync(negAbs)) {
     const rescan = scanFiles(reprobed.paths, ROOT);
     const posHit = rescan.found.some((f) => f.path === posProbePath);
     const negHit = rescan.found.some((f) => f.path === negProbePath);
-    const sawC1b = reprobed.notInHead.includes(c1bTarget.p);
-    const c1bHit = rescan.found.some((f) => f.path === c1bTarget.p);
-    const c1bHow = c1bTarget.staged ? 'STAGED-BUT-NOT-IN-HEAD' : 'untracked-and-not-in-HEAD';
+    const sawC1b = c1bTarget
+      ? c1bTarget.outsideHead
+        ? reprobed.notInHead.includes(c1bTarget.p)
+        : reprobed.paths.includes(c1bTarget.p)
+      : false;
+    const c1bHit = c1bTarget ? rescan.found.some((f) => f.path === c1bTarget.p) : false;
+    const c1bHow = !c1bTarget
+      ? 'no target'
+      : !c1bTarget.outsideHead
+        ? 'ALREADY IN HEAD — COVERAGE REDUCED: no file in this universe is outside HEAD, so this arm ' +
+          'plants in an existing TRACKED file and proves coverage of the committed set rather than of ' +
+          'never-commit-reviewed material'
+        : c1bTarget.staged
+          ? 'STAGED-BUT-NOT-IN-HEAD'
+          : 'untracked-and-not-in-HEAD';
 
+    // THE FLOOR, RESTATED — this is what replaced the notInHead count at the top of the file.
+    // posProbePath was written seconds ago by this run and no commit has ever carried it, so it is
+    // a member of the not-in-HEAD set BY CONSTRUCTION. Committing cannot drain this the way it
+    // drained the old floor: the next run manufactures its own subject again. If the enumeration
+    // reaches the file but the not-in-HEAD derivation does not classify it, the derivation the
+    // universe line reports is broken and the audit says so instead of reporting clean.
     if (!sawPos) {
       fail(`PROBE C1a WENT QUIET: a new untracked file under app/ did not enter the enumerated universe. The audit has NOT proven it covers files this commit would publish for the first time, and does not report clean.`);
+    } else if (!reprobed.notInHead.includes(posProbePath)) {
+      fail(
+        `THE NON-VACUITY FLOOR IS UNPROVEN: ${posProbePath} was created by this run, no commit has ever ` +
+          `carried it, and the enumeration still did not place it outside HEAD. The not-in-HEAD derivation ` +
+          `cannot see a path that is definitionally in its set, so every count this audit reports about ` +
+          `never-commit-reviewed material is a fact about a broken derivation rather than about the tree.`
+      );
     } else if (!posHit) {
       fail('PROBE C1a WENT QUIET: an untracked file carrying a denied value entered the universe but the content scan did not report it. Coverage of newly-appearing files is unproven.');
     } else {
-      note(`probe C1a FIRED: a denied value planted in a new UNTRACKED file was enumerated and caught`);
+      note(
+        `probe C1a FIRED: a denied value planted in a new UNTRACKED file was enumerated, classified outside ` +
+          `HEAD and caught — the enumeration's reach is proven by a subject this run created, so it does not ` +
+          `depend on the tree happening to carry one`
+      );
     }
 
-    if (!sawC1b) {
-      fail(`PROBE C1b WENT QUIET: ${c1bTarget.p} is a path the universe reaches and HEAD does not, but it did not appear in the re-enumerated not-in-HEAD set. The floor's own set is not covered by the enumeration.`);
+    if (!c1bTarget) {
+      // already failed above; nothing to add
+    } else if (!sawC1b) {
+      fail(`PROBE C1b WENT QUIET: ${c1bTarget.p} is a path the universe reaches, but the re-enumeration did not report it in the set this arm claims to cover (${c1bHow}). The enumeration does not cover its own members.`);
     } else if (!c1bHit) {
-      fail(`PROBE C1b WENT QUIET: a denied value planted in ${c1bTarget.p} (${c1bHow}) was not reported by the content scan. The ${universe.notInHead.length} paths this commit would publish for the first time are NOT proven covered, and on a staged tree they are the whole of the new material.`);
+      fail(`PROBE C1b WENT QUIET: a denied value planted in ${c1bTarget.p} (${c1bHow}) was not reported by the content scan. The existing files of this repository are NOT proven covered, and they are the bulk of what a commit carries.`);
     } else {
-      note(`probe C1b FIRED: a denied value planted in ${c1bTarget.p} — an EXISTING ${c1bHow} member of the ${universe.notInHead.length}-path not-in-HEAD set — was caught; the set the floor measures is covered by construction, not by assumption`);
+      note(`probe C1b FIRED: a denied value planted in ${c1bTarget.p} — an EXISTING file of this repository, ${c1bHow}; universe ${reprobed.paths.length} paths, ${universe.notInHead.length} of them outside HEAD — was caught, so the scan covers files this audit did not itself author`);
     }
 
     if (negIgnored && (sawNeg || negHit)) {
@@ -777,17 +922,19 @@ if (existsSync(posAbs) || existsSync(negAbs)) {
   } finally {
     rmSync(posAbs, { force: true });
     rmSync(negAbs, { force: true });
-    writeFileSync(c1bAbs, c1bOriginal, 'latin1');
+    if (c1bAbs) writeFileSync(c1bAbs, c1bOriginal, 'latin1');
   }
 
   // The C1b plant was made in a REAL file of this repository, so the restore is asserted, not
   // assumed: byte length first, then the bytes themselves. A probe that leaves a working file
   // altered has changed the tree it was auditing.
-  const c1bRestored = readText(c1bAbs);
-  if (c1bRestored.length !== c1bOriginal.length || c1bRestored !== c1bOriginal) {
-    fail(`the C1b plant was not restored: ${c1bTarget.p} is ${c1bRestored.length} bytes and was ${c1bOriginal.length}. Restore it from the working copy before doing anything else.`);
-  } else {
-    note(`probe C1b restore verified: ${c1bTarget.p} is byte-identical at ${c1bOriginal.length} bytes`);
+  if (c1bAbs) {
+    const c1bRestored = readText(c1bAbs);
+    if (c1bRestored.length !== c1bOriginal.length || c1bRestored !== c1bOriginal) {
+      fail(`the C1b plant was not restored: ${c1bTarget.p} is ${c1bRestored.length} bytes and was ${c1bOriginal.length}. Restore it from the working copy before doing anything else.`);
+    } else {
+      note(`probe C1b restore verified: ${c1bTarget.p} is byte-identical at ${c1bOriginal.length} bytes`);
+    }
   }
 
   // A probe that leaves its plant behind has added a file to the very commit it audits.
