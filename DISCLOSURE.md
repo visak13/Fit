@@ -178,9 +178,33 @@ Three parts, each measured rather than assumed:
    `npm run build`, and uploads what **it** just produced as the Pages artifact.
 2. **It never reads the committed `app/dist`.** Nothing in that workflow opens the tracked bundle.
    As of 1 August 2026 the bundle is not even in the repository — both `.gitignore` files ignore
-   it, and this is the reason. The proof is a hash: the live page executes
-   `index-BGG4vweb.js` while the artefact this repository used to track was `index-BDreLcB9.js`.
-   Same source, different machine, different bytes, and it is the CI one that reaches the coach.
+   it, and this is the reason. What shows it is the workflow itself: it checks out the repository
+   and runs `npm run build`, and there is no step that reads a tracked bundle.
+
+   **A correction, because this paragraph told you something that is not true.** It used to offer
+   a different proof: the live page executes `index-BGG4vweb.js` while the artefact this
+   repository used to track was `index-BDreLcB9.js` — *"same source, different machine, different
+   bytes."* **The two filenames are real. The explanation was never measured, and it is wrong.**
+   Measured 2 August 2026: the committed bundle `index-BDreLcB9.js` is reproduced BYTE-FOR-BYTE
+   from the committed source of `30745d8` on this Windows machine — sha256
+   `f2bd02965043eaafc0644ca55c330f46f18d055be380f216f2c3c2ddfa5dafa4`, 1,056,824 bytes — as soon
+   as the build stamp is held equal. The machine played no part. Separately, CI's ubuntu/node-24
+   build and a local Windows/node-25.1.0 build of `f9873fc` are byte-identical (sha256
+   `956b44cadf11b980ed346ea94017bcd7cc9250347bd0fe76d3cd4618b378c9c1`), a result two uncoordinated
+   shells obtained independently.
+
+   **What the two filenames actually record.** The build compiles its source stamp — sixteen
+   characters — into the bundle, and that stamp is a hash of the bytes ON DISK. Git rewrites line
+   endings on this machine (`core.autocrlf` is true), so a Windows working tree need not stamp the
+   same as the tree CI checks out. Two builds of `30745d8` differing in nothing but that literal
+   emitted those two filenames, 1,056,824 bytes each, differing in 231 bytes: the stamp, plus
+   one-character renames of minified variables. **Same code, different filename.**
+
+   **What this does not change, and what it does.** It does not change what you are approving: CI
+   still builds from source, and the bundle it uploads is the one the coach receives. It does
+   change one thing you may have been relying on — those two filenames were never evidence that
+   CI ignored the committed bundle, and if you were reading them that way, the workflow's own
+   steps are the thing to read instead.
 3. **So a hand-applied change to `dist` passes everything and delivers nothing.** Edit the built
    bundle on disk and it will run correctly in your browser, survive a local walk, satisfy
    `check:stale` after a rebuild, and read as a real fix to a reviewer looking at a real

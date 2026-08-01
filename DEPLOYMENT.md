@@ -63,8 +63,16 @@ hazard it created was specific: **a fix hand-applied to the committed bundle pas
 check and every review and still never reaches the coach**, because nothing on this path opens it.
 
 Measured on the live address: the page executes `index-BGG4vweb.js`, while the artefact this
-repository used to track was `index-BDreLcB9.js` — same source, different machine, different
-bytes. That gap is the whole argument.
+repository used to track was `index-BDreLcB9.js`. **This paragraph used to explain that gap as
+"same source, different machine, different bytes", and that explanation was false.** Measured
+2 August 2026: the committed `index-BDreLcB9.js` rebuilds BYTE-FOR-BYTE from the committed source
+of `30745d8` on this Windows machine (sha256
+`f2bd02965043eaafc0644ca55c330f46f18d055be380f216f2c3c2ddfa5dafa4`, 1,056,824 bytes) once the
+build stamp is held equal; two builds differing in nothing but that 16-character literal emit
+those two filenames. The filenames differ because the stamp hashes bytes on disk and
+`core.autocrlf` rewrites them here — not because the machine builds different code. The argument
+for this path does not rest on that gap and never needed to: it rests on the workflow having no
+step that reads the tracked bundle.
 
 `npm run build` still writes `app/dist/` on your machine and `npm run check:stale` still reports
 whether that local copy matches local source. Both are now statements about **your machine**, not

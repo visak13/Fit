@@ -48,9 +48,30 @@ jobs:
         with:
           # Pinned to an LTS line that satisfies package.json engines (>=20). The developer
           # machine this project was built on runs 25.1.0; CI is pinned rather than floating so a
-          # runner image change cannot silently alter the published bytes. The two produce
-          # DIFFERENT bundle hashes from identical source, which is measured, expected, and the
-          # reason nothing local is treated as the published artefact.
+          # runner image change cannot silently alter the published bytes. That is the whole
+          # reason for the pin, and it stands.
+          #
+          # THIS COMMENT USED TO CLAIM MORE, AND THE EXTRA CLAIM WAS FALSE. It said the two
+          # node lines "produce DIFFERENT bundle hashes from identical source, which is measured,
+          # expected". It was not measured, and it is wrong: CI's ubuntu/node-24 build of
+          # f9873fc and a Windows/node-25.1.0 build of the same source are BYTE-IDENTICAL —
+          # sha256 956b44cadf11b980ed346ea94017bcd7cc9250347bd0fe76d3cd4618b378c9c1 over
+          # 1,056,824 bytes, obtained twice by two shells that did not coordinate.
+          #
+          # There IS a real way to get two different bundle hashes out of the same code, and it
+          # is worth knowing because it looks exactly like a platform difference. The build
+          # compiles its source stamp into the bundle as a 16-character string, `check:stale`
+          # computes that stamp from the bytes ON DISK, and core.autocrlf is true here — so a
+          # Windows working tree can stamp differently from the tree CI checks out. Measured
+          # 2 August 2026: two builds of 30745d8 differing ONLY in that literal emitted
+          # index-BDreLcB9.js and index-BGG4vweb.js, 1,056,824 bytes each, differing in 231
+          # bytes — the stamp itself plus one-character renames of minified identifiers. Same
+          # code, different filename hash. (The mechanism is esbuild ordering its minifier's
+          # identifier alphabet by character frequency; that part is inferred from the shape of
+          # the diff, not separately measured.)
+          #
+          # None of this needs to be taken on trust. Build any commit twice with the stamp held
+          # equal and compare the bytes; that is how the numbers above were obtained.
           node-version: '24'
           cache: npm
           cache-dependency-path: app/package-lock.json
