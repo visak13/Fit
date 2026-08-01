@@ -60,6 +60,21 @@ async function everythingEmitted(directory: string, prefix = ''): Promise<string
   return found;
 }
 
+// THIS READ IS UNGUARDED ON PURPOSE, AND IT MUST NOT BECOME A SKIP. `app/dist` is not committed,
+// so a missing output directory is reachable in exactly one place in the world: a fresh CI
+// checkout, before `npm run build` has run. Every developer machine has a `dist` on disk and is
+// structurally blind to it. Wrapping this in an `existsSync` that returns early, or an `it.skip`,
+// or any "no artefact, nothing to check" pass, would silently disable this suite in THE ONE
+// ENVIRONMENT THAT PUBLISHES — and this file is a scan for something that must be ABSENT, so a
+// pass over nothing at all reads exactly like a pass over a clean bundle. FAILING IS INTENDED.
+//
+// Note the second, quieter cost of failing HERE rather than inside a test: an ENOENT at module
+// top level means this file never registers, so its tests do not go red — they VANISH, and the
+// shell suite's discovery count drops from 2089 to 2077 while the summary lines above look
+// normal. The per-directory FLOOR in the runner is what catches that (`src/proof` floor 65), and
+// it is the reason a green with fewer tests discovered is not a fix.
+// A failure here is the workflow telling you it built too late; fix the ORDER in
+// `.github/workflows/pages.yml`, never this read.
 const emitted = await everythingEmitted(output);
 
 /** The text of every emitted file that could carry a module graph or a script reference. */

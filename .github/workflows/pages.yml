@@ -58,22 +58,30 @@ jobs:
       - name: Install dependencies from the lockfile
         run: npm ci
 
-      # THE FIVE-COMMAND PUBLISH GATE, run before anything is built or deployed. A red here
-      # stops the publish; the address keeps serving whatever it served before.
+      # THE FIVE-COMMAND PUBLISH GATE. A red anywhere below stops the publish; the address keeps
+      # serving whatever it served before.
       - name: Typecheck
         run: npm run typecheck
 
       - name: Core tests
         run: npm test
 
+      # BUILT BEFORE THE SHELL TESTS, AND THAT ORDER IS LOAD-BEARING. Two suites under
+      # `app/src/proof` read the PUBLISHED ARTEFACT off the filesystem —
+      # `forbidden-claims.test.ts` and `harness-does-not-ship.test.ts`. This repository does not
+      # carry `app/dist`, so on a fresh checkout there is nothing for them to read until this
+      # step has run. With the build placed after them, run 30710026584 died at "Shell tests"
+      # and steps 8-12 plus the whole deploy job were skipped. Moving any artefact-reading suite
+      # ahead of this step re-creates that failure — and CI is the only environment where it is
+      # visible, because every developer machine has a `dist` on disk.
+      - name: Build the site
+        run: npm run build
+
       - name: Shell tests
         run: npm run test:shell
 
       - name: Tool tests
         run: npm run test:tools
-
-      - name: Build the site
-        run: npm run build
 
       # Run AFTER the build: `check:stale` compares the build record against a hash of the
       # source tree, so it answers "does dist match the source it was built from". Running it

@@ -861,6 +861,14 @@ function walk(directory: string): string[] {
  */
 const ARTEFACT: readonly Read[] = (() => {
   const output = path.join(APPLICATION_ROOT, OUTPUT_DIRECTORY);
+  // RETURNING [] HERE AND LETTING THE ASSERTIONS BELOW FAIL IS INTENDED, AND MUST NOT BECOME A
+  // SKIP. `app/dist` is not committed, so this branch is reachable in exactly one place in the
+  // world: a fresh CI checkout, before `npm run build` has run. Every developer machine has a
+  // `dist` on disk and is structurally blind to it. Turning this into `it.skip`, an early
+  // `return`, or a "no artefact, nothing to check" pass would silently disable the artefact scan
+  // in THE ONE ENVIRONMENT THAT PUBLISHES — a green tick over a suite that examined nothing.
+  // A red here is the workflow telling you it built too late; fix the ORDER in
+  // `.github/workflows/pages.yml`, never this guard.
   if (!existsSync(output)) return [];
   return walk(output)
     .filter((name) => /\.(?:js|css|html|json|webmanifest|svg|txt)$/u.test(name))
