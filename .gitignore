@@ -27,12 +27,20 @@ Thumbs.db
 # static host that serves a branch's contents has no build step of its own, so the built output
 # had to be in the repository or the address would serve an empty site.
 #
-# THE HOST CHANGED. The published site is now built by GitHub Actions — `.github/workflows/pages.yml`
-# runs `npm ci` and `npm run build` on ubuntu and uploads what IT built as the Pages artifact. CI
-# BUILDS FROM SOURCE AND NEVER READS THE COMMITTED app/dist. Measured: the live page at
-# https://visak13.github.io/Fit/ executes `index-BGG4vweb.js`, while the artefact this repository
-# used to track was `index-BDreLcB9.js` — a different file, from the same source, built on a
-# different machine.
+# THE HOST CHANGED, AND SO DID THE RULE ABOVE IT. The operator's ruling is the reason: "I dont want
+# to push something built on my machine to live site. It should go via ci/cd". The published site is
+# now built by GitHub Actions — `.github/workflows/pages.yml` runs `npm ci` and `npm run build` on
+# ubuntu and uploads what IT built as the Pages artifact. CI BUILDS FROM SOURCE AND NEVER READS THE
+# COMMITTED app/dist. That ruling plus that fact are the whole justification for untracking it;
+# nothing else is needed and nothing else is claimed.
+#
+# WHAT THIS NOTE USED TO SAY, AND WHY THE REASON IS GONE. It cited the live page executing
+# `index-BGG4vweb.js` against a tracked `index-BDreLcB9.js` — both filenames real — and explained the
+# difference as "built on a different machine". THAT CAUSE WAS NEVER MEASURED AND IS FALSE. The
+# machine plays no part: that committed bundle rebuilds BYTE-FOR-BYTE from the committed source of
+# 30745d8, on Windows, once the build stamp is held equal. The stamp is what moves the filename hash,
+# and `.github/workflows/pages.yml:60-78` carries that mechanism with the measurements behind it —
+# read it there rather than a second-hand retelling here.
 #
 # So tracking it bought nothing and cost something real: a hand-applied fix to the committed
 # bundle would pass every local check and every review and still never reach the coach, because

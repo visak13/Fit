@@ -182,9 +182,12 @@ answering is not arriving.
 **The first two rows were carrying a caveat, and the caveat is now gone because it was measured
 false.** Until the publish landed, both addresses answered 200 with the throwaway spike page
 titled *Fit Platform Spike*. **Re-measured 1 August 2026, after the publish:** both answer **200**
-at 5,477 bytes, both are titled ***Fit***, and both name the entry module
-`/Fit/assets/index-BGG4vweb.js`. The application behind the address is now this one, and sections
-1 and 2 can be run against it.
+at 5,477 bytes and both are titled ***Fit***. The application behind the address is now this one, and
+sections 1 and 2 can be run against it. **To confirm you are on the current publish rather than a
+cached older one, open the address and read the Build code at Admin → This build — that is the live
+value, and it is the only build identifier this document will ever quote you.** The page's bundle
+filename is deliberately not named here: it is a content hash that changes on every deploy, so a
+hand-maintained document quoting one is wrong from the next publish onwards.
 
 **The one link that does not survive being signed out, and it does not look like it.**
 `calendar.google.com/calendar/u/0/r/settings` answers 302 to Google sign-in with the deep path
