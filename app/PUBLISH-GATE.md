@@ -1,5 +1,15 @@
 # PUBLISH-GATE.md — the publish dress rehearsal
 
+> **READ THIS BEFORE THE HEADLINE BELOW IT. The headline is a dated measurement from 2026-08-01
+> and it is NO LONGER THE STATE OF THE GATE.** It says `tools/publish-audit.mjs` FAILS on the
+> staged tree. That was true when it was written and was repaired the same day by s12/a18; a
+> further defect found by the independent review s12/a19 was repaired on 2026-08-02. **As of
+> 2026-08-02 the audit exits 0 on the untouched tree AND on a staged tree, with all eight probes
+> firing.** The measurements below are kept unedited because rewriting a measurement is not a
+> correction — but a reader who stops at the headline would carry away a false present tense, and
+> the cheapest thing to do with an instrument you believe is permanently red is to stop running
+> it. **The current state is in the two addenda at the end of this file.**
+
 Written by s12/a7 on 2026-08-01. **No commit object was created. No network call was
 made to github.com or any remote.** `HEAD` is `95a4913` before this action and
 `95a4913` after it; `git rev-list --count HEAD` is 7 before and 7 after. The
@@ -1053,3 +1063,80 @@ never-commit-reviewed material, because there is none to cover.
 script itself. That is precisely why it stayed broken across two publishes without anything
 reporting it: **a binding enforced by nothing reports compliance by default.** Running it is a
 hand step before a push, and it will stay one until something invokes it.
+
+---
+
+# ADDENDUM — 2026-08-02, s12/a19: THE INDEPENDENT REVIEW. THE REPAIR HOLDS, AND IT WAS HIDING A
+# LEAK THE AUDIT REPORTED WHEN UNSTAGED AND MISSED ONCE STAGED
+
+**s12/a18's three repairs hold. Every one of them was re-proved here by planting rather than by
+reading, and nothing a18 declared as reduced coverage was found to be understated.** The
+plant-and-red measurements are in the s12/a19 action record: all fifteen needle and credential
+classes were planted one at a time into a real tracked file of this repository and each produced
+`exit 1` with `CHECK B` naming that class at that path, and every one of the eight probes plus the
+non-vacuity floor, the C1b restore assertion, the cleanup verification and the evidence
+precondition was individually broken and observed to go red on its own message.
+
+## THE DEFECT THIS REVIEW FOUND, AND IT WAS OLDER THAN THE REPAIR
+
+**`enumerate()` read the tracked half of the universe with `git ls-files` in its newline form,
+which applies `core.quotepath`.** A tracked path carrying a non-ASCII byte therefore came back as
+the literal quoted, escaped string `"app/caf\303\251.md"`. That name entered the universe, was
+counted on the universe line, and then failed `existsSync` in the scanner — which skipped it **in
+silence**, because an unreadable path was a `continue` and the only floor on reading was "at least
+90% of the universe".
+
+**Measured 2026-08-02, both directions, with a denied value inside a file named `café-…`:**
+
+| state | universe | scanned | verdict |
+|---|---|---|---|
+| the file **UNTRACKED** | 690 | 690 | `exit 1` — CHECK B names it |
+| the same file **STAGED** | 690 | **689** | `exit 0` — **"publish-audit: clean"** |
+
+**Staging is the only state a publish actually runs in.** The audit reported the leak in the state
+nobody publishes from and reported a clean tree in the state everybody publishes from, and the one
+number that recorded the difference was a `scanned` count 1 lower than the universe — 99.85%, well
+inside the 90% floor. This is the same shape as the finding a18 repaired, one layer down: an
+instrument that cannot see is indistinguishable from a subject that is clean.
+
+`ls-tree` and `diff --cached` in the same file already took `-z` for exactly this reason, with a
+comment saying so. **This call was the one that was missed.** `git add -n`'s dry-run output does
+*not* quote — that was measured, not assumed — so the untracked half of the enumeration was never
+affected, which is precisely why the defect was invisible until the tree was staged.
+
+## THE FIX, IN TWO PARTS
+
+1. **`git ls-files -z`, split on NUL.** The tracked half of the universe now carries real path
+   bytes.
+2. **An unread path in the universe is now a NAMED FAILURE, not a silent skip.** `scanFiles`
+   collects every path it could not open and the audit fails listing them. The 90% floor is kept
+   underneath it. This is the part that matters more than the first: it converts the *entire
+   class* — any future reason a universe path cannot be read — from a silent hole into a red that
+   names the path, rather than fixing one cause of it.
+
+**Both parts proven by breaking, not by reading.** With the `-z` reverted and a `café-…` file
+staged, the audit exits 1 with:
+
+```
+FAIL: 1 of the 690 paths in the universe were NOT READ, so CHECK B's absence claim does not cover them:
+  "app/caf\303\251-a19-probe.md" — not on disk under the name the enumeration reported
+```
+
+With the fix in place and the same file staged, the audit exits 1 with `CHECK B:
+app/café-a19-probe.md — account-linked identifier (raw)`. On the untouched tree it exits 0,
+scanning 689 of 689.
+
+## WHAT THIS REVIEW DID NOT CHANGE
+
+- **No probe was weakened and none was removed.** The fifteen-class plant table was re-run after
+  the fix and all fifteen still red.
+- **`git ls-files -s`** (CHECK D's gitlink listing) still uses the newline form. It parses only the
+  mode field, so a quoted path changes the reported *name* and not the detection — recorded here
+  rather than changed, because changing it would alter a check this review did not probe.
+- **C1b's chosen target is the SMALLEST eligible text file in the universe** (today a 64-byte
+  file). That is deterministic and reproducible, which is what it was chosen for, but it is the
+  weakest subject inside the tracked set. Recorded, not changed.
+- `npm run check:stale` is red locally and was red at `HEAD` before this review touched anything —
+  the artefact stamp is `5d2262bd898dd268` against a working tree that hashed to `0e33f37ec423eb79`
+  before the edit. It is the pre-existing structural red s12/a23 recorded, not a consequence of
+  this change.

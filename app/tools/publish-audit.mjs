@@ -109,7 +109,15 @@ const headPaths = git('ls-tree', '-r', '-z', '--name-only', 'HEAD').split('\0').
 const headSet = new Set(headPaths);
 
 const enumerate = () => {
-  const tracked = git('ls-files').split('\n').map((s) => s.trim()).filter(Boolean);
+  // -z, AND THIS IS NOT COSMETIC — IT WAS MEASURED. `git ls-files` in its newline form applies
+  // core.quotepath: a tracked path with a non-ASCII byte comes back as the LITERAL 9-character
+  // string "app/caf\303\251.md", quotes included. That mangled name enters the universe, is
+  // counted in the universe line, and then fails existsSync in the scanner, which skipped it in
+  // silence — so a denied value inside such a file was reported by this audit when the file was
+  // UNTRACKED and NOT reported once it was STAGED, which is the only state a publish runs in.
+  // Measured 2026-08-02: staged, the audit exited 0 with "scanned 689 files" against a 690-path
+  // universe. The same reason `ls-tree` and `diff --cached` above take -z; this call was missed.
+  const tracked = git('ls-files', '-z').split('\0').map((s) => s.trim()).filter(Boolean);
   const dry = parseDryRun(git('add', '-An', '--all', '.'));
   const set = new Set(tracked);
   for (const p of dry.added) set.add(p);
@@ -543,26 +551,41 @@ const scanText = (path, text) => {
 
 const scanFiles = (paths, root) => {
   const found = [];
+  // A PATH IN THE UNIVERSE THAT THE SCANNER COULD NOT OPEN IS A HOLE WITH A KNOWN SHAPE, and
+  // skipping it in silence is the exact vacuity this file exists to refuse: the file is counted
+  // in the universe line, contributes to the "no denied value reaches the commit set" claim, and
+  // was never read. They are collected and named rather than dropped.
+  const unread = [];
   let read = 0;
   let bytes = 0;
   for (const p of paths) {
     const abs = join(root, p);
-    if (!existsSync(abs)) continue;
+    if (!existsSync(abs)) {
+      unread.push(`${p} — not on disk under the name the enumeration reported`);
+      continue;
+    }
     let text;
     try {
       text = readText(abs);
-    } catch {
+    } catch (e) {
+      unread.push(`${p} — unreadable (${e.code ?? 'error'})`);
       continue;
     }
     read += 1;
     bytes += text.length;
     found.push(...scanText(p, text));
   }
-  return { found, read, bytes };
+  return { found, read, bytes, unread };
 };
 
 const scan = scanFiles(stagedPaths, ROOT);
 note(`scanned ${scan.read} files, ${(scan.bytes / 1048576).toFixed(2)} MiB, whole-file substring`);
+if (scan.unread.length) {
+  fail(
+    `${scan.unread.length} of the ${stagedPaths.length} paths in the universe were NOT READ, so CHECK B's ` +
+      `absence claim does not cover them:\n${scan.unread.slice(0, 20).map((u) => '  ' + u).join('\n')}`
+  );
+}
 if (scan.read < stagedPaths.length * 0.9) {
   fail(`only ${scan.read} of ${stagedPaths.length} staged paths were readable — a scan that skips files is not a clean result`);
 }
