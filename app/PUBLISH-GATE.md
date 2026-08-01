@@ -818,3 +818,112 @@ Both figures are left standing rather than one being edited to match the other: 
 is what the publish set was when the audit in section 7 walked it (698 paths, 10.32 MiB),
 and the 310 is what the index holds now. A reader comparing the audit's universe to the
 index needs the first number, not the second.
+
+---
+
+# ADDENDUM — 2026-08-01, s12/a17: THIS AUDIT NOW EXITS 1 ON A CLEAN TREE, AND HERE IS WHY
+
+**Everything above this line is the record as it was measured on 2026-08-01 by s12/a7 and is
+unedited.** This addendum is appended rather than folded in, because the sections above are a
+dated measurement and rewriting a measurement is not a correction.
+
+## Read this before you conclude the gate is broken
+
+`node tools/publish-audit.mjs` **currently exits 1 on the untouched tree, and three of its eight
+probes do not run at all.** If you are the next person to run it, you were going to meet a red
+with no explanation, and the cheapest thing to do with an unexplained permanent red is to stop
+running the instrument. That is the outcome this addendum exists to prevent.
+
+**A GATE THAT CRIES WOLF ONCE IS AN INSTRUMENT. ONE THAT CRIES WOLF PERMANENTLY IS A DISABLED
+INSTRUMENT WITH A FILE STILL IN THE REPOSITORY.**
+
+## What the run does, measured at HEAD `bd859e3` before any edit
+
+Five probes fire and pass. Three never execute.
+
+| Probe | Result |
+|---|---|
+| A1 | **FIRED** — 6 forbidden paths reachable with ignores off, excluded with them on |
+| A2 | **FIRED** — the path matcher flags both planted forbidden paths |
+| B1 | **FIRED** — all 15 classes detected when planted in a 1,057,512-byte copy of the real `dist` bundle |
+| B2 | **FIRED** — the whole-file reader finds a string known to be in `dist` |
+| B3 | **FIRED** — a denied value split across two adjacent literals is caught only after joining |
+| C1a | **DID NOT RUN** |
+| C1b | **DID NOT APPLY** |
+| C2 | **DID NOT RUN** |
+
+The universe line from that run:
+
+```
+UNIVERSE WALKED: the 700 paths the resulting commit's tree would contain — 0 of them NOT IN
+HEAD and so never commit-reviewed, 700 in the index, 0 still untracked, 0 tracked-and-modified,
+less 0 deletion(s).
+```
+
+And the two failures, verbatim:
+
+```
+FAIL: the enumeration reports ZERO paths outside HEAD. This tree is known to carry a large
+region that no commit has ever carried, and that region is the highest-risk part of a first
+commit. An enumeration that reaches nothing new is vacuous — its clean verdict would be a fact
+about an empty list rather than about the tree — so the audit reports that rather than
+reporting clean.
+
+FAIL: PROBE C1b DID NOT APPLY: no existing readable text file in the universe is outside HEAD,
+so the arm that proves coverage of the set the floor measures has nowhere to plant. The audit
+does not report clean on a set it could not probe.
+```
+
+## The cause, in one sentence
+
+**The non-vacuity floor became unsatisfiable when everything reached HEAD.** `notInHead` is the
+universe minus `git ls-tree HEAD`, and it is legitimately **zero** — there is genuinely nothing
+left in this tree that no commit has ever carried. The floor reads that correct zero as a broken
+enumeration. One unsatisfiable precondition at `publish-audit.mjs:716` then skips the single
+`else` block that contains C1a, C2, the C1b restore assertion and the cleanup verification, which
+is why one cause removes three probes.
+
+## The distinction that decides what you should do about it
+
+> **THE AUDIT IS NOT REPORTING A DEFECT IN THE TREE. IT IS REFUSING TO CERTIFY BECAUSE IT CANNOT
+> PROVE ITSELF NON-VACUOUS. A REFUSAL TO CERTIFY AND A DETECTION ARE DIFFERENT EVENTS, AND ONLY
+> ONE OF THEM IS ABOUT THE REPOSITORY.**
+
+No probe reported a leak. The five that ran covered both path families and all three content
+families, and every one of them came back clean.
+
+## This does NOT mean the published tree went out uncertified
+
+Both of these are true and neither may be quoted without the other:
+
+- **The floor was never an invariant.** It was written for a one-off state and asserted
+  permanently.
+- **That does not impugn what was published.** When this audit ran before the push, 163 paths sat
+  outside HEAD, the floor was satisfiable, and all eight probes had targets. **It certified
+  validly, and it was made unsatisfiable by the success it certified.**
+
+## What you must still treat as a real finding
+
+The red above is a known, diagnosed exception — **it is not permission to ignore this gate.**
+
+- **Any A-family or B-family red is a genuine finding and stops a push.**
+- **Fewer than five probes firing is a genuine finding and stops a push.** The five that fire
+  today are **A1, A2, B1, B2 and B3**. Diff your run against that list; you should not have to
+  read the source to know what normal looks like.
+- Anything else that differs from the output quoted above is a finding.
+
+## The repair is outstanding and is owed before the next push
+
+**Repairing this instrument is a known outstanding action, and it must land BEFORE THE NEXT PUSH
+TO THIS REPOSITORY.** Nobody should publish twice through a disabled gate. Two things are wrong
+with it and they are separate: the vacuity floor above, and a dependency on `app/dist` being
+tracked — `:571` fails and `:582` then dereferences `biggestDist.p` on `undefined`, an uncaught
+TypeError, now that `app/dist` is ignored. The repair was deliberately kept out of the commit
+that carries this addendum, because redesigning the publish gate inside the very commit that gate
+audits is a conflict of interest that no amount of care removes.
+
+**The rule this cost us, written down so it is not paid for twice:** *A non-vacuity floor written
+for a one-off state becomes unsatisfiable the moment that state passes, and thereafter fails
+closed forever.* This file's own subject already forbids the shape — `publish-audit.mjs:404` says
+an allow that covers nothing today is a hole waiting for tomorrow's arrival at that site — and the
+lock ended up pointed at the instrument that wrote the rule.

@@ -1,9 +1,10 @@
 # Publish the coach's application to https://visak13.github.io/Fit/.
 #
 # This workflow is the CI publish path. It rebuilds the site from source on every push to
-# master and deploys the freshly built `app/dist` to GitHub Pages. The committed `app/dist`
-# in the repository is NOT what this path serves — see DEPLOYMENT.md, which also carries the
-# no-CI fallback for when Actions is unavailable or unwanted.
+# master and deploys the freshly built `app/dist` to GitHub Pages. THE REPOSITORY DOES NOT
+# CARRY app/dist AT ALL — it is gitignored, precisely because this path builds from source
+# and would never read it. See DEPLOYMENT.md, which also carries the no-CI fallback for when
+# Actions is unavailable or unwanted.
 #
 # For this workflow to publish anything, the repository's Pages source must be set to
 # "GitHub Actions" (Settings → Pages → Build and deployment → Source). That is a one-time
@@ -45,9 +46,11 @@ jobs:
       - name: Install Node
         uses: actions/setup-node@v4
         with:
-          # Pinned to an LTS line that satisfies package.json engines (>=20). The machine that
-          # produced the committed dist runs 25.1.0; CI is pinned rather than floating so a
-          # runner image change cannot silently alter the published bytes.
+          # Pinned to an LTS line that satisfies package.json engines (>=20). The developer
+          # machine this project was built on runs 25.1.0; CI is pinned rather than floating so a
+          # runner image change cannot silently alter the published bytes. The two produce
+          # DIFFERENT bundle hashes from identical source, which is measured, expected, and the
+          # reason nothing local is treated as the published artefact.
           node-version: '24'
           cache: npm
           cache-dependency-path: app/package-lock.json

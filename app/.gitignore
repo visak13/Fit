@@ -19,6 +19,14 @@ node_modules/
 .env
 .env.*
 
-# NOT IGNORED, DELIBERATELY: dist/.
-# The published site is a static host with no build step of its own, so the built output is
-# committed on purpose. Adding it here would publish an empty site.
+# IGNORED, AND THIS RULE REPLACES THE OPPOSITE ONE. Until 1 August 2026 this file carried a
+# NOT-IGNORED note for dist/, and that note was CORRECT for the host it described: a static host
+# serving a branch's contents has no build step of its own, so the built output had to be
+# committed or the address would serve an empty site.
+#
+# THE HOST CHANGED. The site is now built by GitHub Actions from source (`npm ci`, `npm run build`)
+# and the artifact CI produces is what is uploaded and served. CI NEVER READS THE COMMITTED dist/,
+# so committing it published nothing and hid one thing: a fix hand-applied to the bundle would
+# pass local proof and review and still never reach the coach. The root .gitignore carries the
+# same rule and the same reason.
+dist/

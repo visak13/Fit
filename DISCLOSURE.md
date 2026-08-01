@@ -163,6 +163,39 @@ state for a reader to compare against, and no private prefix that stays private.
 
 You should decide knowing that. **It is the difference between a deployment and a disclosure of everything every step has written since s8.**
 
+### The rule that follows from your ruling, and it changes where every future fix must be made
+
+You ruled: *"No, I dont want to push something built on my machine to live site. It should go via
+ci/cd."* That is what happens, and this is the consequence of it that nobody would guess:
+
+> **ANY FIX TO WHAT THE PUBLIC SITE SERVES MUST BE MADE IN THE SOURCE OR IN THE GENERATOR THAT
+> WRITES THE BUILD, BECAUSE CI BUILDS FROM SOURCE AND NEVER READS THE COMMITTED `app/dist`.**
+
+Three parts, each measured rather than assumed:
+
+1. **CI builds from source.** `.github/workflows/pages.yml` checks out the repository, runs
+   `npm ci` against the lockfile on an ubuntu runner, runs the five-command gate, runs
+   `npm run build`, and uploads what **it** just produced as the Pages artifact.
+2. **It never reads the committed `app/dist`.** Nothing in that workflow opens the tracked bundle.
+   As of 1 August 2026 the bundle is not even in the repository — both `.gitignore` files ignore
+   it, and this is the reason. The proof is a hash: the live page executes
+   `index-BGG4vweb.js` while the artefact this repository used to track was `index-BDreLcB9.js`.
+   Same source, different machine, different bytes, and it is the CI one that reaches the coach.
+3. **So a hand-applied change to `dist` passes everything and delivers nothing.** Edit the built
+   bundle on disk and it will run correctly in your browser, survive a local walk, satisfy
+   `check:stale` after a rebuild, and read as a real fix to a reviewer looking at a real
+   file — and the coach will never receive one byte of it. **Nothing anywhere reports this.** It
+   is the quietest failure available in this project, and it is available only to somebody trying
+   to be helpful quickly.
+
+**One precision point, because the opposite reading is the natural one.** Untracking `app/dist`
+does **not** remove it from this repository's history. Commit `30745d8` is already public and
+still carries all eleven files, and anyone can retrieve them from the remote forever. That is
+fine — they are a build of public source and carry no secret — and your requirement was about
+what the **live site serves**, which was already satisfied and remains satisfied. But *"we
+stopped committing the bundle"* must not be read as *"the locally-built bundle is no longer
+public."* It is. What changed is what future commits carry, not what past ones did.
+
 ---
 
 ## 5. The four Sol bridge logs — the spine of this document

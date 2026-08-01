@@ -57,8 +57,11 @@ an ordinary static host starts fully offline. The blank screen is the instrument
 preamble named preview and was wrong about this; it did not, and the note sent you to the wrong
 file. The preamble that DOES still reach for preview is `app/tools/walk-preamble.mjs` — the module
 a *walk worker* runs, not the sheet a *person* runs — and it is the one place the correction could
-not be applied, because `tools/` is hashed into the build stamp and editing it would report the
-committed `dist/` as stale with no rebuild permitted. It already carries the correction as a
+not be applied at the time, because `tools/` is hashed into the build stamp and editing it would
+have reported the then-committed `dist/` as stale with no rebuild permitted. **That obstacle is now
+half gone, and the accurate restatement matters: `dist/` is no longer committed, so a stale local
+build is nobody's publish problem — but `tools/` is still hashed, so an edit there still turns a
+local `check:stale` red until whoever makes it rebuilds.** It already carries the correction as a
 section of its own, and its procedure points at that section; what it does not do is lead with it.
 
 **Why you go first:** the first person through will meet whatever is actually broken. That should be
@@ -176,11 +179,12 @@ answering is not arriving.
 | `https://console.cloud.google.com/auth/audience` | Setup, both console traps | 302 | `accounts.google.com/ServiceLogin?service=cloudconsole&...&continue=<same deep path>` | Yes |
 | `https://calendar.google.com/calendar/u/0/r/settings` | Setup, calendar step | 302 | `accounts.google.com/ServiceLogin?service=cl&...&continue=<same deep path>` | **No — see below** |
 
-**One caveat on the first two rows, true until the publish happens.** They answer 200, but what
-they serve today is the throwaway spike page titled *Fit Platform Spike* — re-measured on 1 August
-2026 by two independent instruments at 63,875 bytes. The address is right and the application
-behind it is not, until the publish replaces it. Do not run section 1 or 2 against that address
-before then.
+**The first two rows were carrying a caveat, and the caveat is now gone because it was measured
+false.** Until the publish landed, both addresses answered 200 with the throwaway spike page
+titled *Fit Platform Spike*. **Re-measured 1 August 2026, after the publish:** both answer **200**
+at 5,477 bytes, both are titled ***Fit***, and both name the entry module
+`/Fit/assets/index-BGG4vweb.js`. The application behind the address is now this one, and sections
+1 and 2 can be run against it.
 
 **The one link that does not survive being signed out, and it does not look like it.**
 `calendar.google.com/calendar/u/0/r/settings` answers 302 to Google sign-in with the deep path

@@ -81,7 +81,8 @@ published.** They are the tool you use for items 4 and 5, so find them both once
 
 ### B3. Items 4 and 5 need a build newer than the one currently committed
 
-Measured on 2026-07-31 against the committed `dist/`: the sentence *"A newer version of this app
+Measured on 2026-07-31 against the `dist/` that was committed at the time (it no longer is —
+`dist/` is ignored and CI builds the published bundle from source): the sentence *"A newer version of this app
 is ready."* and the control *"Update now"* are **not in it**. (The same search does find *"Start
 this session"* in that bundle and does not find a nonsense string, so the search itself works —
 it is the sentence that is absent, not the search that is broken.) That copy was written in this

@@ -70,17 +70,27 @@ transform JSX, so without it no test could import a component — which is why t
 historically written against source TEXT. They can now render the real thing; see *No dead ends*
 below.
 
-## The built output is committed, and that has one dangerous failure mode
+## The built output is NOT committed, and the stale-build failure mode moved rather than vanished
 
-The site is published to a static host with no build step of its own, so `dist/` is committed.
-The failure mode is that somebody edits source, commits, publishes, and the live site silently
-serves the **previous** build. Nothing errors; the change is just not there.
+`dist/` is ignored. The site is built by GitHub Actions from source and CI serves its own output,
+so a tracked bundle was never what anyone downloaded — see `DEPLOYMENT.md`, Path A.
+
+The failure mode that motivated the stamp below is still real, it just lives somewhere else now.
+It used to be: somebody edits source, commits a stale `dist/`, publishes, and the live site
+silently serves the **previous** build. On the CI path that cannot happen, because CI rebuilds.
+What CAN happen is the mirror image — **somebody fixes the bundle on disk instead of the source,
+proves it locally, and publishes nothing**, because CI never reads that file. Nothing errors
+there either.
 
 So every build stamps `dist/build-info.json` with a hash of the source it was built from, and
 `npm run check:stale` recomputes that hash from the working tree and compares. `FRESH` means the
-artefact matches its source; `STALE` and a non-zero exit mean it does not. **Run it before
-publishing.** The stamp is also shown on the admin screen, so the build actually running on a
-device can be identified over a video call.
+artefact matches its source; `STALE` and a non-zero exit mean it does not. **It is now a statement
+about the `dist/` on your own disk, not about what is served** — CI runs it too, immediately after
+its own build, where it is green by construction. A red locally means you changed source and have
+not rebuilt; it clears on the next `npm run build`. The stamp is also shown on the admin screen,
+so the build actually running on a device can be identified over a video call — and on the CI path
+that screen is the ONLY witness to which build reached the device, because there is no committed
+artefact left to compare it against.
 
 `tools/source-stamp.mjs` says what is hashed and why the list is wider than it looks. It is
 importable on its own so the publish step can recompute the stamp without running the build.

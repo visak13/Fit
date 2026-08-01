@@ -22,7 +22,21 @@ node_modules/
 Thumbs.db
 *.log
 
-# NOT IGNORED, DELIBERATELY: app/dist/.
-# The published site is a static host with no build step of its own, so the built output is
-# committed on purpose. Adding it here would publish an empty site. Run `npm run check:stale`
-# before publishing to confirm it matches its source.
+# IGNORED, AND THIS RULE REPLACES THE OPPOSITE ONE. Until 1 August 2026 this file carried a
+# NOT-IGNORED note for app/dist/, and that note was CORRECT for the host it was written about: a
+# static host that serves a branch's contents has no build step of its own, so the built output
+# had to be in the repository or the address would serve an empty site.
+#
+# THE HOST CHANGED. The published site is now built by GitHub Actions — `.github/workflows/pages.yml`
+# runs `npm ci` and `npm run build` on ubuntu and uploads what IT built as the Pages artifact. CI
+# BUILDS FROM SOURCE AND NEVER READS THE COMMITTED app/dist. Measured: the live page at
+# https://visak13.github.io/Fit/ executes `index-BGG4vweb.js`, while the artefact this repository
+# used to track was `index-BDreLcB9.js` — a different file, from the same source, built on a
+# different machine.
+#
+# So tracking it bought nothing and cost something real: a hand-applied fix to the committed
+# bundle would pass every local check and every review and still never reach the coach, because
+# nothing on the publish path ever opens it. `npm run build` still writes app/dist/ locally and
+# `npm run check:stale` still reports whether that local copy matches local source — both are
+# about your own machine now, not about what is served.
+app/dist/

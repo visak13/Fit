@@ -55,13 +55,20 @@ Actions**. Until that is set, the workflow runs green and publishes nothing.
 becomes `/Fit/index.html` and `dist/assets/...` becomes `/Fit/assets/...`. **`base` stays
 `/Fit/`** — unchanged, and `BASE_PATH` in `app/tools/build-config.mjs` is where it is named.
 
-**What it implies for the committed `app/dist`:** on this path the committed bundle is **not the
-bytes anyone is served**. CI rebuilds from source and publishes its own output. The bundle is
-still committed on purpose (both `.gitignore` files say so, and Path B depends on it), but on
-Path A it is decorative — and that is the hazard: a stale committed `dist` no longer shows up as
-a wrong page, so nothing external corrects it. `check:stale`, run locally before every commit, is
-the only thing standing between the repository and a bundle that has quietly drifted from its
-source.
+**What it implies for `app/dist`: IT IS NO LONGER IN THE REPOSITORY AT ALL.** As of 1 August 2026
+both `.gitignore` files ignore it, and the reason is this path. CI rebuilds from source and
+publishes its own output, so a tracked bundle was never the bytes anyone is served — it was
+decorative, and a decorative artefact that looks authoritative is worse than an absent one. The
+hazard it created was specific: **a fix hand-applied to the committed bundle passes every local
+check and every review and still never reaches the coach**, because nothing on this path opens it.
+
+Measured on the live address: the page executes `index-BGG4vweb.js`, while the artefact this
+repository used to track was `index-BDreLcB9.js` — same source, different machine, different
+bytes. That gap is the whole argument.
+
+`npm run build` still writes `app/dist/` on your machine and `npm run check:stale` still reports
+whether that local copy matches local source. Both are now statements about **your machine**, not
+about what is published. Nothing is committed as a result of either.
 
 Jekyll does not run on this path — `upload-pages-artifact` serves the artifact as-is — so no
 `.nojekyll` file is needed.
@@ -117,10 +124,12 @@ the branch root is served at `/Fit/index.html`; `assets/` at the branch root is 
 `/Fit/assets/`. **`base` stays `/Fit/`** — identical to Path A. Neither path is a reason to
 change `BASE_PATH`, and changing it for either would break the other.
 
-**What it implies for the committed `app/dist`:** on this path the committed bundle **is** the
-published site, byte for byte. What you commit to `master` and what you copy to `gh-pages` come
-from the same build, so `check:stale` plus the five-command gate is not hygiene here — it is the
-whole of what stands between a stale bundle and the coach.
+**What it implies for `app/dist`:** on this path your LOCAL build **is** the published site, byte
+for byte — the copy step at 2 above reads `app/dist` off your disk. Since `app/dist` is no longer
+tracked, that local copy is the ONLY copy, and there is no committed bundle to cross-check it
+against. So `check:stale` plus the five-command gate, run in this session immediately before step
+2, is the whole of what stands between a stale bundle and the coach. **On this path a green
+`check:stale` is not hygiene; it is the evidence.**
 
 **Line-ending caveat, measured on this machine.** `core.autocrlf` is TRUE globally here, and it
 has already been observed rewriting a checked-out file's line endings while `git status` reported
@@ -131,14 +140,16 @@ the tree clean. Step 4 sets `core.autocrlf false` inside the staging repository 
 
 ## Re-publishing afterwards
 
-**Path A.** Commit the change (including the rebuilt `app/dist`) and push to `master`. The
-workflow runs the gate, rebuilds and deploys. To re-publish an unchanged `master`, use the
-workflow's manual dispatch rather than an empty commit.
+**Path A.** Commit the SOURCE change and push to `master`. There is no `app/dist` to commit — it
+is ignored, and the workflow rebuilds it. The workflow runs the gate, rebuilds and deploys. To
+re-publish an unchanged `master`, use the workflow's manual dispatch rather than an empty commit.
 
 **Path B.** Re-run the five-command gate, then repeat steps 1–5 — the staging directory is
-disposable and the force-push replaces the branch wholesale. Commit the rebuilt `app/dist` to
-`master` in the same session, or the repository's committed bundle and the live site drift apart
-with nothing to report it.
+disposable and the force-push replaces the branch wholesale. Nothing is committed to `master` as
+part of publishing on this path either. **What replaces the old cross-check:** there is no longer
+a committed bundle to compare the live site against, so the build you copy in step 2 must be the
+build the gate just went green on, in the same session. A `gh-pages` push from a stale working
+directory has nothing anywhere that would report it.
 
 **Both paths, every time.** The service worker precaches by build stamp, calls `skipWaiting()`
 and `clients.claim()`, and deletes every other cache. A browser that has visited before can still
