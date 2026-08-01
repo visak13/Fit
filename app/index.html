@@ -95,6 +95,34 @@
   </head>
   <body>
     <div id="root"></div>
+
+    <!--
+      GOOGLE IDENTITY SERVICES. THIS TAG IS THE WHOLE REASON SIGN-IN WORKS, AND ITS ABSENCE IS
+      HOW SIGN-IN SILENTLY DID NOT.
+
+      `platform/google-on-this-device.ts` reads `window.google.accounts.oauth2` to find the
+      library. Nothing else in this application puts it there — this script does, and only this
+      script. Between 2026-07-25 and 2026-08-02 this tag did not exist: every unit test passed
+      because each supplied its own `GoogleIdentityLike` double, and the one thing no double can
+      notice is that the real library was never fetched. The coach met it as "the Google sign-in
+      library did not load", on a device that was online.
+
+      `async defer` so a slow or blocked response never stalls first paint — this application
+      opens and works offline, and sign-in is the only thing that needs the network at all.
+
+      THE TWO FLAGS ARE NOT DECORATION. They are the difference between knowing the script failed
+      and guessing why. `identity-unavailable` in `google-identity.ts` used to assert the device
+      was offline; it can now report what actually happened, because `__gisError` records it.
+      Carried across from the spike, which had this right on day one.
+    -->
+    <script
+      src="https://accounts.google.com/gsi/client"
+      async
+      defer
+      onload="window.__gisLoaded = true"
+      onerror="window.__gisError = true"
+    ></script>
+
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

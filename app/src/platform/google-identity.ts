@@ -329,9 +329,22 @@ export const ACQUIRE_REFUSALS: Readonly<Record<AcquireRefusalCode, string>> = Ob
   'not-configured':
     'This app has not been given its Google client id yet, so it cannot connect. Open Setup and '
     + 'follow the steps for creating the Google client id, then try again.',
+  /*
+   * NAMES NO CAUSE IT HAS NOT ESTABLISHED.
+   *
+   * This sentence used to read "which usually means this device is offline". It was shown to the
+   * first real person who ever met it, ON A DEVICE THAT WAS ONLINE, and the true cause was neither
+   * his network nor his browser: `index.html` did not load Google's script at all. A message that
+   * volunteers one cause, confidently, having measured none, sends a non-technical reader to check
+   * a thing that is not broken — and when it turns out to be fine he has nowhere left to go.
+   *
+   * "Usually means" is the tell. It is a sentence admitting it did not check something it could
+   * have checked. What the app CAN know is stated by `identityUnavailableSentence` below; what it
+   * cannot know it now says plainly rather than filling in.
+   */
   'identity-unavailable':
-    'The Google sign-in library did not load, which usually means this device is offline. Everything '
-    + 'you do is still saved here on the device and will back up once you can connect.',
+    'Google\'s sign-in code could not be loaded, so connecting is not possible right now. '
+    + 'Everything you do is still saved here on the device and will back up once it can connect.',
   declined:
     'The Google window closed without connecting. Nothing has changed, and everything you have done '
     + 'is still saved on this device. Tap "Connect Google" to try again.',
@@ -660,6 +673,44 @@ export class GoogleConnection {
 }
 
 /** A refusal, worded. */
+/**
+ * WHAT THE APPLICATION CAN ACTUALLY ESTABLISH ABOUT A FAILED SCRIPT LOAD, AND NOTHING BEYOND IT.
+ *
+ * Three states, and they are genuinely different things for the reader to do:
+ *
+ * - The browser says it is offline. Then offline IS the cause, measured rather than assumed, and
+ *   the reader has something to fix.
+ * - The script tag reported an error while the browser believes it is online. Then it is NOT his
+ *   connection — something refused or blocked the request, and telling him to check his network
+ *   would waste his time. He is pointed at the class of cause that is actually left.
+ * - Neither flag says anything. Then WE DO NOT KNOW, and that is what he is told. An honest
+ *   "we could not tell you why" beats a confident wrong reason, because the wrong reason is the
+ *   one he acts on.
+ *
+ * `__gisError` is set by the `onerror` handler on the script tag in `index.html`. Both globals are
+ * read defensively: a browser that never ran the tag has neither, which is the third case.
+ */
+export function identityUnavailableSentence(global: typeof globalThis = globalThis): string {
+  const flags = global as unknown as { __gisError?: unknown; navigator?: { onLine?: unknown } };
+  const online = flags.navigator?.onLine;
+  const scriptErrored = flags.__gisError === true;
+
+  const cause = online === false
+    ? 'This device appears to be offline.'
+    : scriptErrored
+      ? 'Your device is online, so this is not a connection problem — something on this device or '
+        + 'network blocked the request to Google.'
+      : 'We could not tell why.';
+
+  return `Google's sign-in code could not be loaded. ${cause} Everything you do is still saved `
+    + 'here on the device and will back up once it can connect.';
+}
+
 function refused(code: AcquireRefusalCode): AcquireOutcome {
-  return Object.freeze({ outcome: 'refused' as const, code, sentence: ACQUIRE_REFUSALS[code] });
+  // The one refusal whose cause is measurable at the moment it happens rather than fixed in a
+  // table. Every other code means exactly one thing; this one meant three and used to guess.
+  const sentence = code === 'identity-unavailable'
+    ? identityUnavailableSentence()
+    : ACQUIRE_REFUSALS[code];
+  return Object.freeze({ outcome: 'refused' as const, code, sentence });
 }
