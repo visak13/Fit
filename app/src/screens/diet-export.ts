@@ -143,9 +143,7 @@ export const EXPORT_TITLE = 'Send this week';
  * spreadsheet is for him and for anyone who wants to change it.
  */
 export const EXPORT_WORDS =
-  'Both are made on this device and nothing is uploaded anywhere. The image is the one to send a '
-  + 'client — it opens straight in a message. The spreadsheet is the same week in a file that can be '
-  + 'opened and changed.';
+  'Made on this device, nothing uploaded — image to send, spreadsheet to edit.';
 
 /** The words on the control that makes the picture. */
 export const SEND_AS_IMAGE = 'Send as an image';
@@ -168,9 +166,7 @@ export const SEND_AS_SPREADSHEET = 'Send as a spreadsheet';
  * with one column". So the gate is here, which is where the meaning is known. Without it the coach
  * sends a client a picture of the word Time.
  */
-export const NOTHING_TO_SEND =
-  'There is nothing in this plan to send yet. Write some meals into it, or paste a plan in, and it '
-  + 'can go as an image or a spreadsheet.';
+export const NOTHING_TO_SEND = 'Nothing in this plan to send yet.';
 
 /** Whether the week on screen can be sent, and what is said instead when it cannot. */
 export interface ExportOffer {

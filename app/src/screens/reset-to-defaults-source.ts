@@ -96,9 +96,7 @@ export interface LibraryReading {
  * same sentence shape the full export's own incomplete read uses, for the same reason.
  */
 export const LIBRARY_INCOMPLETE =
-  'Your library could not all be read just now, so a copy made from it would be missing some of '
-  + 'it. Nothing is wrong with the library itself. Try again in a moment — a copy that is quietly '
-  + 'incomplete is worse than one you had to make twice.';
+  'Your library could not be fully read, so no copy was made. Try again.';
 
 /**
  * EVERY LIBRARY RECORD, WALKED TO THE END, PER KIND.

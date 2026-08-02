@@ -758,7 +758,7 @@ export function AdminScreen({ destination }: { destination: Destination }) {
           </span>
           <Help
             about="keeping the data"
-            text="Whether this browser has agreed to hold on to your clients, routines and sessions when the device runs short of room. Your backup is what actually protects them either way."
+            text="Whether this browser has agreed to keep app data if the device runs short of room. Your backup protects it either way."
           />
         </div>
 
@@ -799,7 +799,7 @@ export function AdminScreen({ destination }: { destination: Destination }) {
           <span className="spacer" />
           <Help
             about="the build"
-            text="A short code for the exact version running on this device. Read it out if you are asked which one you have."
+            text="A short code identifying the exact version running on this device."
           />
         </div>
 
@@ -819,8 +819,8 @@ export function AdminScreen({ destination }: { destination: Destination }) {
           </dl>
 
           <p className="muted read">
-            The build value identifies the source this application was built from. If it does not
-            match what the repository says was published, the site is serving an older build.
+            If this does not match what the repository says was published, the site is serving an
+            older build.
           </p>
         </div>
       </section>

@@ -82,10 +82,10 @@ function EntryFields({
   const chosen = choices.byKey.get(entry.exerciseId);
   const position = index + 1;
   const amountHint = chosen === undefined
-    ? 'Choose the exercise first, and this becomes either repetitions or seconds.'
+    ? 'Choose the exercise first.'
     : (chosen.measurement === 'time'
-      ? 'How many seconds each set is held or worked for, if this routine wants something different.'
-      : 'How many repetitions in each set, if this routine wants something different.');
+      ? 'Seconds each set is held or worked for.'
+      : 'Repetitions in each set.');
 
   return (
     <fieldset className="stack-tight" aria-label={`Exercise ${String(position)} in this routine`}>
@@ -564,8 +564,8 @@ export function LibraryRoutines({
           <p className="note read">
             <Glyph name="note" size="inline" decorative />
             <span>
-              {`This list is showing ${String(choices.all.length)} of your exercises and stopped `
-                + 'short of the end, so an exercise you are looking for may not be in it.'}
+              {`Showing ${String(choices.all.length)} of your exercises; the list stopped short of `
+                + 'the end.'}
             </span>
           </p>
         )}

@@ -113,9 +113,8 @@ export const UNLOCK_LABEL = 'Turn the sounds on';
  * Saying what he loses — nothing — is what makes it an offer.
  */
 export const UNLOCK_WORDS =
-  'Phones only let a page make a sound after you have tapped something, so this is that tap. It '
-  + 'lasts as long as this window. Everything a sound would tell you is also written on the screen, '
-  + 'so leaving them off loses nothing.';
+  'Phones only allow sound after a tap, and leaving this off loses nothing — everything it would '
+  + 'say is also written on the screen.';
 
 /** What each state reads as, on the screen, in the coach's words. */
 export const STANDING_WORDS: Readonly<Record<AudioStanding, string>> = Object.freeze({

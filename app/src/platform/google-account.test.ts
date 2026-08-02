@@ -537,6 +537,9 @@ describe('erasing the device', () => {
       'fit.google-coaching-calendar',
       'fit.google-coaching-calendar.proven',
       'fit.google-connection',
+      // Who trained last and what routine, from `screens/launcher.ts` — swept because it says who
+      // this device coached, which is a trace on somebody else's computer like everything above.
+      'fit.last-session-choice',
       // How far he got through the one-time setup, from `screens/setup-surface.ts`. Not a Google
       // setting and not a record — his own note of where he stopped — and swept for the reason the
       // preference and the acknowledgement above are: it says the app was used on this machine.

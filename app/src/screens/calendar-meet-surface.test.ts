@@ -134,7 +134,7 @@ describe('the calendar screen, on first arrival', () => {
   it('promises IN PERSON CREATES NOTHING REMOTE, in the words he reads before choosing', async () => {
     const html = render(await aPractice(['Test Client A']));
 
-    assert.ok(html.includes('no calendar entry, no joining link, and no request of any kind leaves this device'),
+    assert.ok(html.includes('No calendar entry, no joining link, no request leaves this device'),
       'a promise about what the app does not do out of his sight has to be ON THE SCREEN, because '
       + 'it is the one kind of promise he cannot verify for himself');
   });

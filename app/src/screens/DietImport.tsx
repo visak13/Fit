@@ -141,7 +141,7 @@ export function DietImport({
 
           <h4 className="title-block">{report.previewTitle}</h4>
           {report.reading.preview.is_empty ? (
-            <p className="read">Nothing in this paste became a meal. Nothing has been saved.</p>
+            <p className="read">Nothing in this paste became a meal. Nothing was saved.</p>
           ) : (
             <WeekChart chart={report.reading.preview} caption="What this paste was read as" />
           )}

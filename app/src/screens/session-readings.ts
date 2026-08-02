@@ -878,9 +878,7 @@ export const GLANCE_READING_WORDS = 'Reading their last session…';
  * repeated for each attendee is a wall of text on the screen he reads with a client in front of him.
  */
 export const CAPTURE_INTRO =
-  'A reading or a note can be recorded for anybody here at any moment, whatever you are in the middle '
-  + 'of, and doing it leaves the session exactly where it is on your screen. A reading and a note '
-  + 'about a person are theirs; a note about the session belongs to nobody in particular.';
+  'Recording a reading or a note leaves the session exactly where it is on your screen.';
 
 /**
  * WHAT THE PANEL'S OWN STATUS LINE SAYS BEFORE ANYTHING HAS GONE THROUGH IT.

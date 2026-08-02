@@ -86,6 +86,7 @@ import type { LocalStore } from '../../core/store/store.js';
 
 import { THEME_STORAGE_KEY } from '../design/theme.ts';
 import { CLINICAL_HINT_KEY } from '../screens/clinical-hint.ts';
+import { LAST_SESSION_CHOICE_KEY } from '../screens/launcher.ts';
 import { SETUP_PROGRESS_KEY } from '../screens/setup-surface.ts';
 // THE ONE PLACE THAT KNOWS WHAT THE INTERFACE OFFERS. Read rather than remembered: this module's
 // refusal used to describe the screen from memory, and it was wrong in the state the whole feature
@@ -597,6 +598,8 @@ export const SMALL_FACT_KEYS = Object.freeze([
   // same reason as the two above it: this application is demonstrated on somebody else's computer,
   // and a set of ticks left behind afterwards says the app was used here and how far somebody got.
   SETUP_PROGRESS_KEY,
+  // Who trained last and what they did — names by identity, so it says who this device coached.
+  LAST_SESSION_CHOICE_KEY,
   // The two settings he supplied about Google. Neither is a credential — a client id is public by
   // design and a calendar id is an address — but both say WHO used this device and with what
   // account, which is exactly what erasing is for when the computer belongs to somebody else.

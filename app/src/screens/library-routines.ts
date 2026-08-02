@@ -308,7 +308,7 @@ export function describeRoutines(reading: RoutineReading): RoutineReport {
     more: !reading.page.done,
     moreWords: reading.page.done
       ? null
-      : 'There are more routines than these. This shows them in key order, a page at a time.',
+      : 'There are more routines than these, a page at a time.',
     items,
   };
 }
@@ -329,8 +329,7 @@ function routineIntro(count: number, searching: boolean, search: string, total: 
   if (count === 0) {
     return searching
       ? `No routine matches "${search}". Clear the box to see all of them again.`
-      : 'There are no routines in your library. Build one below, or restore the set the app came '
-        + 'with from the Admin screen on the navigation.';
+      : 'There are no routines in your library. Build one below, or restore the shipped set from Admin.';
   }
 
   // THE WHOLE SENTENCE AGREES. Rendered, a plural verb over a singular subject reads "1 routine
@@ -342,8 +341,8 @@ function routineIntro(count: number, searching: boolean, search: string, total: 
   }
 
   return total === 1
-    ? '1 routine in your library, and it is yours to change or remove.'
-    : `${String(total)} routines in your library. Every one of them is yours to change or remove.`;
+    ? '1 routine in your library, yours to change or remove.'
+    : `${String(total)} routines in your library, every one yours to change or remove.`;
 }
 
 /**
@@ -567,10 +566,7 @@ export const CANCEL_ROUTINE_BUTTON = 'Leave it as it was';
 export const ADD_ENTRY_BUTTON = 'Add an exercise to this routine';
 
 /** What the split-day box means, said where he answers it. */
-export const SPLIT_DAY_HINT =
-  'A position in your week, one to seven, not a weekday. It is what lets the week be ordered so a '
-  + 'body part gets a rest before it comes round again. Which actual day a client trains is theirs '
-  + 'and yours, and the app does not decide it.';
+export const SPLIT_DAY_HINT = 'A position in your week, one to seven, not a weekday.';
 
 /**
  * WHAT AN EMPTY OVERRIDE BOX MEANS, said before he leaves one empty.
@@ -580,9 +576,8 @@ export const SPLIT_DAY_HINT =
  * own comment discourages, because a copied value stops following the exercise when he edits it.
  */
 export const OVERRIDE_HINT =
-  'Leave a box empty and this routine follows whatever the exercise itself asks for, so changing '
-  + 'the exercise changes it here too. Fill one in only where this routine wants something '
-  + 'different from the usual.';
+  'An empty box follows whatever the exercise asks for. Fill one in only where this routine wants '
+  + 'something different.';
 
 /**
  * WHERE THE THREE INTENSITY POINTS ARE, said on the routine form because this is where he would
@@ -609,11 +604,9 @@ export const OVERRIDE_HINT =
  * direction that points the wrong way is worse than none, because he goes looking.
  */
 export const SCALING_LIVES_ON_THE_EXERCISE =
-  'How hard or easy each exercise can be made — its three intensity points — belongs to the '
-  + 'exercise itself, not to this routine, so it is set once and every routine using it follows. '
-  + 'A row whose exercise is still in your library carries an Open control that opens it in the '
-  + 'exercise form above; a routine with nothing in it yet, or a row whose exercise has been '
-  + 'removed, has nothing to open.';
+  'Its three intensity points belong to the exercise itself, set once, and every routine using it '
+  + 'follows. A row whose exercise is in your library carries an Open control; a routine with none '
+  + 'yet, or a removed exercise, has nothing to open.';
 
 export function openExerciseLabel(name: string): string {
   return `Open ${name} to change how hard it can be made`;
@@ -627,8 +620,8 @@ export function openExerciseLabel(name: string): string {
  * would offer to save an exercise he never asked for, under a name he did not choose.
  */
 export function exerciseGoneWords(contentKey: string): string {
-  return `There is no longer an exercise with the key "${contentKey}" in your library, so there is `
-    + 'nothing to open. It may have been removed in another window.';
+  return `No exercise with the key "${contentKey}" is in your library. It may have been removed in `
+    + 'another window.';
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -741,10 +734,8 @@ export function describeRoutineRemoval(
     return {
       title: `${routine.name} has already been used`,
       allowed: false,
-      whatWillHappen:
-        `${routine.name} cannot be removed while ${has}. Removing it would leave ${those} pointing `
-        + 'at a routine that is not there, and what was actually done in it would stop making '
-        + 'sense. Change the routine instead, or leave it in place.',
+      whatWillHappen: `${routine.name} cannot be removed while ${has}. Removing it would leave `
+        + `${those} pointing at nothing. Change the routine, or leave it in place.`,
       usedBy: [...usedBy],
       // NOTHING TO CONFIRM, so there is no confirming label. The screen draws no such control in
       // this state and the field is empty rather than a plausible sentence.
@@ -757,13 +748,11 @@ export function describeRoutineRemoval(
     title: `Remove ${routine.name}?`,
     allowed: true,
     whatWillHappen: routine.provenance === 'coach-created'
-      ? `${routine.name} is yours, so nothing will bring it back — not even restoring the shipped `
-        + `library, which only ever puts back what came with the app. Its ${routine.size} stay in `
-        + 'your library; only the routine that gathered them is destroyed. No session has run it.'
-      : `${routine.name} came with the app. Removing it destroys it here, and the only way back is `
-        + 'restoring the shipped library from Admin, which also takes back every other shipped '
-        + `exercise, routine and curve you have changed since. Its ${routine.size} stay in your `
-        + 'library. No session has run it.',
+      ? `${routine.name} is yours, so nothing will bring it back. Its ${routine.size} stay in your `
+        + 'library; only the routine is destroyed. No session has run it.'
+      : `${routine.name} came with the app. Removing it destroys it here; restoring the shipped `
+        + 'library from Admin also takes back every other shipped exercise, routine and curve you '
+        + `have changed since. Its ${routine.size} stay in your library. No session has run it.`,
     usedBy: [],
     confirmLabel: `Remove ${routine.name}`,
     cancelLabel: 'Keep it',

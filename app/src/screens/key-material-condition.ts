@@ -206,8 +206,7 @@ export const DUPLICATE_ROLES = Object.freeze({
  * than merely written.
  */
 export const NOTHING_WAS_CHANGED =
-  'Nothing has been changed. This app has not deleted anything, has not chosen between them, '
-  + 'and will not.';
+  'Nothing has been changed. This app has not deleted or chosen between them, and will not.';
 
 /**
  * That he must not tidy this up himself.
@@ -216,8 +215,8 @@ export const NOTHING_WAS_CHANGED =
  * recoverable state into an unrecoverable one. Said as what he stands to lose, not as a rule.
  */
 export const DO_NOT_DELETE =
-  'Do not delete either of them yourself, and do not ask anyone else to. If the wrong one goes, the '
-  + 'client notes it protects can never be opened again, and nothing can undo that.';
+  'Do not delete either of them, or ask anyone else to: the wrong one gone means the client notes '
+  + 'it protects can never be opened again.';
 
 /**
  * That he should stop rather than carry on.
@@ -227,8 +226,8 @@ export const DO_NOT_DELETE =
  * clinical material he could later be unable to read.
  */
 export const DO_NOT_CONTINUE =
-  'Stop here for now. Do not add or change any client medical notes until this has been sorted out. '
-  + 'The rest of the app — sessions, routines, diets — is unaffected and safe to keep using.';
+  'Stop adding or changing client medical notes until this is sorted out — the rest of the app is '
+  + 'unaffected.';
 
 /**
  * WHO TO ASK, and it is the reason this screen is not a dead end.
@@ -242,9 +241,8 @@ export const DO_NOT_CONTINUE =
  * would be a reassurance nothing behind the screen can deliver.
  */
 export const WHO_TO_ASK =
-  'Ask the person who set this app up for you. They are who to go to — there is no help desk, no '
-  + 'company and no manual behind this app, and the app cannot sort this out on its own. Show them '
-  + 'this screen: everything they need is on it.';
+  'Ask the person who set this app up for you — there is no help desk, company or manual behind '
+  + 'this app, and it cannot sort this out on its own. Show them this screen.';
 
 /** The four, in the order they are said, so the screen cannot reorder them into a different meaning. */
 export const STANDING_SENTENCES: readonly string[] = Object.freeze([
@@ -352,13 +350,10 @@ const MEMBERS: Readonly<Record<string, Member>> = Object.freeze({
     title: 'There are two sets of encryption details',
     whatHappened:
       'Your Google account is holding two sets of encryption details for this app, where there '
-      + 'should only ever be one. This usually happens when two devices were set up within moments '
-      + 'of each other and neither could see what the other had just done. Nobody did anything '
-      + 'wrong, and it is not a sign that anything has been broken into.',
+      + 'should only ever be one.',
     whatItMeans:
-      'Each set unlocks a different part of your client medical notes. You will notice it as a note '
-      + 'that opens on one device and refuses to open on the other. Both sets are still here and '
-      + 'nothing has been lost.',
+      'Each set unlocks a different part of your client medical notes — a note may open on one '
+      + 'device and not the other.',
     moreDangerous: false,
     dangerNote: null,
     candidateNoun: 'Set of encryption details',
@@ -371,9 +366,7 @@ const MEMBERS: Readonly<Record<string, Member>> = Object.freeze({
     whatHeCanDo: [],
     noExitOfHisOwn: null,
     whoToAsk: WHO_TO_ASK,
-    adminIntro:
-      'This app has found more than one where there should only ever be one. Nothing has been '
-      + 'changed. Read this before adding any more client medical notes.',
+    adminIntro: 'More than one found where there should only ever be one. Nothing has been changed.',
     adminChipWord: null,
   }),
 
@@ -381,22 +374,18 @@ const MEMBERS: Readonly<Record<string, Member>> = Object.freeze({
     title: 'There are two recovery keys',
     whatHappened:
       'Your Google account is holding two recovery keys for this app, where there should only ever '
-      + 'be one. As with the encryption details, this happens when two devices set themselves up '
-      + 'within moments of each other. Nobody did anything wrong.',
+      + 'be one.',
     whatItMeans:
-      'A recovery key is what gets your client medical notes back when a phone is lost, replaced or '
-      + 'wiped. With two of them, it is no longer certain which one would work on the day you need '
-      + 'it.',
+      'A recovery key gets your client medical notes back when a phone is lost, replaced or wiped '
+      + '— with two, it is no longer certain which one would work when you need it.',
     // The reason this member exists as its own entry rather than sharing the envelope's words. The
     // two conditions are the same shape and NOT the same danger, and the difference is entirely
     // about WHEN it shows itself.
     moreDangerous: true,
     dangerNote:
-      'This is the more serious of the two, and it is the one that gives no warning. Everything '
-      + 'will look completely normal for as long as your devices keep working. It only shows itself '
-      + 'on the day you set this app up again on a new or wiped phone — the one day there is no '
-      + 'other device left to check against, and the day you most need it to work. That is why it '
-      + 'is worth sorting out now, while everything is still fine.',
+      'This is the more serious of the two and gives no warning — it stays hidden until you set '
+      + 'this app up again on a new or wiped phone, the one day there is no other device left to '
+      + 'check against.',
     candidateNoun: 'Recovery key',
     nothingWasChanged: NOTHING_WAS_CHANGED,
     doNotDelete: DO_NOT_DELETE,
@@ -404,9 +393,7 @@ const MEMBERS: Readonly<Record<string, Member>> = Object.freeze({
     whatHeCanDo: [],
     noExitOfHisOwn: null,
     whoToAsk: WHO_TO_ASK,
-    adminIntro:
-      'This app has found more than one where there should only ever be one. Nothing has been '
-      + 'changed. Read this before adding any more client medical notes.',
+    adminIntro: 'More than one found where there should only ever be one. Nothing has been changed.',
     adminChipWord: null,
   }),
 
@@ -428,13 +415,10 @@ const MEMBERS: Readonly<Record<string, Member>> = Object.freeze({
     title: 'This device has not connected yet',
     whatHappened:
       'This device has never connected to your Google account, so it cannot see how your other '
-      + 'devices lock your client medical notes. Rather than making up a second set of encryption '
-      + 'details of its own, it has stopped and is telling you. That is deliberate: a second set '
-      + 'would leave you with notes on one device that the other could not open.',
+      + 'devices lock your client medical notes, and has not created a second set of its own.',
     whatItMeans:
-      'You cannot add or change client medical notes on this device until it has connected once. '
-      + 'Everything else in the app — sessions, routines, diets — works normally, and nothing you '
-      + 'have already entered on any device is affected.',
+      'You cannot add or change client medical notes on this device until it connects once; '
+      + 'everything else in the app works normally.',
     moreDangerous: false,
     dangerNote: null,
     candidateNoun: null,
@@ -442,13 +426,10 @@ const MEMBERS: Readonly<Record<string, Member>> = Object.freeze({
       'Nothing has been changed. This device has not made a second set of encryption details, and '
       + 'it will not.',
     doNotDelete: null,
-    doNotContinue:
-      'Until it has connected, do not rely on this device for client medical notes. The rest of the '
-      + 'app is unaffected and safe to keep using.',
+    doNotContinue: 'Until this device connects, do not rely on it for client medical notes.',
     whatHeCanDo: [
-      'Take this device somewhere with a working internet connection.',
+      'Get a working internet connection.',
       'Open this app and sign in to your Google account once.',
-      'After that, client medical notes work on this device as they do on your other one.',
     ],
     noExitOfHisOwn: null,
     // He resolves this himself in under a minute; sending him to another person for it would spend
@@ -457,7 +438,7 @@ const MEMBERS: Readonly<Record<string, Member>> = Object.freeze({
       'If it still will not connect after signing in, ask the person who set this app up for you.',
     adminIntro:
       'This device has not connected to your Google account yet, so it cannot add client medical '
-      + 'notes. Everything else works normally.',
+      + 'notes; everything else works normally.',
     adminChipWord: 'Not connected',
   }),
 
@@ -474,12 +455,10 @@ const MEMBERS: Readonly<Record<string, Member>> = Object.freeze({
   [KEY_MATERIAL_CODES.SLOT_ADDITION_RACED]: Object.freeze({
     title: 'Two of your devices changed things at the same moment',
     whatHappened:
-      'Another of your devices changed your encryption details at the very moment this one was '
-      + 'doing the same. Rather than write over the other device and lose what it did, this device '
-      + 'stopped without saving anything.',
+      'Another of your devices changed your encryption details at the same moment as this one, so '
+      + 'this device stopped without saving anything rather than write over it.',
     whatItMeans:
-      'Nothing was saved on this device just now, and nothing was lost on the other one. This is an '
-      + 'ordinary clash between two devices in use at once, not a sign that anything is wrong.',
+      'Nothing was saved on this device just now, and nothing was lost on the other one.',
     moreDangerous: false,
     dangerNote: null,
     candidateNoun: null,
@@ -499,7 +478,7 @@ const MEMBERS: Readonly<Record<string, Member>> = Object.freeze({
       'If it happens every single time, ask the person who set this app up for you.',
     adminIntro:
       'Two of your devices changed your encryption details at the same moment, so this device saved '
-      + 'nothing. Doing it again usually settles it.',
+      + 'nothing — doing it again usually settles it.',
     adminChipWord: 'Clashed',
   }),
 
@@ -515,31 +494,29 @@ const MEMBERS: Readonly<Record<string, Member>> = Object.freeze({
   [KEY_MATERIAL_CODES.ENVELOPE_UNREADABLE]: Object.freeze({
     title: 'Your encryption details cannot be read',
     whatHappened:
-      'The encryption details stored in your Google account could not be understood by this app. '
-      + 'That can happen if the file was damaged, or if it was written by a newer version of this '
-      + 'app than the one on this device.',
+      'The encryption details stored in your Google account could not be understood by this app — '
+      + 'possibly a damaged file, or one written by a newer version of this app.',
     whatItMeans:
-      'Your client medical notes have not been changed and have not been lost, but they cannot be '
-      + 'opened until this is sorted out. Everything else in the app — sessions, routines, diets — '
-      + 'is unaffected.',
+      'Your client medical notes have not been lost but cannot be opened until this is sorted out; '
+      + 'everything else in the app is unaffected.',
     moreDangerous: false,
     dangerNote: null,
     candidateNoun: null,
     nothingWasChanged:
       'Nothing has been changed. This app has not altered the file it could not read, and will not.',
     doNotDelete:
-      'Do not delete anything from your Google account, and do not ask anyone else to. If that file '
-      + 'goes, the client notes it protects can never be opened again, and nothing can undo that.',
+      'Do not delete anything from your Google account, or ask anyone else to — if that file goes, '
+      + 'the notes it protects can never be opened again.',
     doNotContinue: DO_NOT_CONTINUE,
     whatHeCanDo: [],
     noExitOfHisOwn:
-      'There is nothing you can safely do about this one on your own. Deleting the file, or setting '
-      + 'this app up from scratch, would not mend it and would make the notes permanently '
-      + 'unreadable. This one needs somebody who can look at the file itself.',
+      'There is nothing you can safely do on your own: deleting the file, or setting this app up '
+      + 'from scratch, would make the notes permanently unreadable rather than mend it. This needs '
+      + 'somebody who can look at the file itself.',
     whoToAsk: WHO_TO_ASK,
     adminIntro:
-      'The encryption details in your Google account could not be read. Your client medical notes '
-      + 'are not lost, but they cannot be opened until this is sorted out.',
+      'The encryption details in your Google account could not be read; your client medical notes '
+      + 'are not lost but cannot be opened until this is sorted out.',
     adminChipWord: 'Unreadable',
   }),
 
@@ -556,9 +533,9 @@ const MEMBERS: Readonly<Record<string, Member>> = Object.freeze({
   [KEY_MATERIAL_CODES.NO_USABLE_SLOT]: Object.freeze({
     title: 'This device can no longer open your notes',
     whatHappened:
-      'The encryption details this device had saved for itself are gone. That happens if the app was '
-      + 'removed from the home screen, or if the browser cleared out its storage on its own after the '
-      + 'app had not been opened for a while. Nobody did anything wrong.',
+      'The encryption details this device had saved for itself are gone — this happens if the app '
+      + 'was removed from the home screen, or the browser cleared its storage after a period of '
+      + 'inactivity.',
     /*
      * NOT LOST, NEVER "SAFE" — and the difference is this build's whole crypto discipline in one
      * word. This screen can stand behind NOT LOST: it is a fact about where the bytes are, read
@@ -575,36 +552,30 @@ const MEMBERS: Readonly<Record<string, Member>> = Object.freeze({
      * the word, so a future rewording is still caught.
      */
     whatItMeans:
-      'This device cannot open your client medical notes by itself any more. Your notes have not '
-      + 'been lost and are still in your Google account — it is this device\'s own way in that '
-      + 'has gone.',
+      'This device can no longer open your client medical notes on its own, but they have not been '
+      + 'lost and are still in your Google account.',
     moreDangerous: false,
     dangerNote: null,
     candidateNoun: null,
     nothingWasChanged:
-      'Nothing has been changed. Your client medical notes are exactly as you left them, and this '
-      + 'app has not altered or removed anything.',
+      'Nothing has been changed — your client medical notes are exactly as you left them.',
     doNotDelete:
-      'Do not remove this app and set it up again from scratch, and do not delete anything from your '
-      + 'Google account. That would take away the last thing that could get this device back in, and '
-      + 'the notes it protects could never be opened again.',
+      'Do not remove and reinstall this app, or delete anything from your Google account — that '
+      + 'would remove the last way back in, and the notes could never be opened again.',
     doNotContinue: DO_NOT_CONTINUE,
     whatHeCanDo: [
-      'Sign in to your Google account in this app again. That is how this device is given a new way '
-      + 'in to your notes.',
-      'If your notes still will not open after signing in, stop there and ask for help rather than '
-      + 'setting the app up again.',
+      'Sign in to your Google account in this app again.',
+      'If your notes still will not open after that, ask for help — do not set the app up again.',
     ],
     noExitOfHisOwn: null,
     whoToAsk: WHO_TO_ASK,
     adminIntro:
-      'This device has lost the encryption details it had saved for itself, so it cannot open your '
       // The SAME claim d214 removed from `whatItMeans` above, left standing on this member's admin
       // line — that fix reached one string and not its sibling four fields away, and the tree-wide
       // gate missed it because "themselves" sits between the noun and the verb. NOT LOST is what
       // this screen can stand behind; SAFE is the security claim it cannot.
-      + 'client medical notes on its own. The notes themselves have not been lost and are still in '
-      + 'your Google account.',
+      'This device has lost the encryption details it saved for itself and cannot open your client '
+      + 'medical notes on its own, but they have not been lost and are still in your Google account.',
     adminChipWord: 'No way in',
   }),
 });
@@ -712,7 +683,7 @@ export interface NotCheckedReport {
 export function describeNotChecked(): NotCheckedReport {
   return {
     title: KEY_MATERIAL_TITLE,
-    intro: 'Not checked yet. This app has not looked at how your client medical notes are locked.',
+    intro: 'Not checked yet — this app has not looked at how your client medical notes are locked.',
     checked: false,
   };
 }

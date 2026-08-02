@@ -32,7 +32,7 @@ import { aPerformedRecord, aRoutine, aSession } from '../../core/model/fixtures.
 import { projectSession } from '../../core/session/projection.js';
 import {
   NO_SESSION_OPEN_WHAT_TO_DO, OPEN_SESSION_KEY, RUNNER_ADDRESS, describeOpening, describeRoom,
-  describeSession, sessionAddress,
+  describeSession, roomStateWords, sessionAddress,
 } from './runner';
 import type { RunnerContext } from './runner';
 
@@ -280,8 +280,8 @@ describe('what the record says', () => {
 
     // The rest on both lines is INHERITED — neither entry overrides it — which is the half that was
     // missing. Before, the press line read "3 sets · 12 reps" and the plank line had no sets at all.
-    assert.equal(attendee.lines[0].prescription, '3 sets · 12 reps · 45 seconds rest');
-    assert.equal(attendee.lines[2].prescription, '3 sets · 60 seconds · 30 seconds rest');
+    assert.equal(attendee.lines[0].prescription, '3 × 12 · 45s rest');
+    assert.equal(attendee.lines[2].prescription, '3 × 60s · 30s rest');
     for (const line of attendee.lines) {
       assert.doesNotMatch(String(line.prescription), /kg|load|weight/i);
     }
@@ -302,8 +302,8 @@ describe('what the record says', () => {
         `${line.name} shows the coach no sets, no reps and no rest, which is the defect this fixed`,
       );
     }
-    assert.equal(attendee.lines[0].prescription, '3 sets · 12 reps · 45 seconds rest');
-    assert.equal(attendee.lines[2].prescription, '3 sets · 60 seconds · 30 seconds rest');
+    assert.equal(attendee.lines[0].prescription, '3 × 12 · 45s rest');
+    assert.equal(attendee.lines[2].prescription, '3 × 60s · 30s rest');
   });
 
   /**
@@ -393,6 +393,22 @@ describe('what the record says', () => {
     ] as never;
     assert.equal(describeRoom(attendees), 'With Test Client A, Test Client B and Test Client C.');
     assert.equal(describeRoom([{ name: 'Test Client A' }] as never), 'With Test Client A.');
+  });
+
+  /**
+   * THE ROOM AND THE STATE, FOLDED INTO ONE LINE, and both facts survive the fold: who is here and
+   * what the record says about the session, never merely one of the two.
+   */
+  it('folds who is in the room and the session state into one meta line', () => {
+    const attendees = [{ name: 'Test Client A' }] as never;
+    assert.equal(
+      roomStateWords(attendees, 'Running in this window.'),
+      'With Test Client A · running in this window.',
+    );
+    assert.equal(
+      roomStateWords([], 'Written down, not started.'),
+      'Nobody is recorded as attending this session · written down, not started.',
+    );
   });
 });
 

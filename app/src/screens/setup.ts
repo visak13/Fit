@@ -104,10 +104,19 @@ export const CONSOLE_ADVICE_DATE = '31 July 2026';
 export interface SetupStep {
   /** Stable across wording changes, so a tick he made yesterday is still ticked today. */
   readonly id: string;
-  /** The link text. What he is there to achieve, in his words. */
+  /** The link text. Short — the act itself; the reason lives in `detail`. */
   readonly title: string;
   /** Absolute, https, opens in a new tab. Measured on {@link CONSOLE_ADVICE_DATE}. */
   readonly href: string;
+  /** One line under the link: what the step is for, or the one thing to check while there. */
+  readonly detail?: string;
+  /**
+   * THE CLICKS THEMSELVES, in order, on the page the link opens — measured on
+   * {@link CONSOLE_ADVICE_DATE} like every other claim about a page Google owns. USER-RULED
+   * (2 August 2026): the walk names what to press, not only what to achieve; the trade against
+   * Google moving a control is taken knowingly and the date is what bounds it.
+   */
+  readonly substeps?: readonly string[];
 }
 
 const CONSOLE = 'https://console.cloud.google.com';
@@ -123,29 +132,69 @@ const CONSOLE = 'https://console.cloud.google.com';
 export const CLIENT_ID_STEPS: readonly SetupStep[] = Object.freeze([
   Object.freeze({
     id: 'project',
-    title: 'Make a Google Cloud project that belongs to you',
+    title: 'Create a Google Cloud project',
     href: `${CONSOLE}/projectcreate`,
+    detail: 'One project of your own; the remaining steps happen inside it.',
+    substeps: Object.freeze([
+      'Name it — anything works, e.g. Fit — then Create.',
+      'Wait a moment, then check the new project is the selected one.',
+    ]),
   }),
   Object.freeze({
     id: 'drive-api',
-    title: 'Switch on the Google Drive API, so this app can keep your backup in your own Drive',
+    title: 'Enable the Google Drive API',
     href: `${CONSOLE}/apis/library/drive.googleapis.com`,
+    detail: 'Keeps your backup in your own Drive.',
+    substeps: Object.freeze([
+      'Enable it. If the page already reads Manage, it is on.',
+    ]),
   }),
   Object.freeze({
     id: 'calendar-api',
-    title: 'Switch on the Google Calendar API, so this app can put your sessions on a calendar',
+    title: 'Enable the Google Calendar API',
     href: `${CONSOLE}/apis/library/calendar-json.googleapis.com`,
+    detail: 'Puts your sessions on a calendar.',
+    substeps: Object.freeze([
+      'Enable it. If the page already reads Manage, it is on.',
+    ]),
   }),
   Object.freeze({
     id: 'consent',
     // PUBLISH is in the title because it is the step, not a detail of it. See CONSENT_MUST_BE_PUBLISHED.
-    title: 'Set up your sign-in screen and publish it, so your sign-in does not expire',
+    title: 'Publish your sign-in screen',
     href: `${CONSOLE}/apis/credentials/consent`,
+    detail: 'Left in testing, your sign-in expires after a week.',
+    substeps: Object.freeze([
+      'Choose External, then Create.',
+      'Fill only what is required: the app name and your email address, twice.',
+      'Save and continue through each page.',
+      'On the Audience page: Publish app.',
+    ]),
+  }),
+  Object.freeze({
+    // WITHOUT THIS, SIGN-IN SUCCEEDS AND THE MEETING LINK STILL FAILS — the same trap shape as an
+    // un-enabled API: nothing complains until after the part that looks like the whole setup worked.
+    id: 'scopes',
+    title: 'Add the three permissions under Data access',
+    href: `${CONSOLE}/auth/scopes`,
+    detail: 'drive.file, drive.appdata and calendar.events.',
+    substeps: Object.freeze([
+      'Choose Add or remove scopes.',
+      'Type each name in the filter and tick it: drive.file, drive.appdata, calendar.events.',
+      'Update, then Save.',
+    ]),
   }),
   Object.freeze({
     id: 'client',
-    title: 'Create a web client id and allow this app’s address to use it',
+    title: 'Create a web client id',
     href: `${CONSOLE}/apis/credentials`,
+    detail: 'Authorise this app’s address; copy the id only — never the secret.',
+    substeps: Object.freeze([
+      'Under Create credentials, choose OAuth client ID.',
+      'Application type: Web application.',
+      'Add this app’s address — copied from the address card on this screen — as an authorised JavaScript origin.',
+      'Then Create, and copy the client id only. Leave the secret where it is.',
+    ]),
   }),
 ] as readonly SetupStep[]);
 
@@ -159,8 +208,14 @@ export const CLIENT_ID_STEPS: readonly SetupStep[] = Object.freeze([
 export const CALENDAR_STEPS: readonly SetupStep[] = Object.freeze([
   Object.freeze({
     id: 'calendar',
-    title: 'Make a calendar for coaching, then copy its id from that calendar’s own settings',
+    title: 'Make a coaching calendar and copy its id',
     href: 'https://calendar.google.com/calendar/u/0/r/settings',
+    detail: 'The id is in that calendar’s own settings — a long address, not its name.',
+    substeps: Object.freeze([
+      'Choose Add calendar, then Create new calendar.',
+      'Name it, then Create calendar.',
+      'Open the new calendar’s own settings and copy its Calendar ID.',
+    ]),
   }),
 ] as readonly SetupStep[]);
 

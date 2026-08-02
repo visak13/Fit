@@ -372,6 +372,28 @@ export const GLYPHS = {
       { kind: 'path', d: 'M10 20h4' },
     ],
   },
+  'theme-dark': {
+    title: 'Dark theme',
+    shapes: [
+      { kind: 'path', d: 'M20.5 13.8A8.5 8.5 0 1 1 10.2 3.5a7 7 0 0 0 10.3 10.3z' },
+    ],
+  },
+  'theme-light': {
+    title: 'Light theme',
+    shapes: [
+      { kind: 'circle', cx: 12, cy: 12, r: 4.5 },
+      { kind: 'path', d: 'M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3' },
+      { kind: 'path', d: 'm5.3 5.3 2.1 2.1M16.6 16.6l2.1 2.1M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1' },
+    ],
+  },
+  'theme-system': {
+    title: 'Theme follows the device',
+    shapes: [
+      { kind: 'circle', cx: 12, cy: 12, r: 8.5 },
+      { kind: 'path', d: 'M12 3.5v17' },
+      { kind: 'path', d: 'M15.2 6.8v10.4M18 10v4' },
+    ],
+  },
   'what-leaves-this-device': {
     title: 'What leaves this device',
     shapes: [

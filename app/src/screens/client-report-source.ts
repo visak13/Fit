@@ -121,6 +121,5 @@ export async function readWholeHistory(
  * client's progress, which he would have no way of noticing.
  */
 export const HISTORY_INCOMPLETE =
-  'This client\'s history could not be read all the way back, so a report now would leave some of it '
-  + 'out. Nothing is wrong with the records — try again, and if it keeps happening the report can '
-  + 'still be sent as a spreadsheet from the full export.';
+  'This client\'s history could not be read fully, so the report would be incomplete. Nothing is '
+  + 'wrong with the records — try again, or send the full export as a spreadsheet instead.';

@@ -46,6 +46,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 
 import { Glyph } from '../design/Glyph';
+import { Tooltip } from '../design/Tooltip';
 import {
   CLEAR_LABEL, CLEAR_TALLY_LABEL, CLOCK_TITLE, COUNT_DOWN_LABEL, COUNT_UP_LABEL, PAUSE_LABEL,
   RESUME_LABEL, START_REST_LABEL, START_WORK_LABEL, TALLY_TITLE, TIMER_INTRO, TIMER_PANEL_LABEL,
@@ -89,12 +90,14 @@ interface SoundOfferProps {
 }
 
 /**
- * THE ONE TAP, AS A LABELLED OFFER — drawn once for the whole screen, not once per line.
+ * THE ONE TAP, AS A COMPACT LABELLED OFFER — drawn once for the whole screen, not once per line.
  *
- * It is an ordinary control in the flow of the card and not a modal, a banner or anything in the way:
- * a coach who ignores it forever loses nothing, which is what {@link UNLOCK_WORDS} says in as many
- * words. Once the device has answered, the offer is replaced by what he can actually expect — including
- * "this browser has no voice", which is a state and not a fault.
+ * It is an ordinary control in the control row and not a modal, a banner or anything in the way: a
+ * coach who ignores it forever loses nothing, which is what {@link UNLOCK_WORDS} says in the tooltip
+ * rather than in a permanent paragraph — the one real constraint (a browser needs a tap before it will
+ * make a sound) is worth a sentence he can reach, not one he has to read every time this card renders.
+ * Once the device has answered, the offer is replaced by what he can actually expect — including "this
+ * browser has no voice", which is a state and not a fault.
  */
 export function SoundOffer({ port, unlocked, setUnlocked }: SoundOfferProps) {
   const standing = standingOf(unlocked);
@@ -105,23 +108,18 @@ export function SoundOffer({ port, unlocked, setUnlocked }: SoundOfferProps) {
     void port.unlock().then(setUnlocked);
   }, [port, setUnlocked]);
 
-  return (
-    <div className="stack-tight">
-      {offerUnlock(unlocked) ? (
-        <>
-          <p className="inline">
-            <button type="button" className="btn" onClick={turnOn}>
-              <Glyph name="reading-timer" size="inline" decorative />
-              <span>{UNLOCK_LABEL}</span>
-            </button>
-          </p>
-          <p className="muted read">{UNLOCK_WORDS}</p>
-        </>
-      ) : (
-        <p className="muted read" role="status">{STANDING_WORDS[standing]}</p>
-      )}
-    </div>
-  );
+  if (offerUnlock(unlocked)) {
+    return (
+      <Tooltip text={UNLOCK_WORDS}>
+        <button type="button" className="btn btn-quiet btn-sm" onClick={turnOn}>
+          <Glyph name="reading-timer" size="dense" decorative />
+          <span>{UNLOCK_LABEL}</span>
+        </button>
+      </Tooltip>
+    );
+  }
+
+  return <span className="muted" role="status">{STANDING_WORDS[standing]}</span>;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

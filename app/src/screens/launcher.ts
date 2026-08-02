@@ -59,7 +59,8 @@
  */
 
 import { viewportClass } from '../design/viewport';
-import { groupCallWarning } from '../platform/google-meet';
+import type { AcquireOutcome } from '../platform/google-identity';
+import { groupCallWarning, PASTE_INSTEAD } from '../platform/google-meet';
 import type { MintOutcome } from '../platform/google-meet';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -181,6 +182,74 @@ export const NOTHING_CHOSEN: Selection = Object.freeze({
   linkPlan: 'mint' as LinkPlan,
 });
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Last time's answer, offered again
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/** Where the last started session's people and routine are remembered on this device. */
+export const LAST_SESSION_CHOICE_KEY = 'fit.last-session-choice';
+
+/** What is remembered: who and what, NEVER where. Mode records a fact and is asked every time. */
+export interface LastSessionChoice {
+  readonly clientIds: readonly string[];
+  readonly routineId: string;
+}
+
+/** Reads the remembered choice. Anything unreadable or mis-shaped is no memory, not an error. */
+export function readLastSessionChoice(
+  storage: { getItem(key: string): string | null },
+): LastSessionChoice | null {
+  let stored: string | null = null;
+  try {
+    stored = storage.getItem(LAST_SESSION_CHOICE_KEY);
+  } catch {
+    return null;
+  }
+  if (stored === null) return null;
+  try {
+    const parsed: unknown = JSON.parse(stored);
+    if (typeof parsed !== 'object' || parsed === null) return null;
+    const { clientIds, routineId } = parsed as { clientIds?: unknown; routineId?: unknown };
+    if (typeof routineId !== 'string' || routineId.length === 0) return null;
+    if (!Array.isArray(clientIds) || !clientIds.every((id) => typeof id === 'string')) return null;
+    return { clientIds, routineId };
+  } catch {
+    return null;
+  }
+}
+
+/** Remembers who and what after a session actually started. A refusal to write is not an error. */
+export function writeLastSessionChoice(
+  storage: { setItem(key: string, value: string): void },
+  choice: LastSessionChoice,
+): void {
+  try {
+    storage.setItem(LAST_SESSION_CHOICE_KEY, JSON.stringify(choice));
+  } catch {
+    // The session started; only the memory of the choice is lost.
+  }
+}
+
+/**
+ * Last time's people and routine, applied to an untouched selection — and only what still exists.
+ *
+ * A remembered id whose client was removed, or whose routine is gone, is dropped silently rather
+ * than preselecting a ghost. `mode` is untouched on purpose: it records where the session actually
+ * happens and is answered every time. An empty survivor set returns the selection unchanged.
+ */
+export function preselectLastChoice(
+  selection: Selection,
+  last: LastSessionChoice | null,
+  clientIds: ReadonlySet<string>,
+  routineIds: ReadonlySet<string>,
+): Selection {
+  if (last === null) return selection;
+  const people = last.clientIds.filter((id) => clientIds.has(id));
+  const routine = routineIds.has(last.routineId) ? last.routineId : null;
+  if (people.length === 0 && routine === null) return selection;
+  return { ...selection, clientIds: people, routineId: routine };
+}
+
 /** Add or remove one person. One to many: more than one person can be in a single call. */
 export function toggleClient(selection: Selection, clientId: string): Selection {
   const held = selection.clientIds;
@@ -250,16 +319,13 @@ export const MODE_CHOICES: readonly ModeChoice[] = Object.freeze([
   Object.freeze({
     value: 'online' as const,
     label: 'Online',
-    consequence:
-      'Recorded as a call. Choose below whether the app makes a joining link for it or you paste '
-      + 'one you already have. Either way the session starts straight away and never waits on a link.',
+    consequence: 'Recorded as a call. The session starts straight away and never waits on a link.',
   }),
   Object.freeze({
     value: 'in_person' as const,
     label: 'In person',
     consequence:
-      'Recorded as a session in the room. Nothing is created anywhere else — no calendar entry, no '
-      + 'joining link, and no request of any kind leaves this device.',
+      'Recorded in the room. No calendar entry, no joining link, no request leaves this device.',
   }),
 ]);
 
@@ -270,9 +336,7 @@ export const MODE_QUESTION = 'Where is this session?';
 export const PASTED_LINK_LABEL = 'Joining link, if you already have one';
 
 /** Said under it, so an empty box never reads as something unfinished. */
-export const PASTED_LINK_HINT =
-  'Optional. Paste a link from a call you have already started, and it is kept with the session. '
-  + 'Leave it empty and the session still starts.';
+export const PASTED_LINK_HINT = 'Optional. The session starts with or without it.';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // How the session gets its joining link
@@ -302,23 +366,18 @@ export const LINK_CHOICES: readonly LinkChoice[] = Object.freeze([
     value: 'mint' as const,
     label: 'Make one now',
     consequence:
-      'The app asks Google for a Meet link as the session starts, which puts a real event on your '
-      + 'calendar. Google may ask you to connect at that moment. If it cannot make one, it says so '
-      + 'and you can paste a link instead.',
+      'Asks Google for a Meet link, putting a real event on your calendar. Google may ask you to '
+      + 'connect. If no link comes, you can paste a link instead.',
   }),
   Object.freeze({
     value: 'paste' as const,
     label: 'Paste one I already have',
-    consequence:
-      'Nothing is created anywhere and no calendar event is made. Use this for a call you have '
-      + 'already started, or any link of your own.',
+    consequence: 'Nothing is created or sent anywhere.',
   }),
   Object.freeze({
     value: 'none' as const,
     label: 'No link',
-    consequence:
-      'The session is recorded as a call with no joining link kept in the app. Nothing is sent to '
-      + 'Google. You can still paste one afterwards.',
+    consequence: 'Nothing is sent to Google. One can still be pasted afterwards.',
   }),
 ]);
 
@@ -399,8 +458,7 @@ export const START_BUTTON = 'Start this session';
  * itself is CORRECT and is not the defect; where it was reachable was.
  */
 export const SECOND_INSTANCE_HINT =
-  'Everyone here does the same routine. If two of them need different programmes today, open the '
-  + 'app in a second window and run that one there.';
+  'Everyone here does the same routine. For a different programme, run a second window.';
 
 /**
  * WHETHER THIS DEVICE CAN DO WHAT {@link SECOND_INSTANCE_HINT} ASKS OF IT.
@@ -656,8 +714,7 @@ function whenWords(startedAt: string | null): string {
 export const UNFINISHED_TITLE = 'Sessions you have not finished';
 
 export const UNFINISHED_INTRO =
-  'These are still open. Picking one up is the same as starting: nothing was lost, and everything '
-  + 'already recorded in it is still there.';
+  'Still open. Picking one up is the same as starting; nothing recorded in it was lost.';
 
 /**
  * ONE PERSON IN A SESSION, HELD BY IDENTITY AS WELL AS BY NAME — and the reason the reports below
@@ -737,9 +794,7 @@ export function describeUnfinished(
  */
 export const HISTORY_TITLE = 'Sessions already done';
 
-export const HISTORY_INTRO =
-  'For the people you have chosen. Reading one back in full — what was done, the loads, the '
-  + 'progress — is not built yet.';
+export const HISTORY_INTRO = 'Reading one back in full is not built yet.';
 
 /** Said when the chosen people have no finished sessions between them. */
 export const HISTORY_EMPTY = 'Nothing yet for the people you have chosen.';
@@ -835,9 +890,8 @@ export interface OutcomeReport {
  * the runner leaves the session open, deliberately, and finishing it is a control he presses there.
  */
 export const STARTED_WORDS =
-  'Started and saved on this device. It opens on the session screen now. If you leave without '
-  + 'finishing it, nothing is lost: it waits below under "Sessions you have not finished", and '
-  + 'picking it up is the same button.';
+  'Started and saved on this device. It opens on the session screen now. Left unfinished, it waits '
+  + 'below under "Sessions you have not finished".';
 
 /**
  * What to say about the core's answer.
@@ -913,14 +967,35 @@ export function describeMint(outcome: MintOutcome): MintReport {
   return { linked: false, headline: outcome.sentence, offerPaste: true, url: null };
 }
 
+/** Said when the connection came back without the calendar grant, so a mint is doomed before it. */
+export const CALENDAR_SCOPE_NOT_GRANTED =
+  'Google connected without permission to make calendar events, so no meeting link can be made. '
+  + `Connect again and tick every permission it asks for. ${PASTE_INSTEAD}`;
+
+/**
+ * What to say when the token gesture itself came back short, BEFORE anything was asked of Google.
+ *
+ * Returns null when the connection is good enough to mint with. Otherwise the report carries the
+ * acquisition's own sentence — the specific one, a declined popup and a missing client id being
+ * different things for him to do — instead of letting the mint fail later with the generic
+ * credential sentence. The paste exit is offered either way, because the session starts either way.
+ */
+export function describeAcquire(acquired: AcquireOutcome): MintReport | null {
+  if (acquired.outcome === 'refused') {
+    return { linked: false, headline: acquired.sentence, offerPaste: true, url: null };
+  }
+  if (acquired.scopesNotGranted.some((scope) => scope.endsWith('calendar.events'))) {
+    return { linked: false, headline: CALENDAR_SCOPE_NOT_GRANTED, offerPaste: true, url: null };
+  }
+  return null;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // The standing sentences
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /** What the screen says above everything, so its purpose is not inferred from its controls. */
-export const LAUNCHER_INTRO =
-  'Choose who is training, the routine they are doing and where you are, then start. Nothing here '
-  + 'needs setting up in advance.';
+export const LAUNCHER_INTRO = 'Who is training, which routine, where — then start.';
 
 /** The section headings, in the order he works down them. */
 export const SECTION_TITLES = Object.freeze({
@@ -931,9 +1006,7 @@ export const SECTION_TITLES = Object.freeze({
 });
 
 /** Said when there is nobody on the register to choose from. */
-export const NO_CLIENTS =
-  'Nobody is on your register yet. Add the people you train under Clients, on the navigation, and '
-  + 'they appear here.';
+export const NO_CLIENTS = 'Nobody on your register yet. Add people under Clients.';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // A READ THAT FAILED, WHICH IS NOT AN EMPTY REGISTER

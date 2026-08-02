@@ -86,8 +86,7 @@ export const RUNNER_WAY_IN_LABEL = 'The session you are running';
 
 /** What that link says about itself, so pressing it is never a guess. */
 export const RUNNER_WAY_IN_WORDS =
-  'Starting a session below opens it here, and so does picking up one you left unfinished. This is '
-  + 'also the way back to it if you go somewhere else in the meantime.';
+  'The way back to a session you started or left unfinished.';
 
 /** The words on the way back to the calendar, drawn on the runner in every state. */
 export const BACK_TO_CALENDAR_LABEL = 'Calendar';
@@ -377,6 +376,20 @@ export function describeRoom(attendees: readonly AttendeeReport[]): string {
   return `With ${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}.`;
 }
 
+/**
+ * WHO IS IN THE ROOM AND WHETHER THIS WINDOW IS RUNNING IT, AS ONE LINE.
+ *
+ * Two facts the coach used to read as two stacked paragraphs, folded into the one meta line under
+ * the title. Both facts stay — nothing here is instruction or reassurance, only who is here and what
+ * the record says the session's state is — only the second sentence's capital comes down to join it.
+ */
+export function roomStateWords(attendees: readonly AttendeeReport[], stateWords: string): string {
+  const room = describeRoom(attendees);
+  if (stateWords.length === 0) return room;
+  const state = stateWords.charAt(0).toLowerCase() + stateWords.slice(1);
+  return `${room.endsWith('.') ? room.slice(0, -1) : room} · ${state}`;
+}
+
 // ── internals ───────────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -406,11 +419,17 @@ function describePrescription(prescription: {
   sets: number | null; repetitions: number | null;
   duration_seconds: number | null; rest_seconds: number | null;
 }): string | null {
+  // The mockup's own compact register — "3 × 12", "3 × 60s", "45s rest" — because this string sits
+  // on a 40px row beside the name and the outcome chip, where "3 sets · 12 repetitions · 45 seconds
+  // rest" is what pushed the name down to two letters and an ellipsis.
+  const work = prescription.repetitions !== null
+    ? `${prescription.repetitions}`
+    : prescription.duration_seconds !== null ? `${prescription.duration_seconds}s` : null;
   const parts: string[] = [];
-  if (prescription.sets !== null) parts.push(`${prescription.sets} sets`);
-  if (prescription.repetitions !== null) parts.push(`${prescription.repetitions} reps`);
-  if (prescription.duration_seconds !== null) parts.push(`${prescription.duration_seconds} seconds`);
-  if (prescription.rest_seconds !== null) parts.push(`${prescription.rest_seconds} seconds rest`);
+  if (prescription.sets !== null && work !== null) parts.push(`${prescription.sets} × ${work}`);
+  else if (prescription.sets !== null) parts.push(`${prescription.sets} sets`);
+  else if (work !== null) parts.push(work === `${prescription.repetitions}` ? `${work} reps` : work);
+  if (prescription.rest_seconds !== null) parts.push(`${prescription.rest_seconds}s rest`);
   return parts.length === 0 ? null : parts.join(' · ');
 }
 

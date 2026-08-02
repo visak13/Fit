@@ -85,6 +85,9 @@ What you need to know, so that you can say it in your own words on the call:
 - **The sign-in screen ends up PUBLISHED.** He is not adding himself as a test user, and there is
   nothing for him to add himself to. A project left in testing expires his sign-in after a week, and
   what he would see is the app signing him out for no reason he can point at.
+- **The three permissions get registered under Data access on the sign-in screen:** `drive.file`,
+  `drive.appdata` and `calendar.events`. Left unregistered, sign-in still works and the meeting link
+  fails afterwards — the same trap shape as an un-enabled API.
 - **There is no client secret.** The page that shows his client id offers one as well. He copies the
   client id only.
 - **The authorised JavaScript origin is `https://visak13.github.io`** — the site name and nothing
@@ -134,6 +137,8 @@ is not a claim that the app is safe or private.
 - [ ] Google Cloud project made.
 - [ ] Drive API switched on. Calendar API switched on. **Those two, and nothing else.**
 - [ ] Sign-in screen configured and **published**.
+- [ ] The three permissions added under **Data access**: `drive.file`, `drive.appdata`,
+      `calendar.events`.
 - [ ] Web client id created, with `https://visak13.github.io` as the authorised JavaScript origin.
 - [ ] Client id pasted into Setup and saved. The field tells him whether it has the shape of a
       client id — that is a shape check, not proof it is the right one.

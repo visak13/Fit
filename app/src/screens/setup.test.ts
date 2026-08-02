@@ -146,11 +146,22 @@ describe('the walk, as a list of destinations', () => {
     }
   });
 
-  it('covers the five things a client id needs, in the order they have to happen', () => {
+  it('covers the six things a client id needs, in the order they have to happen', () => {
     assert.deepEqual(
       CLIENT_ID_STEPS.map((step) => step.id),
-      ['project', 'drive-api', 'calendar-api', 'consent', 'client'],
+      ['project', 'drive-api', 'calendar-api', 'consent', 'scopes', 'client'],
     );
+  });
+
+  it('has him register the three scopes under Data access, naming all three', () => {
+    const scopes = CLIENT_ID_STEPS.find((step) => step.id === 'scopes');
+    assert.ok(scopes !== undefined);
+    // Un-registered scopes fail the same way an un-enabled API does: after sign-in already worked.
+    const said = `${scopes.title} ${scopes.detail ?? ''}`;
+    assert.ok(said.includes('drive.file'));
+    assert.ok(said.includes('drive.appdata'));
+    assert.ok(said.includes('calendar.events'));
+    assert.ok(scopes.href.includes('/auth/scopes'));
   });
 
   it('enables each API as its own step, at its own page', () => {

@@ -68,10 +68,9 @@ export const ARCHIVE_HEADING = 'Save a copy you can keep anywhere';
  * than when he needs it.
  */
 export const ARCHIVE_WORDS =
-  'One file holding your whole practice, locked with a passphrase you choose. Keep it wherever you '
-  + 'like: a memory stick, another cloud, your own computer. It is the only copy that still works if '
-  + 'you ever lose your Google account, and the passphrase is the only way into it — so write the '
-  + 'passphrase down somewhere separate from the file.';
+  'One file holding your whole practice, locked with a passphrase you choose. It still works if you '
+  + 'lose your Google account, and the passphrase is the only way into it — write the passphrase '
+  + 'down separately from the file.';
 
 /**
  * THE ONE THING THIS FILE DOES NOT GIVE HIM BACK ON ITS OWN, said before he relies on it.
@@ -87,10 +86,9 @@ export const ARCHIVE_WORDS =
  * cannot quietly stop being true.
  */
 export const CLINICAL_STAYS_LOCKED =
-  'One thing this copy cannot open on its own: the medical reminders and their links are locked '
-  + 'with the key your devices share through your Google account, not with this passphrase. They '
-  + 'are inside the file and they stay locked, so on a device that has never connected to your '
-  + 'account everything else comes back and those do not.';
+  'The medical reminders and their links are locked with your Google account key, not with this '
+  + 'passphrase. On a device that has never connected to that account, everything else comes back '
+  + 'and those do not.';
 
 /** The words on the control. */
 export const SAVE_THE_COPY = 'Save the copy';
@@ -102,13 +100,10 @@ export const SAVING_THE_COPY = 'Saving your copy...';
 export const CHOOSE_A_PASSPHRASE = 'A passphrase for this file';
 
 /** Said when he pressed it with the box empty. */
-export const PASSPHRASE_NEEDED =
-  'This file needs a passphrase. It is the only way in, so there is no version of it without one.';
+export const PASSPHRASE_NEEDED = 'This file needs a passphrase.';
 
 /** Said when there is nothing on this device yet. */
-export const NOTHING_TO_SAVE =
-  'There is nothing in this practice to save yet. Once you have added a client or edited your '
-  + 'library, a copy is worth taking.';
+export const NOTHING_TO_SAVE = 'Nothing to save yet.';
 
 export interface ArchiveReport {
   readonly tone: ExportTone;

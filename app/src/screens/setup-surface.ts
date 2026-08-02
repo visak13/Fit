@@ -92,6 +92,9 @@ export const CARD_TITLES = Object.freeze({
   traps: 'If something is not where these steps say',
   expectations: 'What to expect once it is set up',
   security: 'What is encrypted, and what this app does not claim',
+  // The call checklist is `HANDOVER.md`'s, for whoever helps him set up — USER-RULED off this
+  // screen (2 August 2026): the coach's own setup page carries no section addressed to somebody
+  // else. The title stays named here so the ruling is checkable against what the screen renders.
   handover: 'Setting this up with him over a call',
 });
 
@@ -107,8 +110,7 @@ export const CARD_TITLES = Object.freeze({
  * ticks standing in for a proof, which is the whole risk of having them.
  */
 export const TICKS_ARE_YOURS =
-  'These ticks are your own note of where you got to, so you can stop and come back. They are not '
-  + 'the app checking anything — it cannot see what you did in Google.';
+  'Ticks are your own notes — this app cannot see what you did in Google.';
 
 /**
  * The accessible name on one tick, which says what pressing it will DO rather than what it is.

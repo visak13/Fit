@@ -63,9 +63,7 @@ export const REPORT_EXPORT_TITLE = 'Send this report';
  * by a client about anything that arrives from an app.
  */
 export const REPORT_EXPORT_WORDS =
-  'Both are made on this device and nothing is uploaded anywhere. The image is the one to send a '
-  + 'client — it opens straight in a message. The spreadsheet is the same report in a file that can '
-  + 'be opened and changed.';
+  'Image opens straight in a message; spreadsheet can be edited. Nothing is uploaded anywhere.';
 
 /** The words on the control that makes the picture. */
 export const SEND_REPORT_AS_IMAGE = 'Send as an image';
@@ -82,9 +80,7 @@ export const SEND_REPORT_AS_SPREADSHEET = 'Send as a spreadsheet';
  * because it is holding the report and can read `is_empty`. Without this gate the coach sends a
  * client a picture of a sentence saying there is nothing to say about them.
  */
-export const NOTHING_TO_REPORT =
-  'There is nothing to report for this client yet. Once you have run a session with them and taken '
-  + 'a reading or two, their progress can go as an image or a spreadsheet.';
+export const NOTHING_TO_REPORT = 'Nothing to report yet — run a session and take a reading first.';
 
 /** Whether this client's report can be sent, and what is said instead when it cannot. */
 export interface ReportExportOffer {

@@ -119,8 +119,7 @@ const RUN_A_PASS_NOW: string = (() => {
  * that is frequently not there, which is the defect rather than its fix.
  */
 const A_CONNECTED_MOMENT =
-  `Open the app while you have a connection, or press “${RUN_A_PASS_NOW}” on the backup indicator `
-  + 'when it is offering it.';
+  `Open the app while you have a connection, or press “${RUN_A_PASS_NOW}” when it is offered.`;
 
 /**
  * A deletion manifest exactly as `core/store/purge.js` wrote it. Nothing renamed, nothing added.
@@ -223,16 +222,13 @@ export const REMOVALS_TITLE = 'Removals not yet confirmed';
  * statement that the records are still there.
  */
 export const NOT_CONFIRMED_IS_NOT_STILL_THERE =
-  'Not confirmed does not mean still there. It means this app has not yet looked in your backup and '
-  + 'seen that they are gone, so it will not tell you they are.';
+  'Not confirmed does not mean still there — this app has not yet checked your backup.';
 
 /**
  * Why this app cannot say who the removal was for. Stated as the protection working, because it is.
  */
 export const NO_NAME_IS_DELIBERATE =
-  'This app did not keep their name. When you remove a client it keeps only a reference, so that '
-  + 'removing somebody does not leave their name behind in the very record that proves they were '
-  + 'removed.';
+  'This app did not keep their name — removal keeps only a reference, on purpose.';
 
 /**
  * What a queued delivery the sweep could not clean MEANS, keyed on the declared code.
@@ -244,19 +240,15 @@ export const NO_NAME_IS_DELIBERATE =
  */
 export const UNRESOLVED_MEANS: Readonly<Record<string, string>> = Object.freeze({
   [UNRESOLVED.OPAQUE_SHARED]:
-    'A file that was already waiting to go to your Google Drive mentions this client and another '
-    + 'client together. This app cannot open that file to take one of them out of it, and deleting '
-    + 'the whole file would take data belonging to the other client with it. So it was left exactly '
-    + 'as it is.',
+    'A queued file names this client and another client together, so it was left as is — deleting '
+    + 'it would take data belonging to the other client too.',
   [UNRESOLVED.NO_REVISION]:
-    'A shared session this client was in could not be rewritten without them, so it was left exactly '
-    + 'as it is rather than removing history belonging to another client along with theirs.',
+    'A shared session this client was in could not be rewritten without them, so it was left as is.',
 });
 
 /** What is said about a code nobody has worded yet. It says what is known and invents nothing. */
 export const UNRESOLVED_UNWORDED =
-  'Part of this removal could not be carried out, and this app was not able to say why in plain '
-  + 'words. The reference below is what somebody helping you will need.';
+  'Part of this removal could not be carried out, and this app could not say why.';
 
 /**
  * The sentence that says this one is DIFFERENT from everything else on the screen.
@@ -266,8 +258,7 @@ export const UNRESOLVED_UNWORDED =
  * something that is never coming.
  */
 export const WILL_NOT_CLEAR_ON_ITS_OWN =
-  'This one will not clear on its own. This app has deliberately not touched that file, because '
-  + 'data belonging to another client is in it too.';
+  'This one will not clear on its own — it also holds data belonging to another client.';
 
 /** One queued delivery the purge could not clean, worded. Identities and our own words only. */
 export interface LeftBehindItem {
@@ -402,9 +393,8 @@ export function describeLeftBehind(unresolved: UnresolvedEntry): LeftBehindItem 
     whatItMeans: UNRESOLVED_MEANS[unresolved.why] ?? UNRESOLVED_UNWORDED,
     persists: WILL_NOT_CLEAR_ON_ITS_OWN,
     whatToDo:
-      'There is nothing to tap for this one. If you want that file out of your Google Drive, read '
-      + 'this out to whoever set the app up for you — do not go into Drive and delete files '
-      + 'yourself, because data belonging to another client is in it.',
+      'Read this out to whoever set the app up for you — do not go into Drive and delete files '
+      + 'yourself, it also holds another client\'s data.',
     forensic: [
       { label: 'Queued delivery reference', literal: true, value: unresolved.entry_id },
       { label: 'Reason recorded', literal: true, value: unresolved.why },
@@ -452,16 +442,13 @@ export function describeRemoval(
     whyVerbatim: manifest.last_error,
     tried,
     whatToDo: confirmedPresent
-      ? `${A_CONNECTED_MOMENT} This app rewrites its part of your backup and then reads it back to `
-        + 'check, so another pass is what clears this. If it keeps saying the same thing, read this '
-        + 'screen out to whoever set the app up for you — do not go into Drive and delete files '
-        + 'yourself.'
+      ? `${A_CONNECTED_MOMENT} Another pass clears this by reading your backup back. If it persists, `
+        + 'read this screen out to whoever set the app up for you — do not go into Drive and delete '
+        + 'files yourself.'
       : (tried
-        ? `${A_CONNECTED_MOMENT} It will try again and check. If this one keeps saying the same `
-          + 'thing, read this screen out to whoever set the app up for you — do not go into Drive '
-          + 'and delete files yourself.'
-        : `${A_CONNECTED_MOMENT} This app checks by reading your backup back, so it needs one `
-          + 'connected moment before it can tell you they are gone.'),
+        ? `${A_CONNECTED_MOMENT} If this one keeps saying the same thing, read this screen out to `
+          + 'whoever set the app up for you — do not go into Drive and delete files yourself.'
+        : `${A_CONNECTED_MOMENT} This app checks by reading your backup back.`),
     scope: scopeWords(manifest),
     confirmedPresent,
     foundCount: found.length,
@@ -528,7 +515,7 @@ export function describeRemovals(reading: RemovalsReading): RemovalsReport {
     more: !reading.pending.done,
     moreWords: reading.pending.done
       ? null
-      : 'There are more than these. This shows the oldest ones first.',
+      : 'More exist; oldest shown first.',
     items,
   };
 }
@@ -573,8 +560,8 @@ export const REMOVALS_STAGE_UNWORDED = 'This app has not recorded which part of 
  * client's data is gone, and a soft sentence here is worth less than no screen at all.
  */
 export const COULD_NOT_READ_THE_REMOVALS =
-  'This app could not read your removals from this device. It cannot tell you whether anything is '
-  + 'waiting, and it has NOT confirmed that any removal is gone from your backup.';
+  'This app could not read your removals from this device. It has NOT confirmed any removal is gone '
+  + 'from your backup.';
 
 /**
  * WHAT A FAILED READ DID NOT DO, and this claim is CHECKABLE ON PURPOSE.
@@ -585,13 +572,12 @@ export const COULD_NOT_READ_THE_REMOVALS =
  * `removals-source.test.ts` induces a real failure and READS THE STORE BACK to prove it.
  */
 export const A_FAILED_REMOVALS_READ_CHANGED_NOTHING =
-  'Nothing was changed by trying. Every removal you have made is still recorded on this device, and '
-  + 'this app will still check your backup for it.';
+  'Nothing was changed by trying — every removal already made is still recorded and will still be '
+  + 'checked.';
 
 /** What to do about it. Try again first, because a read that failed once may not fail twice. */
 export const WHAT_TO_DO_ABOUT_A_FAILED_REMOVALS_READ =
-  'Close this app and open it again. If it still cannot read them, ask the person who set this app '
-  + 'up for you, and show them this screen.';
+  'Close and reopen the app. If it still fails, show this screen to whoever set the app up for you.';
 
 /** Everything the removals surface says when its read FAILED. A different report: a different state. */
 export interface RemovalsFailureReport {
@@ -639,8 +625,7 @@ export function describeFailedRemovalsRead(
  * app never counted.
  */
 export const REMOVALS_ADMIN_COULD_NOT_READ =
-  'This app could not read your removals from this device, so it cannot say whether anything is '
-  + 'waiting. Open this to see what happened.';
+  'This app could not read your removals from this device.';
 
 /**
  * THE WAY IN AFTER A FAILED READ, as its own function rather than a branch inside
@@ -680,9 +665,7 @@ export function describeRemovalsAdminEntry(reading: RemovalsReading): RemovalsAd
     return {
       title: REMOVALS_TITLE,
       count: 0,
-      intro:
-        'Nothing is waiting. When you remove a client, this app checks your backup afterwards and '
-        + 'lists them here until it has confirmed they are gone from it too.',
+      intro: 'Nothing is waiting.',
       linkLabel: 'Check for yourself',
       settled: true,
     };

@@ -33,6 +33,7 @@ import { useCallback } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 
 import { Glyph } from '../design/Glyph';
+import { Tooltip } from '../design/Tooltip';
 import {
   ARRIVAL_ADDING_WORDS, ARRIVAL_ADD_LABEL, ARRIVAL_EVERYONE_HERE, ARRIVAL_FILTER_LABEL,
   ARRIVAL_MORE_THAN_SHOWN, ARRIVAL_NONE_MATCH, ARRIVAL_TITLE, ARRIVAL_WORDS, CANCEL_LABEL,
@@ -102,7 +103,7 @@ export function SessionArrival(props: SessionArrivalProps) {
    * control whose whole purpose is to make a promise true.
    */
   const confirmation = state.added !== null && (
-    <p className="note read">
+    <p className="note read row-panel">
       <Glyph name="session-start" size="inline" decorative />
       <span>{arrivalAddedWords(state.added)}</span>
     </p>
@@ -110,19 +111,21 @@ export function SessionArrival(props: SessionArrivalProps) {
 
   /** A refusal is drawn whether or not the arrival landed, and is never swallowed. */
   const refusal = state.refusal !== null && (
-    <p className="note note-danger read">
+    <p className="note note-danger read row-panel">
       <Glyph name="sync-failed" size="inline" decorative />
       <span>{state.refusal.headline}</span>
     </p>
   );
 
   return (
-    <section className="stack" aria-labelledby="session-arrival">
-      <h3 id="session-arrival" className="title-section">{ARRIVAL_TITLE}</h3>
-      <p className="muted read">{ARRIVAL_WORDS}</p>
-
+    <>
+      {/* THE TRIGGER, COMPACT — one control in the screen's own row rather than a card with a
+          heading and a paragraph above it. `ARRIVAL_WORDS`, the one real fact under the heading it
+          used to carry (a late arrival joins the routine already running; nothing recorded changes),
+          is the tooltip now. `ARRIVAL_TITLE` still labels the control itself, which is what
+          `modular-control-source.test.ts` holds against the refusal that names it. */}
       {state.open ? (
-        <>
+        <div className="row-panel stack-tight">
           <label className="field">
             <span className="field-label">{ARRIVAL_FILTER_LABEL}</span>
             <input
@@ -151,23 +154,23 @@ export function SessionArrival(props: SessionArrivalProps) {
               {CANCEL_LABEL}
             </button>
           </span>
-        </>
+        </div>
       ) : (
-        <span className="row-actions">
+        <Tooltip text={ARRIVAL_WORDS}>
           <button
             type="button"
-            className="btn btn-quiet"
+            className="btn btn-quiet btn-sm"
             aria-expanded={state.open}
             onClick={() => setState(arrivalOpened)}
           >
             <Glyph name="session-start" size="dense" decorative />
             <span>{ARRIVAL_TITLE}</span>
           </button>
-        </span>
+        </Tooltip>
       )}
 
       {state.adding && (
-        <p className="note read">
+        <p className="note read row-panel">
           <Glyph name="sync-pending" size="inline" decorative />
           <span>{ARRIVAL_ADDING_WORDS}</span>
         </p>
@@ -175,7 +178,7 @@ export function SessionArrival(props: SessionArrivalProps) {
 
       {confirmation}
       {refusal}
-    </section>
+    </>
   );
 }
 

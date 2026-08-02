@@ -223,9 +223,7 @@ export const BACK_TO_THE_DIET = 'Back to this diet';
  */
 
 /** What the picker asks, before he has chosen anybody. */
-export const CHOOSE_SOMEBODY =
-  'Choose somebody to see what they are eating. Their plan is shown as one week, laid out by day '
-  + 'and by time of day.';
+export const CHOOSE_SOMEBODY = 'Choose somebody to see their diet.';
 
 /**
  * WHAT AN EMPTY REGISTER SAYS HERE, and it is not an error.
@@ -236,13 +234,10 @@ export const CHOOSE_SOMEBODY =
  * rather than drawn as a second control that would collide with the first. `app/DESIGN.md` and
  * `shell/trail.ts` both hold that rule.
  */
-export const NOBODY_TO_CHOOSE =
-  'Nobody is on your register yet. Add the people you train under Clients, on the navigation, and '
-  + 'they will be here to choose from.';
+export const NOBODY_TO_CHOOSE = 'Nobody is on your register yet. Add people under Clients.';
 
 /** Said under a paged picker, so a short list is never read as the whole register. */
-export const MORE_CLIENTS =
-  'There are more people on your register than these. This shows them in name order.';
+export const MORE_CLIENTS = 'There are more people than shown, in name order.';
 
 /**
  * THE SENTENCE THAT STOPS THE CHART BEING READ AS A DIARY.
@@ -252,15 +247,13 @@ export const MORE_CLIENTS =
  * dated week looks like, and a coach reading it as "this week" would go looking for last week.
  */
 export const REPEATS_WORDS =
-  'This is one week, and it repeats. There are no dates on it: Monday means every Monday, until you '
-  + 'change the plan.';
+  'This week repeats — there are no dates; Monday means every Monday.';
 
 /** What the past-plans section is called. Reachable, and never a thing he has to know to look for. */
 export const HISTORY_TITLE = 'Earlier plans';
 
 /** Said when the whole of a client's history could not be read in one page. */
-export const HISTORY_INCOMPLETE =
-  'This client has more plans than could be read at once, so what is below may not be all of them.';
+export const HISTORY_INCOMPLETE = 'More plans exist than shown; this may not be all of them.';
 
 /** The words on the control that goes back to the plan he follows now. */
 export const BACK_TO_CURRENT = 'Show the plan they follow now';
@@ -442,9 +435,7 @@ export function describeDiet(reading: DietReading): DietReport {
  */
 export function noPlanWords(name: string | null): string {
   const who = name === null ? 'This client' : name;
-  return `${who} has no diet plan yet. When you have one from the nutritionist, paste it in and `
-    + 'check what was read, or write it out here — either way it shows as a week you can read at a '
-    + 'glance.';
+  return `${who} has no diet plan yet.`;
 }
 
 /** Whose plan is in the chart, said above it so an earlier plan is never mistaken for the current one. */
@@ -470,14 +461,14 @@ export function shortWeekWords(chart: { is_full_week: boolean; missing_days: rea
   // "There is nothing written for Saturday and Sunday" is right for one day and for five: the
   // subject of the sentence is "nothing", not the days.
   const named = listWords(chart.missing_days.map((day) => day.name));
-  return `This plan covers part of the week. There is nothing written for ${named} — that means `
-    + 'the plan does not say, not that nothing is eaten.';
+  return `There is nothing written for ${named} — that means the plan does not say, not that `
+    + 'nothing is eaten.';
 }
 
 /** A plan that exists and holds nothing to draw. Rare, and honest about being empty rather than blank. */
 function emptyChartWords(title: string): string {
   const named = title.length > 0 ? `"${title}"` : 'This plan';
-  return `${named} has no meals written in it yet, so there is nothing to lay out.`;
+  return `${named} has no meals written in it yet.`;
 }
 
 /**

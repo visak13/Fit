@@ -48,7 +48,7 @@ import { RECORD_STAND_IN_LABEL, withLevel } from './intensity';
 import type { AcceptedLine } from './intensity';
 import type { EffectivePrescription } from './effective-prescription';
 import {
-  CANCEL_LABEL, CONTROLS_INTRO, EDIT_LABEL, EDIT_WORDS, FIELD_HINTS, FIELD_LABELS,
+  CANCEL_LABEL, EDIT_LABEL, EDIT_WORDS, FIELD_HINTS, FIELD_LABELS,
   SAVE_EDIT_LABEL, SUBSTITUTE_FILTER_LABEL, SUBSTITUTE_MORE_THAN_SHOWN, SUBSTITUTE_NONE_MATCH,
   SUBSTITUTE_TITLE, SUBSTITUTE_WORDS, adjustWords, amendmentFromDraft, changeDraft, closePanel,
   controlsFor, draftKey, draftOf, draftProblem, editKey, lineDraft, noteForLine, openPanel,
@@ -67,17 +67,6 @@ import type { LocalStore } from '../../core/store/store.js';
 const VALUE_FIELDS: readonly DraftField[] = [
   'sets', 'repetitions', 'durationSeconds', 'restSeconds', 'observedLoad', 'note',
 ];
-
-/**
- * WHAT THE CONTROLS DO, once for the whole set.
- *
- * Drawn above one person's lines rather than on each of them. Permanent, at the reading floor: a
- * control whose consequence only becomes visible after pressing it is one he has to learn by damaging
- * a record, and this is used with a client waiting.
- */
-export function ControlsIntro() {
-  return <p className="muted read">{CONTROLS_INTRO}</p>;
-}
 
 /** What one line's controls need. */
 interface LineControlsProps {
@@ -458,6 +447,90 @@ function SubstitutionPoolRows(props: {
       {rows.moreWords !== null && <p className="muted read">{rows.moreWords}</p>}
       {!pool.whole && <p className="muted read">{SUBSTITUTE_MORE_THAN_SHOWN}</p>}
     </>
+  );
+}
+
+/**
+ * ONE TAP FOR THE COMMON CASE — the line, as prescribed, recorded from the collapsed row.
+ *
+ * USER-RULED (2 August 2026): a coach co-ordinating a client does not open a row to say "done as
+ * written". This is the SAME move `LineControls`' Record commits — the same values, the same
+ * curve-substitution rule, the same refusal handling through the same state — reached without
+ * expanding anything. Deviations (adjust, skip, substitute, timer) still live behind the row.
+ *
+ * It mirrors rather than imports `pressRecord` because that callback is bound to the open panel's
+ * draft machinery; the values here are always the untouched prescription (or what an accepted curve
+ * reshaped it to), which is exactly what `valuesForLine` returns for a line with no draft.
+ */
+export interface RecordAsPrescribedProps {
+  readonly store: LocalStore;
+  readonly sessionId: string;
+  readonly clientId: string;
+  readonly exerciseId: string;
+  readonly prescription: EffectivePrescription | null;
+  readonly state: ControlState;
+  readonly setState: Dispatch<SetStateAction<ControlState>>;
+  readonly onMoved: (reading: SessionReadBack) => void;
+  readonly accepted?: AcceptedLine | null;
+}
+
+/**
+ * The record-as-prescribed move itself, shared by the row's one-tap control and the now-card's
+ * set engine — one write path, so the two cannot drift about what "done as written" records.
+ */
+export function useRecordAsPrescribed(props: RecordAsPrescribedProps): () => Promise<void> {
+  const {
+    store, sessionId, clientId, exerciseId, prescription, state, setState, onMoved,
+    accepted = null,
+  } = props;
+  const key = draftKey(clientId, exerciseId);
+  const seed = accepted?.values ?? null;
+  const standingIn = accepted?.standsInWithId ?? null;
+
+  return useCallback(async () => {
+    const typed = valuesForLine(state, clientId, exerciseId, prescription, seed);
+    if (typed === null) return;
+    const values = withLevel(typed, accepted);
+    setState((held) => recording(held, true));
+    const result = await (standingIn === null
+      ? recordTheLine(store, sessionId, clientId, exerciseId, values)
+      : substituteTheLine(store, sessionId, clientId, {
+        insteadOf: exerciseId, exerciseId: standingIn, values,
+      }));
+    if (result.reading !== null) onMoved(result.reading);
+    setState((held) => (result.ok
+      ? (result.refusal === null
+        ? recorded(held, key)
+        : refused(recorded(held, key), key, result.refusal))
+      : refused(held, key, result.refusal ?? {
+        headline: 'That could not be recorded on this device.', detail: null, journalFull: false,
+      })));
+  }, [
+    state, clientId, exerciseId, prescription, seed, accepted, standingIn, setState, onMoved,
+    store, sessionId, key,
+  ]);
+}
+
+export function QuickRecord(props: RecordAsPrescribedProps & {
+  /** What pressing this claims was done. Announced with the exercise name, never a bare verb. */
+  readonly exerciseName: string;
+}) {
+  const { exerciseName, prescription, state } = props;
+  const press = useRecordAsPrescribed(props);
+
+  // Nothing to record one-tap when the line carries no numbers at all; the row still opens.
+  if (prescription === null) return null;
+
+  return (
+    <button
+      type="button"
+      className="icon-btn quick-record"
+      disabled={state.recording}
+      aria-label={`Record ${exerciseName} as prescribed`}
+      onClick={() => { void press(); }}
+    >
+      <Glyph name="session-start" decorative />
+    </button>
   );
 }
 

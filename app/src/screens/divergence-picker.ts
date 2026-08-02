@@ -306,7 +306,7 @@ export function describeValue(content: Record<string, unknown> | null, key: stri
   // Before the string branch, because a sealed value is an object and would otherwise fall through
   // to the structured one and be drawn as "3 entries" — a true statement that tells him nothing.
   if (isSealed(value)) {
-    return { kind: FIELD.SEALED, value: 'An encrypted note. It can only be read on a device that is unlocked.', detail: null };
+    return { kind: FIELD.SEALED, value: 'An encrypted note, readable only on an unlocked device.', detail: null };
   }
 
   if (typeof value === 'string') return { kind: FIELD.TEXT, value, detail: null };
@@ -428,16 +428,16 @@ export function describeChoice(divergence: Divergence, resolve: Resolve | null =
     // The costliest case, and it is the one he most needs to see: one device is about to lose a
     // client's history to the other's tidy-up. Said as what he stands to lose, not as a category.
     deletionWarning: deleting
-      ? `One device deleted this ${typeWord} and the other kept working on it. If you keep the `
-        + 'deletion, everything the other device recorded here goes with it and cannot be brought '
-        + `back. If you keep the change, the ${typeWord} stays and the deletion is undone.`
+      ? `One device deleted this ${typeWord} while the other kept working on it — keeping the `
+        + 'deletion discards what the other device recorded and it cannot be brought back; keeping '
+        + `the change undoes the deletion instead.`
       : null,
     sides: sidesOf(divergence, resolve),
     differing: rows.filter((row) => row.differs),
     identical: rows.filter((row) => !row.differs),
     whatHappensNext:
-      'What you choose is saved here straight away and goes to your other device the next time it '
-      + 'backs up. The version you do not choose is set aside and will not come back.',
+      'Your choice saves immediately and reaches your other device on its next backup. The other '
+      + 'version is discarded.',
   };
 }
 
@@ -497,10 +497,8 @@ export function describeQueue(divergences: readonly Divergence[], checked: boole
       // of an unanswered clash, and a10 re-measured that both sides survive it. Without it this
       // tells a non-technical man his devices may silently disagree and leaves him nothing.
       intro:
-        'Your two devices can end up disagreeing about the same record. This app does not show you '
-        + 'those disagreements and cannot help you choose between them. Nothing is lost while that '
-        + 'is so: both versions are kept, and this app will not tidy away either side of a '
-        + 'disagreement nobody has answered.',
+        'Your two devices can end up disagreeing about the same record. This app cannot help you '
+        + 'choose between them. Nothing is lost while that is so — both versions are kept.',
       settled: false,
       checked: false,
       linkLabel: 'Read what this means',
@@ -511,8 +509,7 @@ export function describeQueue(divergences: readonly Divergence[], checked: boole
     return {
       count: 0,
       title: PICKER_TITLE,
-      intro:
-        'Nothing needs your decision. Your devices agree on everything they have both been used for.',
+      intro: 'Nothing needs your decision.',
       settled: true,
       checked: true,
       linkLabel: 'Check for yourself',
@@ -525,10 +522,10 @@ export function describeQueue(divergences: readonly Divergence[], checked: boole
     linkLabel: 'Decide now',
     title: PICKER_TITLE,
     intro: count === 1
-      ? 'You changed one thing on both of your devices before they could tell each other. Both '
-        + 'versions are kept here until you say which one is right.'
-      : `You changed ${count} things on both of your devices before they could tell each other. `
-        + 'Both versions of each are kept here until you say which one is right.',
+      ? 'One thing changed on both devices before they could sync. Both versions are kept until you '
+        + 'decide.'
+      : `${count} things changed on both devices before they could sync. Both versions of each are `
+        + 'kept until you decide.',
     settled: false,
   };
 }

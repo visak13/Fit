@@ -296,8 +296,7 @@ describe('an export that did NOT happen is recorded as a refusal, not as silence
     assert.deepEqual(kindsOf(entries), [JOURNAL_KINDS.EXPORT_STARTED, JOURNAL_KINDS.EXPORT_REFUSED]);
     assert.equal(entries[1].affected_count, 0,
       'the walk happened and found nothing, which is a measured zero rather than an unknown');
-    assert.equal(report.words, 'There is nothing in this practice to save yet. Once you have added a '
-      + 'client or edited your library, a copy is worth taking.');
+    assert.equal(report.words, 'Nothing to save yet.');
   });
 
   it('STATES NO COUNT AT ALL where nothing was ever walked', async () => {

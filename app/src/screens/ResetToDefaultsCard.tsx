@@ -52,9 +52,7 @@ import type { BackupSurfaces } from './reset-to-defaults-source';
 export const READING_YOUR_LIBRARY = 'Reading your library...';
 
 /** Said when there is no local database to read, so no figure is invented from never having looked. */
-export const LIBRARY_NOT_KNOWN_YET =
-  'Your library has not been read on this device yet, so there is nothing to say about what '
-  + 'restoring it would change.';
+export const LIBRARY_NOT_KNOWN_YET = 'Library not read on this device yet.';
 
 /** The real browser, named in one place and only here. */
 function browserBackupSurfaces(): BackupSurfaces {

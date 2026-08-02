@@ -114,9 +114,7 @@ export const IMPORT_TITLE = 'Paste a plan';
  * wrote first and reported afterwards would be one he had to check by reading the plan back, which
  * is the work he was trying to avoid.
  */
-export const IMPORT_INTRO =
-  'Paste the plan exactly as you have it — a spreadsheet, a message, or typed-out days. You will '
-  + 'see what was read and anything that could not be placed, and nothing is saved until you say so.';
+export const IMPORT_INTRO = 'Paste the plan as you have it. Nothing is saved until you confirm.';
 
 /** The label on the box he pastes into. */
 export const PASTE_LABEL = 'The plan, pasted';

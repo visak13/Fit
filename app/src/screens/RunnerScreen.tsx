@@ -50,7 +50,8 @@ import { LocalStoreNotice, useLocalStore } from '../platform/LocalStore';
 import {
   ClientCapture, ClientRecorded, PreviousSession, SessionNoteCapture, glanceFor, glanceToggle,
 } from './SessionReadings';
-import { ControlsIntro, LineControls } from './SessionControls';
+import { LineControls, QuickRecord } from './SessionControls';
+import { SessionNowCard } from './SessionNowCard';
 import { AcceptedLineMark, IntensityToggles, ProposalPanel } from './SessionIntensity';
 import {
   COULD_NOT_SHAPE, accepted as acceptTheCurve, acceptedLine, holding, linesInOrder, noIntensity,
@@ -60,7 +61,7 @@ import type { IntensityState } from './intensity';
 import { readGroundInto, shapeTheCurve } from './intensity-source';
 import type { IntensityGround } from './intensity-source';
 import type { ExerciseDefaults } from './effective-prescription';
-import { lineOnTheRecord, noArrival, noControls } from './modular-control';
+import { draftKey, lineOnTheRecord, noArrival, noControls } from './modular-control';
 import type { ArrivalState, ControlState, ProjectedSession } from './modular-control';
 import { readArrivalRegisterInto, readSubstitutionPoolInto } from './modular-control-source';
 import type { ArrivalRegister, SessionReadBack, SubstitutionPool } from './modular-control-source';
@@ -79,7 +80,7 @@ import { browserAudio } from './session-audio';
 import type { AudioPort, Unlocked } from './session-audio';
 import {
   BACK_TO_CALENDAR_LABEL, CALENDAR_ADDRESS, NO_SESSION_OPEN, NO_SESSION_OPEN_WHAT_TO_DO,
-  OPENING_WORDS, OPEN_SESSION_KEY, RUNNER_TITLE, describeOpening, describeRoom, describeSession,
+  OPENING_WORDS, OPEN_SESSION_KEY, RUNNER_TITLE, describeOpening, describeSession, roomStateWords,
 } from './runner';
 import type { AttendeeReport } from './runner';
 import { openSessionInto } from './runner-source';
@@ -131,13 +132,29 @@ interface AttendeeCardProps {
   readonly intensity: IntensityState;
 }
 
-/** One person in the room, and what the record says for them. */
-function AttendeeCard(props: AttendeeCardProps) {
+/**
+ * ONE PERSON'S WORK — the WORK column's half of their card: the routine's own declared order,
+ * numbered, every position reachable in one tap rather than only the next one. The console mockup's
+ * "jump to any exercise" list, per attendee, because each attendee's record against the routine's
+ * lines is independent — one may be performed where another is still not_yet_recorded.
+ */
+function AttendeeWork(props: AttendeeCardProps) {
   const {
     attendee, store, sessionId, view, exerciseNames, pool, controls, setControls, onMoved,
-    captures, setCaptures, glances, timers, setTimers, port, unlocked, intensity,
+    timers, setTimers, port, unlocked, intensity,
   } = props;
   const headingId = `session-attendee-${attendee.clientId}`;
+
+  /**
+   * WHICH ROW IS OPEN, AND IT IS THIS COMPONENT'S OWN TRANSIENT STATE — exactly the class of state
+   * `controls`/`captures`/`timers` already are at screen level, held here instead because it answers
+   * a narrower question: which of THIS person's rows is showing its controls. `SESSION.md` §2 is not
+   * in tension with it — an open row is a fact about what the coach is LOOKING AT, never about where
+   * the session has got to, and it is passed to no writer and dies with the window. Only one row open
+   * at a time, per person, the same shape `modular-control.ts`'s own `open` already uses.
+   */
+  // Which line is ON THE CARD — what the coach pressed, never where the app thinks he should be.
+  const [nowKey, setNowKey] = useState<string | null>(null);
 
   /**
    * THE LINES, IN THE ORDER OF THE CURVE HE ACCEPTED — and in the routine's own order when he has
@@ -153,13 +170,210 @@ function AttendeeCard(props: AttendeeCardProps) {
   const lines = linesInOrder(attendee.lines, intensity.accepted);
 
   return (
-    <section className="card stack" aria-labelledby={headingId}>
+    <section className="card-tight stack" aria-labelledby={headingId}>
       <div className="card-header">
         <h3 id={headingId} className="title-section">
           {attendee.name}
         </h3>
         <span className="spacer" />
         <span className="chip">{attendee.recordedWords}</span>
+      </div>
+
+      {/*
+        A STATEMENT ABOUT THE RECORD, and never a list of what to do next. It is drawn above the
+        lines rather than beside any one of them, because a mark on a particular line is how a
+        statement about the record turns into a pointer at the exercise the application thinks he
+        should be on.
+      */}
+      {attendee.notYetRecordedWords !== null && (
+        <p className="muted read">{attendee.notYetRecordedWords}</p>
+      )}
+
+      {/*
+        THE ROUTINE'S OWN DECLARED ORDER, which is a DEFAULT and not a script — numbered, so the
+        position is stated the way the console mockup states it, and never a pointer at where the
+        coach should be next. Nothing here re-sorts by what has been recorded: a list that floated
+        the untouched lines to the top would be telling him where to go next, which is the one thing
+        this application does not do.
+
+        THE IN-SESSION CONTROLS ARE ON EVERY ROW, and every one of them is live whatever has or has
+        not been recorded against that row or any other. A row is no longer `row-static` because the
+        controls write; nothing about the ORDER or the marking changed to make room for them.
+      */}
+      {/*
+        THE NOW-CARD — the line the coach TAPPED, big. Everything on it is the same transient class
+        of state as an open row; the record is written once, at the last set, through the same path
+        as the row's one-tap control. Closed by tapping the row again, its own close, or recording.
+      */}
+      {lines.map((line, index) => {
+        if (draftKey(attendee.clientId, line.exerciseId) !== nowKey) return null;
+        const onTheRecord = lineOnTheRecord(
+          view as unknown as ProjectedSession, attendee.clientId, line.exerciseId, exerciseNames,
+        );
+        const shaped = acceptedLine(intensity.accepted, attendee.clientId, line.exerciseId);
+        return (
+          <SessionNowCard
+            key={`now-${attendee.clientId}-${line.exerciseId}`}
+            store={store}
+            sessionId={sessionId}
+            clientId={attendee.clientId}
+            exerciseId={line.exerciseId}
+            exerciseName={line.name}
+            positionWords={`${index + 1} of ${lines.length}`}
+            prescription={line.effective}
+            state={controls}
+            setState={setControls}
+            onMoved={onMoved}
+            accepted={shaped}
+            port={port}
+            unlocked={unlocked}
+            onClose={() => setNowKey(null)}
+            deviations={(
+              <>
+                <div className="inline">
+                  <AcceptedLineMark line={shaped} lineName={line.name} />
+                  {line.loads.length > 0 && (
+                    <span className="row-value nowrap">{line.loads.join(' · ')}</span>
+                  )}
+                </div>
+                {onTheRecord !== null && (
+                  <LineControls
+                    store={store}
+                    sessionId={sessionId}
+                    clientId={attendee.clientId}
+                    exerciseId={line.exerciseId}
+                    prescription={line.effective}
+                    attempts={onTheRecord.attempts}
+                    pool={pool}
+                    state={controls}
+                    setState={setControls}
+                    onMoved={onMoved}
+                    accepted={shaped}
+                  />
+                )}
+                <LineTimer
+                  clientId={attendee.clientId}
+                  exerciseId={line.exerciseId}
+                  exerciseName={line.name}
+                  prescription={line.effective}
+                  state={timers}
+                  setState={setTimers}
+                  port={port}
+                  unlocked={unlocked}
+                />
+              </>
+            )}
+          />
+        );
+      })}
+
+      {lines.length > 0 && (
+        <ul className="rows rows-boxed" role="list">
+          {lines.map((line, index) => {
+            const shaped = acceptedLine(intensity.accepted, attendee.clientId, line.exerciseId);
+            const rowKey = draftKey(attendee.clientId, line.exerciseId);
+            const isNow = nowKey === rowKey;
+            // A SHORT CHIP AND ITS FULL SENTENCE, KEPT APART. Nothing pins the long phrase to a
+            // literal string, so the visible chip is the one word the mockup's own rows carry —
+            // "Waiting" — while `line.words`, the record's own sentence, stays the accessible name
+            // rather than being lost. Every other outcome already reads short ("Recorded", "Recorded
+            // as skipped"…) and is left as it was.
+            const chipShort = line.notYetRecorded ? 'Waiting' : line.words;
+            return (
+              <li
+                key={`${attendee.clientId}-${line.exerciseId}`}
+                className="row-wrap"
+                role="listitem"
+              >
+                {/*
+                  THE ROW ITSELF IS THE TAP TARGET — one line, and tapping it puts this exercise on
+                  the now-card above the list. What gets recorded and how never moved; only where
+                  the big numbers are drawn did.
+                */}
+                <div className="row row-line">
+                  <button
+                    type="button"
+                    className="row-main row-toggle"
+                    aria-pressed={isNow}
+                    onClick={() => setNowKey((held) => (held === rowKey ? null : rowKey))}
+                  >
+                    <span className="row-position tabular">{index + 1}</span>
+                    <span className="row-name">{line.name}</span>
+                    {/* WHAT RECORD WRITES WHEN HE HAS CHANGED NOTHING. A default he can see is a
+                        default he can decline. */}
+                    {line.prescription !== null && (
+                      <span className="row-value nowrap">{line.prescription}</span>
+                    )}
+                  </button>
+
+                  {/*
+                    THE ONE-TAP COMMON CASE, on the untouched row only: done as written, one press,
+                    nothing opened. A line with something already against it drops it — Record-again
+                    and corrections are deviations, and deviations live behind the row.
+                  */}
+                  {line.notYetRecorded && (
+                    <QuickRecord
+                      store={store}
+                      sessionId={sessionId}
+                      clientId={attendee.clientId}
+                      exerciseId={line.exerciseId}
+                      exerciseName={line.name}
+                      prescription={line.effective}
+                      state={controls}
+                      setState={setControls}
+                      onMoved={onMoved}
+                      accepted={shaped}
+                    />
+                  )}
+
+                  {/*
+                    THE INNER SPAN IS WHAT LETS IT GIVE WAY. Measured at 390px (s6/a4): "Recorded with
+                    something else in its place" is a sentence, `.chip` is `white-space: nowrap`, and
+                    the bare-text chip CLIPPED its own last words rather than ellipsizing them — a
+                    silent truncation reads as a complete statement that is false. `.row-wrap .chip >
+                    span` is the rule that ellipsizes, and it needs a span to apply to.
+                  */}
+                  <span
+                    className={line.notYetRecorded ? 'chip' : 'chip chip-warning'}
+                    aria-label={line.words}
+                  >
+                    <span aria-hidden="true">{chipShort}</span>
+                  </span>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {attendee.beyondTheRoutine.length > 0 && (
+        <p className="note read">
+          <Glyph name="note" size="inline" decorative />
+          <span>
+            {`Recorded as well, outside the routine: ${attendee.beyondTheRoutine.join(', ')}.`}
+          </span>
+        </p>
+      )}
+    </section>
+  );
+}
+
+/**
+ * ONE PERSON'S CAPTURE — the CAPTURE column's half of their card: the previous session at a glance,
+ * a reading or a note at any moment, and what has already been recorded for them. The console
+ * mockup's per-client capture column, which never leaves the screen while the routine scrolls.
+ */
+function AttendeeCapture(props: AttendeeCardProps) {
+  const {
+    attendee, store, sessionId, view, captures, setCaptures, glances, onMoved,
+  } = props;
+
+  return (
+    <section className="card-tight stack" aria-labelledby={`session-capture-${attendee.clientId}`}>
+      <div className="card-header">
+        <h4 id={`session-capture-${attendee.clientId}`} className="title-section">
+          {attendee.name}
+        </h4>
       </div>
 
       {/*
@@ -193,120 +407,9 @@ function AttendeeCard(props: AttendeeCardProps) {
       />
 
       {/*
-        A STATEMENT ABOUT THE RECORD, and never a list of what to do next. It is drawn above the
-        lines rather than beside any one of them, because a mark on a particular line is how a
-        statement about the record turns into a pointer at the exercise the application thinks he
-        should be on.
-      */}
-      {attendee.notYetRecordedWords !== null && (
-        <p className="muted read">{attendee.notYetRecordedWords}</p>
-      )}
-
-      {/*
-        THE ROUTINE'S OWN DECLARED ORDER, which is a DEFAULT and not a script. Nothing here re-sorts
-        by what has been recorded: a list that floated the untouched lines to the top would be
-        telling him where to go next, which is the one thing this application does not do.
-
-        THE IN-SESSION CONTROLS ARE ON EVERY ROW, and every one of them is live whatever has or has
-        not been recorded against that row or any other. A row is no longer `row-static` because the
-        controls write; nothing about the ORDER or the marking changed to make room for them.
-      */}
-      {lines.length > 0 && (
-        <ul className="rows rows-boxed">
-          {lines.map((line) => {
-            // `runner-source.ts` declares only the handful of the projection's fields it passes
-            // along, and `projection.js` is plain ECMAScript typed in comments, so the two shapes are
-            // narrower and wider views of ONE object rather than different objects. The same reason
-            // `describeSession` above is called through a cast.
-            const onTheRecord = lineOnTheRecord(
-              view as unknown as ProjectedSession, attendee.clientId, line.exerciseId, exerciseNames,
-            );
-            const shaped = acceptedLine(intensity.accepted, attendee.clientId, line.exerciseId);
-            return (
-              <li key={`${attendee.clientId}-${line.exerciseId}`} className="row row-wrap">
-                <span className="row-name">{line.name}</span>
-                {/* WHICH POINT OF THE ACCEPTED CURVE THIS LINE IS, and what stands in for it — drawn
-                    before the controls, because pressing Record on a line something stands in for
-                    records the stand-in, and that must be visible beforehand rather than after. */}
-                <AcceptedLineMark line={shaped} lineName={line.name} />
-                {/* WHAT RECORD WRITES WHEN HE HAS CHANGED NOTHING, beside the control that writes it.
-                    A default he can see is a default he can decline. */}
-                {line.prescription !== null && (
-                  <span className="row-value nowrap">{line.prescription}</span>
-                )}
-                {/*
-                  The WORD carries the state; the mark is a second channel and never the only one.
-
-                  THE INNER SPAN IS WHAT LETS IT GIVE WAY. Measured at 390px (s6/a4): "Recorded with
-                  something else in its place" is a sentence, `.chip` is `white-space: nowrap`, and
-                  the bare-text chip CLIPPED its own last words rather than ellipsizing them — a
-                  silent truncation reads as a complete statement that is false. `.row-wrap .chip >
-                  span` is the rule that ellipsizes, and it needs a span to apply to.
-                */}
-                <span className={line.notYetRecorded ? 'chip' : 'chip chip-warning'}>
-                  <span>{line.words}</span>
-                </span>
-                {/* His own observation, shown back exactly as he wrote it. Nothing is derived from it
-                    and nothing is carried forward from it. */}
-                {line.loads.length > 0 && (
-                  <span className="row-value nowrap">{line.loads.join(' · ')}</span>
-                )}
-                {onTheRecord !== null && (
-                  <LineControls
-                    store={store}
-                    sessionId={sessionId}
-                    clientId={attendee.clientId}
-                    exerciseId={line.exerciseId}
-                    prescription={line.effective}
-                    attempts={onTheRecord.attempts}
-                    pool={pool}
-                    state={controls}
-                    setState={setControls}
-                    onMoved={onMoved}
-                    accepted={shaped}
-                  />
-                )}
-                {/*
-                  THE TIMER AND THE COUNT FOR THIS LINE, beside the controls that RECORD it and
-                  reaching no store of their own. A plank is held and a squat is counted, and the
-                  line's RESOLVED prescription already says which — the exercise's own default where
-                  the routine overrode nothing, which is most lines. `exercise-timer.ts` reads that
-                  and offers both anyway, because the answer is a default and not a script.
-
-                  IT WRITES NOTHING AND IT IS NOT A POSITION. A running clock is this screen's own
-                  transient state, exactly as `controls` and `captures` are, and `SESSION.md` §2 and §10
-                  are what say so: anything describing where the session has got to is DERIVED, never
-                  persisted. It is passed to no writer and dies with the window.
-                */}
-                <LineTimer
-                  clientId={attendee.clientId}
-                  exerciseId={line.exerciseId}
-                  exerciseName={line.name}
-                  prescription={line.effective}
-                  state={timers}
-                  setState={setTimers}
-                  port={port}
-                  unlocked={unlocked}
-                />
-              </li>
-            );
-          })}
-        </ul>
-      )}
-
-      {attendee.beyondTheRoutine.length > 0 && (
-        <p className="note read">
-          <Glyph name="note" size="inline" decorative />
-          <span>
-            {`Recorded as well, outside the routine: ${attendee.beyondTheRoutine.join(', ')}.`}
-          </span>
-        </p>
-      )}
-
-      {/*
-        WHAT WAS RECORDED FOR THIS PERSON, BELOW THEIR EXERCISES, and the placement is the point: a row
-        appearing above where he is reading pushes the routine down under his thumb at the moment he
-        presses Record. Their own readings and their own notes — nobody else's is asked for.
+        WHAT WAS RECORDED FOR THIS PERSON, BELOW THEIR CAPTURE, and the placement is the point: a row
+        appearing above where he is reading pushes the capture fields down under his thumb at the
+        moment he presses Record. Their own readings and their own notes — nobody else's is asked for.
       */}
       <ClientRecorded
         view={view as unknown as ProjectedForCapture}
@@ -639,28 +742,133 @@ export function RunnerScreen() {
           </p>
         ) : (
           <>
-            <p className="screen-intro read">{describeRoom(report.attendees)}</p>
-            <p className="muted read">{report.stateWords}</p>
+            {/* WHO IS HERE AND WHAT THE RECORD SAYS THE SESSION'S STATE IS, folded into one meta
+                line — two facts that used to be two stacked paragraphs. The stored-fact count that
+                used to sit under them is dropped: what it verified (a clean resume) is now simply
+                true or the screen above it would already be showing a refusal. */}
+            <p className="muted read">{roomStateWords(report.attendees, report.stateWords)}</p>
             {report.routineUnknownWords !== null && (
               <p className="note read">
                 <Glyph name="note" size="inline" decorative />
                 <span>{report.routineUnknownWords}</span>
               </p>
             )}
-            {/* A NUMBER, so "it resumed exactly" is something he can check rather than believe. */}
-            <p className="muted read">{report.replayedWords}</p>
-
-            {/* WHAT THE CONTROLS ON THE ROWS DO, said once for the whole screen rather than on each
-                of eight rows for each of three people. */}
-            <ControlsIntro />
 
             {/*
-              THE INTENSITY CURVES, and the shape one would make of this session.
+              THE SCREEN'S OWN CONTROL ROW — sounds, a note about the session, a late arrival, and the
+              finish control, as compact icon/label buttons rather than four stacked cards each with
+              its own heading and paragraph. Every explanation that named a real constraint moved into
+              that control's own tooltip; the rest — reassurance a professional coach does not need
+              read back to him on every render — is cut. Nothing about what each control DOES, writes
+              or refuses changed; `SoundOffer`, `SessionNoteCapture`, `SessionArrival` and
+              `SessionEnding` still own their every judgement and every write.
+            */}
+            <div className="row-actions">
+              <SoundOffer port={port} unlocked={unlocked} setUnlocked={setUnlocked} />
 
+              {store !== null && sessionId !== null && (
+                <SessionNoteCapture
+                  store={store}
+                  sessionId={sessionId}
+                  state={captures}
+                  setState={setCaptures}
+                  onCaptured={onMoved}
+                />
+              )}
+
+              {/*
+                SOMEBODY ARRIVED AFTER IT STARTED, which is an ordinary thing that happens to a coach
+                with a group in front of him — and until this was wired the application REFUSED to
+                record against them and told him to add them first, while offering no way to do it.
+                `addClient` had been built and called by no file under `src/` at all.
+              */}
+              {store !== null && sessionId !== null && (
+                <SessionArrival
+                  store={store}
+                  sessionId={sessionId}
+                  register={register !== null && register.from === store ? register.what : null}
+                  attending={attending}
+                  state={arrival}
+                  setState={setArrival}
+                  onMoved={onMoved}
+                />
+              )}
+
+              {/*
+                THE ONE CONTROL THAT ENDS A SESSION, and until it was wired NOTHING IN THIS
+                APPLICATION DID: `complete()` had been built and called by no screen, so every session
+                the coach started sat under "Sessions you have not finished" forever.
+
+                IT WRITES `complete()` AND NOTHING ELSE. Leaving this screen is already what
+                `interrupt()` means and already happens by itself.
+              */}
+              {store !== null && sessionId !== null && (
+                <SessionEnding
+                  store={store}
+                  sessionId={sessionId}
+                  report={report}
+                  state={ending}
+                  setState={setEnding}
+                  onMoved={onMoved}
+                />
+              )}
+            </div>
+
+            {report.sessionNotes.length > 0 && (
+              <ul className="rows">
+                {report.sessionNotes.map((words) => (
+                  <li key={words} className="row row-static row-wrap">
+                    <span className="row-sentence">{words}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
+
+        <WayBack />
+      </section>
+
+      {/*
+        THE TWO-COLUMN LAYOUT — the WORK column (every attendee's own routine, in reach in one tap,
+        then the curve that would shape the whole session) beside the CAPTURE column (every
+        attendee's previous session, readings and notes), matching the console mockup's
+        `.two-column`. It collapses to one column below 840px in `console.css`, the same boundary
+        the rail itself branches at — never a second, different design, only a narrower one.
+      */}
+      {report !== null && view !== null && store !== null && sessionId !== null && (
+        <div className="two-column">
+          <div className="stack">
+            {report.attendees.map((attendee) => (
+              <AttendeeWork
+                key={attendee.clientId}
+                attendee={attendee}
+                store={store}
+                sessionId={sessionId}
+                view={view}
+                exerciseNames={exerciseNames}
+                pool={pool !== null && pool.from === store ? pool.what : null}
+                controls={controls}
+                setControls={setControls}
+                onMoved={onMoved}
+                captures={captures}
+                setCaptures={setCaptures}
+                glances={glances !== null && glances.from === store
+                  && glances.what.sessionId === sessionId ? glances.what : null}
+                timers={timers}
+                setTimers={setTimers}
+                port={port}
+                unlocked={unlocked}
+                intensity={intensity}
+              />
+            ))}
+
+            {/*
+              SHAPE THE WHOLE SESSION, after every attendee's own rows — the console mockup's order.
               Drawn ONCE for the whole screen rather than in anybody's card, because a curve shapes the
-              session — one routine, however many people are in the room — and a control inside somebody's
-              card would read as shaping it for that person alone. The per-person NUMBERS are per person,
-              inside the panel, because calibration is.
+              session — one routine, however many people are in the room — and a control inside
+              somebody's card would read as shaping it for that person alone. The per-person NUMBERS
+              are per person, inside the panel, because calibration is.
 
               IT PROPOSES AND THE COACH DISPOSES. Pressing a curve draws a panel and changes nothing;
               accepting one fills the lines in and still writes nothing; and a fact reaches the record
@@ -683,117 +891,35 @@ export function RunnerScreen() {
                 onReject={rejectCurve}
               />
             )}
+          </div>
 
-            {/*
-              THE ONE TAP THAT LETS THE PAGE MAKE A SOUND, offered once for the whole screen as a
-              LABELLED control in the flow of the card — not a modal, not a banner, and never a hidden
-              requirement. A mobile browser will not produce sound before a gesture; that is the
-              platform. `session-audio.ts` says what he loses by ignoring it, which is nothing: every
-              cue has a visible counterpart that stands on its own.
-            */}
-            <SoundOffer port={port} unlocked={unlocked} setUnlocked={setUnlocked} />
-
-            {/*
-              A NOTE ABOUT THE SESSION AS A WHOLE, once, here rather than in anybody's card. The core
-              distinguishes a note about one person from a note about the session — one follows that
-              person into their export and the other belongs to nobody — and nothing infers one from
-              the other. A control for it inside somebody's card would invite exactly that mistake.
-            */}
-            {store !== null && sessionId !== null && (
-              <SessionNoteCapture
+          <div className="stack">
+            {report.attendees.map((attendee) => (
+              <AttendeeCapture
+                key={attendee.clientId}
+                attendee={attendee}
                 store={store}
                 sessionId={sessionId}
-                state={captures}
-                setState={setCaptures}
-                onCaptured={onMoved}
-              />
-            )}
-
-            {report.sessionNotes.length > 0 && (
-              <ul className="rows">
-                {report.sessionNotes.map((words) => (
-                  <li key={words} className="row row-static row-wrap">
-                    <span className="row-sentence">{words}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            {/*
-              SOMEBODY ARRIVED AFTER IT STARTED, which is an ordinary thing that happens to a coach
-              with a group in front of him — and until this was wired the application REFUSED to
-              record against them and told him to add them first, while offering no way to do it.
-              `addClient` had been built and called by no file under `src/` at all.
-
-              DRAWN ONCE FOR THE WHOLE SCREEN, above the finish control and below what he records: a
-              session is one routine however many people are in it, so adding somebody inside another
-              person's card would read as adding them to that person.
-            */}
-            {store !== null && sessionId !== null && (
-              <SessionArrival
-                store={store}
-                sessionId={sessionId}
-                register={register !== null && register.from === store ? register.what : null}
-                attending={attending}
-                state={arrival}
-                setState={setArrival}
+                view={view}
+                exerciseNames={exerciseNames}
+                pool={pool !== null && pool.from === store ? pool.what : null}
+                controls={controls}
+                setControls={setControls}
                 onMoved={onMoved}
+                captures={captures}
+                setCaptures={setCaptures}
+                glances={glances !== null && glances.from === store
+                  && glances.what.sessionId === sessionId ? glances.what : null}
+                timers={timers}
+                setTimers={setTimers}
+                port={port}
+                unlocked={unlocked}
+                intensity={intensity}
               />
-            )}
-
-            {/*
-              THE ONE CONTROL THAT ENDS A SESSION, and until it was wired NOTHING IN THIS APPLICATION
-              DID: `complete()` had been built and called by no screen, so every session the coach
-              started sat under "Sessions you have not finished" forever.
-
-              LAST IN THE CARD, below everything he records, because it is the act he reaches for when
-              there is nothing left above it. Drawn once for the whole screen rather than in anybody's
-              card — a session is one routine and one to many people, and finishing it for one person
-              is not a thing the record can express.
-
-              IT WRITES `complete()` AND NOTHING ELSE. Leaving this screen is already what
-              `interrupt()` means and already happens by itself.
-            */}
-            {store !== null && sessionId !== null && (
-              <SessionEnding
-                store={store}
-                sessionId={sessionId}
-                report={report}
-                state={ending}
-                setState={setEnding}
-                onMoved={onMoved}
-              />
-            )}
-          </>
-        )}
-
-        <WayBack />
-      </section>
-
-      {report !== null && view !== null && store !== null && sessionId !== null
-        && report.attendees.map((attendee) => (
-          <AttendeeCard
-            key={attendee.clientId}
-            attendee={attendee}
-            store={store}
-            sessionId={sessionId}
-            view={view}
-            exerciseNames={exerciseNames}
-            pool={pool !== null && pool.from === store ? pool.what : null}
-            controls={controls}
-            setControls={setControls}
-            onMoved={onMoved}
-            captures={captures}
-            setCaptures={setCaptures}
-            glances={glances !== null && glances.from === store
-              && glances.what.sessionId === sessionId ? glances.what : null}
-            timers={timers}
-            setTimers={setTimers}
-            port={port}
-            unlocked={unlocked}
-            intensity={intensity}
-          />
-        ))}
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

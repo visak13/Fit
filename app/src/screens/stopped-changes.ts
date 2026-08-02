@@ -238,8 +238,7 @@ function describeItem(entry: StoppedEntry): StoppedItem {
     whyVerbatim: message,
     whyMissing:
       message === null
-        ? 'This app has no reason recorded for this one. Read out the reference below to whoever set '
-          + 'the app up for you.'
+        ? 'No reason recorded. Read out the reference below to whoever set the app up for you.'
         : null,
     identifiers: entry.ambiguity,
     records: entry.refs.length,
@@ -264,18 +263,16 @@ function refusedGroup(page: StoppedPage): StoppedGroup {
     actionCode: REASONS[REASON.ENTRY_REJECTED].action as string,
     heading: 'Google refused these',
     explanation:
-      'Google was asked to store these and said no. They are still saved on this device, and they '
-      + 'will not go into your backup on their own. What Google said is shown below exactly as it '
-      + 'came back, word for word.',
+      'Google was asked to store these and said no. They are saved on this device and will not go '
+      + 'into your backup on their own; what Google said is shown below, word for word.',
     whatToDo:
-      'Make the change again in the app, and it will be sent afresh. If what Google said means '
-      + 'nothing to you, read it out to whoever set this app up for you — it is written for them, '
-      + 'not for you.',
+      'Make the change again in the app to send it afresh. If what Google said means nothing to '
+      + 'you, read it out to whoever set this app up for you.',
     count: items.length,
     more: !page.done,
     moreWords: page.done
       ? null
-      : 'There are more than these. This shows the oldest ones first.',
+      : 'More exist; oldest shown first.',
     settled: items.length === 0,
     nothingWords: 'Google has not refused anything.',
     items,
@@ -296,18 +293,17 @@ function unconfirmedGroup(page: StoppedPage): StoppedGroup {
     actionCode: REASONS[REASON.OUTCOME_UNKNOWN].action as string,
     heading: 'Not confirmed either way',
     explanation:
-      'These were sent, and this app cannot tell whether they arrived. It will not guess, because '
-      + 'guessing wrong either loses your work or stores it twice. Everything it found is listed '
-      + 'below so a person can look instead.',
+      'These were sent and this app cannot tell whether they arrived. It will not guess — guessing '
+      + 'wrong either loses your work or stores it twice — so everything it found is listed below.',
     whatToDo:
-      'Open your Google Drive and look for what is named below. If it is not there, make the change '
-      + 'again in the app. If it is there more than once, do not delete any of them yourself — read '
-      + 'this screen out to whoever set the app up for you.',
+      'Look for what is named below in your Google Drive. If it is not there, make the change '
+      + 'again. If it is there more than once, do not delete any of them yourself — read this '
+      + 'screen out to whoever set the app up for you.',
     count: items.length,
     more: !page.done,
     moreWords: page.done
       ? null
-      : 'There are more than these. This shows the oldest ones first.',
+      : 'More exist; oldest shown first.',
     settled: items.length === 0,
     nothingWords: 'Everything that was sent was confirmed one way or the other.',
     items,
@@ -331,9 +327,7 @@ export function describeStoppedChanges(reading: StoppedReading): StoppedReview {
     return {
       title: STOPPED_TITLE,
       count: null,
-      intro:
-        'Not checked yet. This app has not looked at what is waiting to go into your backup, so it '
-        + 'cannot tell you whether anything has stopped.',
+      intro: 'Not checked yet. This app has not looked at what is waiting to go into your backup.',
       settled: false,
       checked: false,
       groups: [refusedGroup(reading.rejected), unconfirmedGroup(reading.ambiguous)],
@@ -350,20 +344,16 @@ export function describeStoppedChanges(reading: StoppedReading): StoppedReview {
     count,
     intro:
       count === 0
-        ? 'Nothing has stopped. Everything you have done has either gone into your backup or is on '
-          + 'its way there.'
-        : `${changeCount(count)} stopped on the way to your backup. They are safe on this device. `
-          + 'Each one below says what it was and what happened to it.',
+        ? 'Nothing has stopped.'
+        : `${changeCount(count)} stopped on the way to your backup. They are safe on this device.`,
     settled: count === 0,
     checked: true,
     groups: [refused, unconfirmed],
     nothingHappensByItself:
       count === 0
-        ? 'If something ever does stop, this app will not quietly keep trying it. It will wait here '
-          + 'for you and the number in the corner of every screen will say so.'
-        : 'This app will not try these again by itself, on purpose: retrying something Google refused '
-          + 'or that may already be there would either fail forever in silence or store your work '
-          + 'twice. Nothing here changes until you do something.',
+        ? 'If something ever does stop, it will wait here for you rather than retry quietly.'
+        : 'This app will not try these again by itself: retrying something Google refused or that '
+          + 'may already be there would fail silently or store your work twice.',
   };
 }
 
@@ -411,9 +401,7 @@ export function describeStoppedAdminEntry(reading: StoppedReading): StoppedAdmin
     return {
       title: STOPPED_TITLE,
       count: 0,
-      intro:
-        'Nothing has stopped on the way to your backup. If something does, it will be listed here '
-        + 'with what happened to it.',
+      intro: 'Nothing has stopped on the way to your backup.',
       linkLabel: 'Check for yourself',
       settled: true,
       checked: true,
@@ -427,9 +415,7 @@ export function describeStoppedAdminEntry(reading: StoppedReading): StoppedAdmin
   return {
     title: STOPPED_TITLE,
     count: counted,
-    intro:
-      `${changeCount(counted)} stopped and will not back up without you. They are saved on this `
-      + 'device.',
+    intro: `${changeCount(counted)} stopped and will not back up without you.`,
     // Deliberately not "Fix these": nothing behind this link retries or discards anything, and a link
     // promising more than the screen delivers is the reassurance this application does not offer.
     linkLabel: 'See what stopped',

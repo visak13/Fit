@@ -45,8 +45,8 @@ export const RESTORE_HEADING = 'Put a backup back';
  * one day he needed to.
  */
 export const RESTORE_WORDS =
-  'Choose a backup file and this puts what is in it back. Anything the file holds replaces what is '
-  + 'here now; anything it does not mention is left exactly as it is. Nothing is emptied first.';
+  'What the file holds replaces what is here now; anything it does not mention is left exactly as '
+  + 'it is. Nothing is emptied first.';
 
 /** The words on the control that opens the file picker. */
 export const CHOOSE_A_FILE = 'Choose a backup file';
@@ -58,14 +58,11 @@ export const PUTTING_IT_BACK = 'Putting it back...';
 export const PASSPHRASE_PROMPT = 'The passphrase you set on this file';
 
 /** Said when an encrypted file was chosen and no passphrase was typed. */
-export const PASSPHRASE_MISSING =
-  'This file is encrypted, so it needs the passphrase you set on it. Without that, nothing can open '
-  + 'it — not this app and not anyone else.';
+export const PASSPHRASE_MISSING = 'This file is encrypted; it needs the passphrase you set on it.';
 
 /** Said when the passphrase did not open the file. */
 export const PASSPHRASE_WRONG =
-  'That passphrase did not open this file. Nothing on this device was changed. The passphrase is '
-  + 'the only way in, so it is worth trying again carefully before assuming the file is damaged.';
+  'That passphrase did not open this file. Nothing on this device was changed.';
 
 /** How the outcome reads. `warning` is a refusal; `plain` is a success. */
 export type RestoreTone = 'plain' | 'warning';
@@ -173,11 +170,10 @@ function saidBack(done: {
   // noise. Reachable only through this branch, and only since the count started counting live
   // records: it is the one case the old sentence could not produce.
   if (said.length === 0 && done.written > 0) {
-    return 'Put back: nothing that shows in a list. This file recorded things you had removed, and '
-      + 'those removals are here now too.';
+    return 'Put back: removals only — nothing that shows in a list.';
   }
 
-  if (said.length === 0) return 'That file held nothing to put back, so nothing here changed.';
+  if (said.length === 0) return 'That file held nothing to put back.';
 
   const last = said.pop() as string;
   const list = said.length === 0 ? last : `${said.join(', ')} and ${last}`;

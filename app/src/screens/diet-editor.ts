@@ -367,14 +367,10 @@ export const AMEND_PLAN_TITLE = 'Change this plan';
  * It names the repetition move rather than leaving him to discover it, because an editor whose whole
  * point is that he does not have to retype Monday six times has failed if he retypes it anyway.
  */
-export const EDITOR_INTRO =
-  'Write each meal once and tick the days it is eaten on. Change it later in this one place and '
-  + 'every day it is ticked for changes with it.';
+export const EDITOR_INTRO = 'Write each meal once and tick the days it is eaten on.';
 
 /** Said above the import control, because pasting is the path he should be on. */
-export const PREFER_PASTING =
-  'If you have the plan in writing, paste it instead of typing it — you get to check what was read '
-  + 'before anything is saved.';
+export const PREFER_PASTING = 'Prefer pasting if you have the plan in writing.';
 
 /** What the day grid announces to a screen reader, since a grid of ticks says nothing on its own. */
 export const DAY_GRID_LABEL = 'The days each meal is eaten on';
@@ -461,9 +457,7 @@ export function describeEditor(draft: PlanDraft, { amending }: { amending: boole
 }
 
 /** Said on an editor with no rows at all. It names the first move rather than describing a void. */
-export const NOTHING_WRITTEN_YET =
-  'Nothing is written yet. Add a meal, put the time and the food in it, and tick the days it is '
-  + 'eaten on.';
+export const NOTHING_WRITTEN_YET = 'Nothing is written yet. Add a meal to start.';
 
 /** One row of the grid. */
 function mealRow(meal: MealDraft): MealRow {
@@ -477,7 +471,7 @@ function mealRow(meal: MealDraft): MealRow {
     onDay: (day: number) => days.has(day),
     dayCount: meal.days.length,
     repeatedWords: meal.days.length > 1
-      ? `Eaten on ${String(meal.days.length)} days. Changing it here changes all of them.`
+      ? `Eaten on ${String(meal.days.length)} days — editing it changes all of them.`
       : null,
     blank: isBlankMeal(meal),
   };
@@ -501,8 +495,8 @@ function untouchedWords(
   coveredCount: number,
 ): string | null {
   if (untouched.length === 0 || coveredCount === 0) return null;
-  return `Nothing is written for ${listWords(untouched.map((day) => day.name))}. That is allowed — `
-    + 'it means the plan does not say, rather than that nothing is eaten.';
+  return `Nothing is written for ${listWords(untouched.map((day) => day.name))} — the plan does `
+    + 'not say, not that nothing is eaten.';
 }
 
 /**
@@ -515,9 +509,7 @@ function untouchedWords(
 function unplacedWords(unplaced: readonly MealDraft[]): string | null {
   if (unplaced.length === 0) return null;
   const named = listWords(unplaced.map((meal) => quotedMeal(meal)));
-  return `${named} ${unplaced.length === 1 ? 'is' : 'are'} written but ticked for no day, so `
-    + `${unplaced.length === 1 ? 'it' : 'they'} will not be saved. Tick the days, or take `
-    + `${unplaced.length === 1 ? 'it' : 'them'} off the plan.`;
+  return `${named} ${unplaced.length === 1 ? 'is' : 'are'} ticked for no day and will not be saved.`;
 }
 
 /** A meal named the way he would name it: by its time, or by its slot, or by its first food. */

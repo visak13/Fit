@@ -51,9 +51,8 @@ export interface WholePractice {
  * refuses rather than writing a short one — and says so without accusing him of anything.
  */
 export const PRACTICE_INCOMPLETE =
-  'Your records could not all be read just now, so a file made from them would be missing some of '
-  + 'it. Nothing is wrong with the records themselves. Try again in a moment — a backup that is '
-  + 'quietly incomplete is worse than one you had to make twice.';
+  'Records could not all be read just now. Nothing is wrong with the records themselves — a backup '
+  + 'that is quietly incomplete is worse than one you had to make twice, so try again.';
 
 /**
  * The records, keyed by identity so a record reached from two clients is kept once.

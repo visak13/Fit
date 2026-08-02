@@ -43,9 +43,8 @@ export const LIBRARY_BACKUP_HEADING = 'Back up your library';
  * he will not press until the day he needs it and it is not there.
  */
 export const LIBRARY_BACKUP_WORDS =
-  'Your exercises, routines and intensity patterns, including every change you have made to them, '
-  + 'in one file. Reset restores the set the app shipped with — it cannot bring back your own edits, '
-  + 'so this is how you keep them.';
+  'Every edit to exercises, routines and intensity patterns, in one file. Reset cannot bring back '
+  + 'your own edits.';
 
 /** The words on the control. */
 export const MAKE_THE_BACKUP = 'Make a backup';
@@ -54,8 +53,7 @@ export const MAKE_THE_BACKUP = 'Make a backup';
 export const MAKING_THE_BACKUP = 'Making the backup...';
 
 /** Said when there is genuinely nothing in the library to back up. */
-export const NOTHING_IN_THE_LIBRARY =
-  'There is nothing in your library to back up yet.';
+export const NOTHING_IN_THE_LIBRARY = 'Library is empty.';
 
 /** What the screen says afterwards, in the delivery layer's own words. */
 export interface LibraryBackupReport {

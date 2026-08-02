@@ -179,7 +179,7 @@ export function describePatterns(reading: PatternReading): PatternReport {
     more: !reading.page.done,
     moreWords: reading.page.done
       ? null
-      : 'There are more curves than these. This shows them in key order, a page at a time.',
+      : 'There are more curves than these, a page at a time.',
     items,
   };
 }
@@ -201,8 +201,8 @@ function patternIntro(count: number, searching: boolean, search: string, total: 
   if (count === 0) {
     return searching
       ? `No curve matches "${search}". Clear the box to see all of them again.`
-      : 'There are no curves in your library, so a session cannot be shaped to one until you add '
-        + 'one here, or restore the set the app came with from the Admin screen on the navigation.';
+      : 'No curves in your library, so a session cannot be shaped to one. Add one, or restore the '
+        + 'shipped set from Admin.';
   }
 
   // Branched whole, both halves. See the routine half for the defect this shape avoids: rendered,
@@ -214,10 +214,8 @@ function patternIntro(count: number, searching: boolean, search: string, total: 
   }
 
   return total === 1
-    ? '1 curve in your library. It is the only shape a session can be put into, and it is yours '
-      + 'to change or remove.'
-    : `${String(total)} curves in your library. These are the shapes a session can be put into, and `
-      + 'every one of them is yours to change or remove.';
+    ? '1 curve in your library. Yours to change or remove.'
+    : `${String(total)} curves in your library. Every one yours to change or remove.`;
 }
 
 /** Which curves match what he typed: the name and the description. */
@@ -339,9 +337,8 @@ export const CANCEL_PATTERN_BUTTON = 'Leave it as it was';
 
 /** What a curve IS, said before he builds one. */
 export const CURVE_HINT =
-  'A curve is the shape of a session: which points come first, which come at the peak and how it '
-  + 'finishes. You press it during a session and the app puts the exercises into that shape and '
-  + 'asks you to approve it. Two to eight points, and a point may repeat.';
+  'The shape of a session: which points come first, peak, and how it finishes. Two to eight '
+  + 'points; a point may repeat.';
 
 /**
  * WHERE THE WORK AND THE REST ACTUALLY COME FROM, said on the form where he would expect to set them.
@@ -360,10 +357,9 @@ export const CURVE_HINT =
  * source rather than trusting these words.
  */
 export const CURVE_HAS_NO_NUMBERS =
-  'A curve carries no numbers of its own. How much work and how much rest each point means belongs '
-  + 'to each exercise, where a harder point always asks for more work and less rest and never more '
-  + 'weight. Open one from the Exercises list on this screen and change its three points — Low, '
-  + 'Medium and High — and every curve follows.';
+  'A curve carries no numbers of its own. Work and rest belong to the exercise: a harder point asks '
+  + 'for more work and less rest, never more weight. Open one from the Exercises list and change '
+  + 'its Low, Medium and High points.';
 
 /**
  * `R11` IN HIS WORDS, at the point of entry rather than only when the record refuses him.
@@ -373,9 +369,8 @@ export const CURVE_HAS_NO_NUMBERS =
  * accepted the parts of.
  */
 export const NAME_MUST_MATCH_HINT =
-  'If you spell the curve out in the name, the name has to match it — a button that says Low '
-  + 'Medium High and does something else is a button you would stop trusting. A name that does not '
-  + 'spell out a curve, like Steady Build, is yours to choose freely.';
+  'A name that spells the curve out has to match it. A descriptive name, like Steady Build, is '
+  + 'yours to choose freely.';
 
 /** The curve as he is building it, spelled out. `intensity.ts`'s separator, never a second one. */
 export function draftCurveWords(sequence: readonly string[]): string {
@@ -452,23 +447,20 @@ export function describePatternRemoval(
   remaining: number,
 ): PatternRemoval {
   const last = remaining <= 0
-    ? ' It is the only curve you have left, so removing it leaves no shape to press during a '
-      + 'session at all until you add one or restore the shipped set from Admin.'
+    ? ' It is the only curve you have left; removing it leaves no shape to press until you add one '
+      + 'or restore the shipped set from Admin.'
     : '';
 
   return {
     title: `Remove ${pattern.name}?`,
     allowed: true,
     whatWillHappen: (pattern.provenance === 'coach-created'
-      ? `${pattern.name} is yours, so nothing will bring it back — not even restoring the shipped `
-        + 'library, which only ever puts back what came with the app. It stops being a shape you '
-        + 'can press during a session.'
-      : `${pattern.name} came with the app. Removing it destroys it here, and the only way back is `
-        + 'restoring the shipped library from Admin, which also takes back every other shipped '
-        + 'exercise, routine and curve you have changed since. It stops being a shape you can press '
-        + 'during a session.')
-      + ' Sessions you have already run are not touched — what was actually done in them is '
-      + 'recorded against the exercises, not against this curve.'
+      ? `${pattern.name} is yours, so nothing will bring it back. It stops being a shape you can `
+        + 'press during a session.'
+      : `${pattern.name} came with the app. Removing it destroys it here; restoring the shipped `
+        + 'library from Admin also takes back every other shipped exercise, routine and curve you '
+        + 'have changed since. It stops being a shape you can press during a session.')
+      + ' Sessions you have already run are not touched.'
       + last,
     confirmLabel: `Remove ${pattern.name}`,
     cancelLabel: 'Keep it',

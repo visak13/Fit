@@ -45,6 +45,7 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
 
 import { Glyph } from '../design/Glyph.tsx';
+import { ThemeToggle } from '../design/ThemeToggle.tsx';
 import { Tooltip } from '../design/Tooltip.tsx';
 import { NewVersionNotice } from './NewVersion.tsx';
 import { SyncIndicator } from './SyncStatus.tsx';
@@ -239,6 +240,13 @@ export function AppFrame() {
               application, and a coach who had to go looking for it would find out by accident.
             */}
             <NewVersionNotice />
+
+            {/*
+              The quiet theme control `theme.ts` promised. In the header rather than the status slot:
+              the status slot is the sync indicator's alone (one element, one live region), and the
+              header is on both surfaces, sticky, and already the frame's own strip of chrome.
+            */}
+            <ThemeToggle />
           </header>
 
           <div className="content-body">

@@ -319,7 +319,7 @@ export function describeLibrary(reading: LibraryReading): LibraryReport {
     more: !reading.page.done,
     moreWords: reading.page.done
       ? null
-      : 'There are more than these. This shows them in key order, a page at a time.',
+      : 'There are more than these, a page at a time.',
     items,
   };
 }
@@ -339,8 +339,7 @@ function libraryIntro(count: number, searching: boolean, search: string, total: 
   if (count === 0) {
     return searching
       ? `Nothing in your library matches "${search}". Clear the box to see all of it again.`
-      : 'There are no exercises in your library. Add one below, or restore the set the app came '
-        + 'with from the Admin screen on the navigation.';
+      : 'No exercises in your library. Add one below, or restore the shipped set from Admin.';
   }
 
   // The VERB is branched with the noun, not left plural over a singular subject. Rendered, the other
@@ -351,8 +350,8 @@ function libraryIntro(count: number, searching: boolean, search: string, total: 
   }
 
   return total === 1
-    ? '1 exercise in your library, and it is yours to change or remove.'
-    : `${total} exercises in your library. Every one of them is yours to change or remove.`;
+    ? '1 exercise in your library, yours to change or remove.'
+    : `${total} exercises in your library, every one yours to change or remove.`;
 }
 
 /**
@@ -622,9 +621,7 @@ export const CANCEL_BUTTON = 'Leave it as it was';
  * alone: the app READS THIS ALOUD during a session. Told beforehand, "RDL" reads as a rule he had
  * been given; told only by the refusal, it reads as fussiness.
  */
-export const NAME_HINT =
-  'Write the movement out the way you would say it, because the app reads this aloud during a '
-  + 'session. "Romanian deadlift", not "RDL".';
+export const NAME_HINT = 'Read aloud during sessions. "Romanian deadlift", not "RDL".';
 
 /**
  * THE CONTENT CONTRACT, SAID BEFORE HE TYPES rather than only when the record refuses him.
@@ -636,10 +633,8 @@ export const NAME_HINT =
  * front of a client.
  */
 export const SCALING_CONTRACT_HINT =
-  'These three are how hard a session can be made, and they only ever move one way: a harder point '
-  + 'asks for more work and less rest than an easier one. Never more weight — the app does not '
-  + 'prescribe weight at all, because that is your call for the person in front of you, and you '
-  + 'record what they actually lifted during the session.';
+  'A harder point asks for more work and less rest than an easier one, never more weight — load is '
+  + 'your call, recorded per client during the session.';
 
 /** What the "how much" box means, and it depends on the answer above it. */
 export function amountHint(measurement: string): string {
@@ -656,9 +651,8 @@ export function amountHint(measurement: string): string {
  * the weight into the coaching cue, where nothing can ever use it.
  */
 export const NO_LOAD_HERE =
-  'There is no weight or resistance box, on purpose. What somebody lifts is your judgement about '
-  + 'that person on that day, so it is recorded during the session against the client, not fixed '
-  + 'here for everybody.';
+  'No weight or resistance box, on purpose — load is recorded per client during the session, not '
+  + 'fixed here.';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Refusals
@@ -848,8 +842,8 @@ export const CONTRACT_NOTICE_TITLE = 'These three points do not rise the way a h
  * he knows where it will show up.
  */
 const CONTRACT_NOTICE_CLOSING =
-  'Nothing here stops you saving it. Every session you shape to a curve builds this exercise from '
-  + 'these three points, for everyone you train, until you change them here.';
+  'Every session shaped to a curve builds this exercise from these three points, for every client, '
+  + 'until you change them.';
 
 /**
  * WHAT THE CONTRACT NOTICED ABOUT ONE EXERCISE, or nothing at all.
@@ -944,9 +938,8 @@ export function describeRemoval(
     return {
       title: `${exercise.name} is still being used`,
       allowed: false,
-      whatWillHappen:
-        `${exercise.name} cannot be removed while ${asks}. ${takeItOut} first, or swap it for `
-        + 'something else, and then remove it here.',
+      whatWillHappen: `${exercise.name} cannot be removed while ${asks}. ${takeItOut}, or swap it, `
+        + 'then remove it here.',
       usedBy: [...usedBy],
       // NOTHING TO CONFIRM, so there is no confirming label to press. The screen draws no such
       // control in this state, and the field is the empty string rather than a plausible sentence
@@ -960,11 +953,10 @@ export function describeRemoval(
     title: `Remove ${exercise.name}?`,
     allowed: true,
     whatWillHappen: exercise.provenance === 'coach-created'
-      ? `${exercise.name} is yours, so nothing will bring it back. No routine is using it. Sessions `
-        + 'you have already recorded keep what was actually done and are not touched.'
-      : `${exercise.name} came with the app, so restoring the shipped library from Admin would bring `
-        + 'it back — along with every other shipped exercise and routine you have changed since. No '
-        + 'routine is using it. Sessions you have already recorded are not touched.',
+      ? `${exercise.name} is yours, so nothing will bring it back. No routine is using it.`
+      : `${exercise.name} came with the app. Restoring the shipped library from Admin would bring it `
+        + 'back, along with every other shipped exercise and routine you have changed since. No '
+        + 'routine is using it.',
     usedBy: [],
     confirmLabel: `Remove ${exercise.name}`,
     cancelLabel: 'Keep it',

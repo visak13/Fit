@@ -38,7 +38,7 @@
  * separate cards because they are things he READS while choosing, not things he acts on.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
 import { Glyph } from '../design/Glyph';
@@ -58,8 +58,10 @@ import {
   LINK_PASTED, PASTE_AFTERWARDS_BUTTON, PASTE_AFTERWARDS_LABEL,
   PASTED_LINK_HINT, PASTED_LINK_LABEL, SECTION_TITLES, UNFINISHED_INTRO, UNFINISHED_TITLE,
   chooseLinkPlan, chooseMode, chooseRoutine, describeFailedLaunchpadRead, describeGlance,
-  describeHistory, describeMint, describeOutcome, describeStart, describeUnfinished, linkToStore,
-  pasteLink, shouldMint, toggleClient,
+  describeAcquire, describeHistory, describeMint, describeOutcome, describeStart, describeUnfinished,
+  linkToStore,
+  pasteLink, preselectLastChoice, readLastSessionChoice, shouldMint, toggleClient,
+  writeLastSessionChoice,
 } from './launcher';
 import type {
   GlanceReport, MintReport, OutcomeReport, RoutineRecord, Selection, SessionPerson, SessionRecord,
@@ -312,6 +314,29 @@ export function CalendarScreen({ destination }: { destination: Destination }) {
     return found;
   }, [pad]);
 
+  /*
+    LAST TIME'S PEOPLE AND ROUTINE, OFFERED AGAIN — once, when the register first lands, and only
+    onto a selection he has not touched. Arriving with a client in the address wins over the memory,
+    an id whose person or routine is gone is dropped, and `mode` is never remembered: it records
+    where the session actually happens and is answered every time. Un-choosing what was offered
+    sticks, because this runs once rather than on every render.
+  */
+  const offeredLastChoice = useRef(false);
+  useEffect(() => {
+    if (pad === null || offeredLastChoice.current) return;
+    offeredLastChoice.current = true;
+    if (arrivedWith !== null) return;
+    setSelection((held) => {
+      if (held.clientIds.length > 0 || held.routineId !== null || held.mode !== null) return held;
+      return preselectLastChoice(
+        held,
+        readLastSessionChoice(window.localStorage),
+        new Set(namesById.keys()),
+        new Set(routinesByKey.keys()),
+      );
+    });
+  }, [pad, arrivedWith, namesById, routinesByKey]);
+
   const chosenNames = chosenIds.map((id) => namesById.get(id) ?? id);
   const routineName = selection.routineId === null
     ? null
@@ -380,8 +405,14 @@ export function CalendarScreen({ destination }: { destination: Destination }) {
       const minting = shouldMint(selection);
       // Asked for BEFORE the session is written, so the popup rides the gesture that is still live.
       // A token acquired after two awaits is a token the browser refuses to open a window for.
+      // When the gesture comes back short, the session still starts — but the mint is not attempted,
+      // because its specific sentence (declined, unconfigured, scope missing) beats the generic
+      // credential sentence the doomed call would produce.
+      let acquireReport: MintReport | null = null;
       if (minting) {
-        await googleOnThisDevice().connection.acquireForGesture(UserGesture.fromTrustedEvent(event));
+        const acquired = await googleOnThisDevice().connection
+          .acquireForGesture(UserGesture.fromTrustedEvent(event));
+        acquireReport = describeAcquire(acquired);
       }
 
       const answer = await startTheSession(store, {
@@ -397,8 +428,14 @@ export function CalendarScreen({ destination }: { destination: Destination }) {
 
       if (!answer.ok || answer.session_id === undefined) return;
 
+      // Remembered only once the session is real, so a refusal never overwrites a working memory.
+      writeLastSessionChoice(window.localStorage, {
+        clientIds: selection.clientIds,
+        routineId: selection.routineId,
+      });
+
       if (minting) {
-        const got = describeMint(await mintTheLink(
+        const got = acquireReport ?? describeMint(await mintTheLink(
           store, googleOnThisDevice().meet, answer.session_id, new Date(),
         ));
         setMint(got);

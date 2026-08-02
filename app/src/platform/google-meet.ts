@@ -652,7 +652,11 @@ export class GoogleMeetLinks {
     if (!response.ok) {
       // NOTHING THE SERVICE SAID IS READ OR CARRIED. The status decides the type; the sentence is
       // this application's own. A 401 or 403 is the credential having run out or the grant having
-      // been withdrawn, and both are fixed by connecting again rather than by retrying.
+      // been withdrawn, and both are fixed by connecting again rather than by retrying. A 403 can
+      // also mean the Calendar API is disabled or a scope was never registered on the consent
+      // screen — indistinguishable from here, so the status and url are logged for whoever set the
+      // project up, while the body stays unread.
+      console.error(`[meet] the calendar service refused the request (${response.status})`, url);
       return { code: response.status === 401 || response.status === 403 ? 'no-credential' : 'refused' };
     }
 
@@ -660,6 +664,7 @@ export class GoogleMeetLinks {
     try {
       body = await response.json();
     } catch {
+      console.error('[meet] the calendar service answered with something this app could not read');
       return { code: 'unreadable' };
     }
 

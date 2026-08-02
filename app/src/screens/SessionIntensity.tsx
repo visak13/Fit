@@ -34,7 +34,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import { Glyph } from '../design/Glyph';
 import {
   ACCEPT_LABEL, MORE_CURVES_THAN_SHOWN, NO_PATTERNS, READING_PATTERNS, REJECT_LABEL, REJECT_WORDS,
-  SET_ASIDE_LABEL, SHAPE_IT_LABEL, SHAPING,
+  SET_ASIDE_LABEL, SHAPING,
   SHORTFALL_TITLE, TOGGLES_TITLE, TOGGLES_WORDS, VALUES_WORDS, WHY_TITLE, acceptedWords,
   calibrationMark, changeProposed, effortWords, levelWords, proposalProblem, proposalTitle,
   proposedDraft, proposedKey, standsInWords,
@@ -62,17 +62,21 @@ export interface RoomCurves {
     readonly name: string;
     readonly words: string;
     readonly curveWords: string;
+    readonly sequence: readonly string[];
   }[];
   readonly whole: boolean;
 }
 
 /**
- * THE CURVES, AS A ROW OF BUTTONS — one per pattern his library holds.
+ * THE CURVES, AS A COMPACT GRID — one preview button per pattern his library holds.
  *
  * Rendered from the DATA and never from a list in the source: patterns are a record kind precisely so
  * he can add one, edit one or delete one without the application being rebuilt, and the admin reset
- * restores the shipped set. Each button says its shape as well as its name, because `R11` only requires
- * a name to tell the truth about a sequence when it already spells one out.
+ * restores the shipped set. Each button carries the curve's own shape as bars — `.pattern-curve`, the
+ * same preview `console.css` gives the mockup — rather than a paragraph: a name and a shape are what he
+ * presses on, and the per-curve description that used to sit beside it is `toggle.words`, still on the
+ * data and read nowhere else, because a 3-line paragraph ahead of every exercise card is not what the
+ * density this screen is built for buys.
  */
 export function IntensityToggles(props: TogglesProps) {
   const { curves, state, onPress, onSetAside } = props;
@@ -93,27 +97,27 @@ export function IntensityToggles(props: TogglesProps) {
           <span>{NO_PATTERNS}</span>
         </p>
       ) : (
-        <ul className="rows rows-boxed">
+        <div className="pattern-grid">
           {curves.toggles.map((toggle) => (
-            <li key={toggle.patternId} className="row row-wrap">
-              <span className="row-name">{toggle.name}</span>
-              <span className="row-value nowrap">{toggle.curveWords}</span>
-              {toggle.words.length > 0 && (
-                <span className="row-sentence muted">{toggle.words}</span>
-              )}
-              <span className="row-actions">
-                <button
-                  type="button"
-                  className="btn btn-sm"
-                  disabled={state.shaping !== null}
-                  onClick={() => onPress(toggle.patternId)}
-                >
-                  {state.shaping === toggle.patternId ? SHAPING : SHAPE_IT_LABEL}
-                </button>
+            <button
+              key={toggle.patternId}
+              type="button"
+              className="pattern-btn"
+              aria-pressed={state.accepted?.patternId === toggle.patternId}
+              aria-label={`${toggle.name}: ${toggle.curveWords}`}
+              disabled={state.shaping !== null}
+              onClick={() => onPress(toggle.patternId)}
+            >
+              <span className="pattern-curve" aria-hidden="true">
+                {toggle.sequence.map((level, index) => (
+                  // eslint-disable-next-line react/no-array-index-key -- a curve's own levels repeat
+                  <i key={index} data-level={level} />
+                ))}
               </span>
-            </li>
+              <span>{state.shaping === toggle.patternId ? SHAPING : toggle.name}</span>
+            </button>
           ))}
-        </ul>
+        </div>
       )}
 
       {/* WHAT IS NOT DRAWN, said out loud. A list bounded in silence reads as the whole library. */}

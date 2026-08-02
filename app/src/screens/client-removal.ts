@@ -123,8 +123,7 @@ export function describeRowActions(client: ClientSummary): RowActions {
  * from him. Nothing was: the history is the thing he keeps.
  */
 export function archivedWords(name: string): string {
-  return `${name} is archived. They are off your register and everything of theirs is kept — show `
-    + 'archived clients to find them again.';
+  return `${name} is archived. Everything of theirs is kept — show archived clients to find them.`;
 }
 
 /** What it says once somebody has been brought back. */
@@ -207,9 +206,8 @@ export const BACKUP_OFFER_TITLE = 'Back up first?';
  * one later.
  */
 export const BACKUP_OFFER_PURPOSE =
-  'A backup taken now would still contain them, and that is the point of taking one: it is what you '
-  + 'would go back to if you removed the wrong person. It is also a copy this app cannot reach into '
-  + 'afterwards to take them out of, so keep it somewhere you are willing to hold their history.';
+  'A backup taken now would still contain them — useful if you removed the wrong person, but this '
+  + 'app cannot remove them from it afterwards.';
 
 /**
  * What the offer says for the state this device is actually in.
@@ -230,9 +228,7 @@ export function describeBackupOffer(state: BackupHistory): BackupOffer {
     case 'unknown':
       return {
         ...common,
-        whatHappened:
-          'This app is still checking whether this device can back anything up. It will say in a '
-          + 'moment.',
+        whatHappened: 'Checking whether this device can back up — one moment.',
         whatToDo: null,
       };
 
@@ -243,20 +239,14 @@ export function describeBackupOffer(state: BackupHistory): BackupOffer {
         // account has not been connected here yet" — a statement about the present connection, which
         // this offer does not measure and the indicator does. Connecting is still named, as the ACT
         // that makes a backup possible rather than as a claim about where this device stands now.
-        whatHappened:
-          'This device has never backed anything up. Connecting your Google account is what makes a '
-          + 'backup possible, and none has completed here, so there is nothing to back up to and this '
-          + 'app will not offer you a button that would do nothing.',
+        whatHappened: 'This device has never backed anything up, so there is nothing to back up to yet.',
         // WHERE THE CONNECTING IS SET UP, NAMED AS A SCREEN RATHER THAN AS A BUTTON — the same
         // correction s11/a41 made to `clients.ts`'s WHERE_TO_CONNECT, and that constant's own note
         // carries the measurement. In one line: Admin holds no connect act and is forbidden to, and
         // neither control that does hold it can be promised to be on screen when he reads this, so
         // this names Admin and "Open Setup" — both of which are permanent — and claims no third.
         whatToDo:
-          'Open Admin, on the navigation, then Open Setup — connecting your Google account is set up '
-          + 'on that screen. Do that first if you want a backup before you remove anybody. You can '
-          + 'also go ahead without one — that is your decision to make, and this app is telling you '
-          + 'where you stand rather than making it for you.',
+          'Open Admin, then Open Setup, to connect your Google account first — or go ahead without one.',
       };
 
     case 'has-backed-up':
@@ -270,9 +260,8 @@ export function describeBackupOffer(state: BackupHistory): BackupOffer {
         // which the indicator flatly contradicted after a sign-out. The second half is the half that
         // was read, so it is the only half said.
         whatHappened:
-          'This device has backed up to your Google account before. Taking a backup on demand, from '
-          + 'here, is part of the same piece of work and is not finished yet, so there is nothing to '
-          + 'press.',
+          'This device has backed up to your Google account before. Taking a backup on demand from '
+          + 'here is not finished yet.',
         whatToDo: null,
       };
 
@@ -309,17 +298,11 @@ export function describeRemovalConfirmation(
   return {
     title: `Remove ${name} for good?`,
     whatWillHappen:
-      `This removes ${name} from this device: their record, their sessions, their readings, their `
-      + 'notes and their diet plans. It also writes a removal notice, so the same removal reaches '
-      + 'your Google Drive backup when this device next has a connection. A session they shared with '
-      + 'another client is kept and edited to take them out of it, because that session is the other '
-      + 'person\'s history as well as theirs.',
-    cannotBeUndone:
-      'This cannot be undone. Nothing of theirs is left on this device to bring back, which is the '
-      + 'whole point of removing somebody rather than archiving them.',
-    archiveInstead:
-      `If you only want ${name} off your register, archive them instead. An archived client keeps `
-      + 'everything, comes off the list, and can be brought back whenever you like.',
+      `Removes ${name}'s record, sessions, readings, notes and diet plans from this device, and `
+      + 'queues the removal for your Google Drive backup. A session shared with another client is '
+      + `kept, with ${name} taken out of it.`,
+    cannotBeUndone: 'This cannot be undone — nothing of theirs is left on this device.',
+    archiveInstead: `Archive ${name} instead to keep everything and bring them back later.`,
     backup: describeBackupOffer(state),
     confirmLabel: 'Remove them for good',
     // "Keep" rather than "Cancel": it says what pressing it leaves him with, and it is the safe one.
@@ -421,10 +404,10 @@ export function describeRegisterRemovals(reading: RemovalsReading): RegisterRemo
     count,
     heading: REMOVALS_TITLE,
     intro: found
-      ? `${removalCount(count)} you made ${count === 1 ? 'is' : 'are'} done on this device, and this `
-        + 'app has looked in your Google Drive backup and found records still there.'
-      : `${removalCount(count)} you made ${count === 1 ? 'is' : 'are'} done on this device, and this `
-        + 'app has not yet confirmed they are gone from your Google Drive backup.',
+      ? `${removalCount(count)} done on this device — checked against your Google Drive backup, `
+        + 'and records were found still there.'
+      : `${removalCount(count)} done on this device, not yet confirmed gone from your Google Drive `
+        + 'backup.',
     meaning: NOT_CONFIRMED_IS_NOT_STILL_THERE,
     noName: NO_NAME_IS_DELIBERATE,
     linkLabel: 'See which removals',

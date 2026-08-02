@@ -30,9 +30,10 @@ import { useCallback } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 
 import { Glyph } from '../design/Glyph';
+import { Tooltip } from '../design/Tooltip';
 import {
   FINISHED_NOT_BUILT, FINISHED_WHERE, FINISHED_WORDS, FINISHING_WORDS, FINISH_CANCEL_LABEL,
-  FINISH_CONFIRM_LABEL, FINISH_CONFIRM_WORDS, FINISH_LABEL, FINISH_TITLE, FINISH_WORDS,
+  FINISH_CONFIRM_LABEL, FINISH_CONFIRM_WORDS, FINISH_LABEL, FINISH_WORDS,
   asking, canFinish, finished, finishing, notYet, refused,
 } from './session-ending';
 import type { EndingState } from './session-ending';
@@ -88,7 +89,7 @@ export function SessionEnding(props: SessionEndingProps) {
    * lists have moved it from one to the other.
    */
   const aftermath = state.finished && (
-    <>
+    <div className="row-panel stack-tight">
       <p className="note read">
         <Glyph name="session-finish" size="inline" decorative />
         <span>{FINISHED_WORDS}</span>
@@ -97,7 +98,7 @@ export function SessionEnding(props: SessionEndingProps) {
       {/* WHAT HE STILL CANNOT DO, in the same breath rather than left to be discovered. This is the
           moment he would go looking for it. */}
       <p className="muted read">{FINISHED_NOT_BUILT}</p>
-    </>
+    </div>
   );
 
   /**
@@ -105,7 +106,7 @@ export function SessionEnding(props: SessionEndingProps) {
    * aftermath rather than instead of it, because the two say different things and both can be true.
    */
   const refusal = state.refusal !== null && (
-    <p className="note note-danger read">
+    <p className="note note-danger read row-panel">
       <Glyph name="sync-failed" size="inline" decorative />
       <span>{state.refusal.headline}</span>
     </p>
@@ -121,12 +122,13 @@ export function SessionEnding(props: SessionEndingProps) {
   }
 
   return (
-    <section className="stack" aria-labelledby="session-ending">
-      <h3 id="session-ending" className="title-section">{FINISH_TITLE}</h3>
-      <p className="muted read">{FINISH_WORDS}</p>
-
+    <>
+      {/* THE TRIGGER, COMPACT — one control in the screen's own row rather than a card with a
+          heading and a paragraph above it. `FINISH_WORDS` is the one fact worth keeping — leaving
+          this screen without pressing it finishes nothing — and it is the tooltip now rather than a
+          permanent paragraph read every time this card renders. */}
       {state.asking ? (
-        <>
+        <div className="row-panel stack-tight">
           {/* WHAT CONFIRMING MEANS, before the control that does it. A one-way act reached by one tap
               on a phone beside a client is the accident this step exists for. */}
           <p className="read">{FINISH_CONFIRM_WORDS}</p>
@@ -149,12 +151,12 @@ export function SessionEnding(props: SessionEndingProps) {
               {FINISH_CANCEL_LABEL}
             </button>
           </span>
-        </>
+        </div>
       ) : (
-        <span className="row-actions">
+        <Tooltip text={FINISH_WORDS}>
           <button
             type="button"
-            className="btn btn-quiet"
+            className="btn btn-quiet btn-sm"
             disabled={state.finishing}
             aria-expanded={state.asking}
             onClick={() => setState(asking)}
@@ -162,17 +164,17 @@ export function SessionEnding(props: SessionEndingProps) {
             <Glyph name="session-finish" size="dense" decorative />
             <span>{FINISH_LABEL}</span>
           </button>
-        </span>
+        </Tooltip>
       )}
 
       {state.finishing && (
-        <p className="note read">
+        <p className="note read row-panel">
           <Glyph name="sync-pending" size="inline" decorative />
           <span>{FINISHING_WORDS}</span>
         </p>
       )}
 
       {refusal}
-    </section>
+    </>
   );
 }

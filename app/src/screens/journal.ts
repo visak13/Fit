@@ -201,9 +201,9 @@ export const JOURNAL_TITLE = 'What this app has done';
  * says it to the coach.
  */
 export const WHAT_THE_CHECK_CAN_AND_CANNOT_DO =
-  'This app can tell you when this list has been changed after it was written. It cannot stop '
-  + 'somebody changing it. Anyone who can get into this device can rewrite the whole list, and '
-  + 'this check would not know.';
+  'This app can tell you when this list has been changed after it was written, but it cannot stop '
+  + 'somebody changing it, and anyone who can get into this device can rewrite the whole list '
+  + 'without this check knowing.';
 
 /**
  * Why the app cannot say who or what an entry was about. Stated as the protection working.
@@ -212,14 +212,13 @@ export const WHAT_THE_CHECK_CAN_AND_CANNOT_DO =
  * being explained on two screens and the coach should meet one explanation, not two.
  */
 export const WHY_THERE_IS_NO_NAME =
-  'This list does not keep names or anything that was written down. It keeps only a reference, so '
-  + 'that removing somebody does not leave their name behind in the record of them being removed.';
+  'This list keeps no names, only an opaque reference, so removing somebody leaves no name behind '
+  + 'in the record of them being removed.';
 
 /** What a truncated head means, and it means nothing is wrong. */
 export const OLDEST_ENTRIES_WERE_DROPPED =
-  'This list only keeps so many entries per device, so the oldest ones have been dropped to make '
-  + 'room. That is this app tidying up after itself, and it is why the list starts where it does. '
-  + 'Nothing has gone wrong.';
+  'The oldest entries were dropped to make room — this app tidying up after itself. Nothing has '
+  + 'gone wrong.';
 
 /**
  * WHAT A SHORT READ MEANS, and why these three sentences exist at all.
@@ -232,24 +231,19 @@ export const OLDEST_ENTRIES_WERE_DROPPED =
  * being drawn as bare figures with no sentence; these are the sentences.
  */
 export const NOT_EVERY_DEVICE_WAS_LISTED =
-  'This app lists only so many devices at a time, and you have more than that. Entries from the '
-  + 'devices it did not reach are not counted here, so the numbers on this screen are the fewest '
-  + 'there are rather than all there are.';
+  'Not all of your devices are listed, so the numbers on this screen are a minimum.';
 
 /** The same ceiling, on the checking rather than on the listing. */
 export const NOT_EVERY_DEVICE_WAS_CHECKED =
-  'For the same reason, some of your devices were not checked at all. What this app says about the '
-  + 'list joining up is about the devices below, and says nothing either way about the others.';
+  'Some devices were not checked; the result below covers only the devices listed.';
 
 /** One device whose chain was longer than the read. What was checked is a floor, not a total. */
 export const NOT_EVERY_ENTRY_WAS_CHECKED =
-  'This app checked the newest entries on this device rather than every one it holds, so the number '
-  + 'checked is the fewest that were checked rather than all there are.';
+  'Only the newest entries on this device were checked.';
 
 /** What is said about a kind this app has no words for yet. It says what is known and invents nothing. */
 export const UNWORDED_KIND =
-  'Something happened that this screen has not been taught to put into plain words yet. The '
-  + 'reference below is what somebody helping you will need.';
+  'This app has no plain description for this event yet. See the reference below.';
 
 /** What is said about a record type this app has no words for yet. */
 export const UNWORDED_RECORD_TYPE = 'one record';
@@ -263,12 +257,11 @@ export const UNWORDED_RECORD_TYPE = 'one record';
  * same exit `removals.ts` names, for the same reason.
  */
 export const WHO_TO_ASK =
-  'Read this screen out to whoever set this app up for you, including the device name and the '
-  + 'position below. Do not delete anything and do not carry on as though nothing happened.';
+  'Tell whoever set this app up for you, including the device name and position below, and do not '
+  + 'delete anything.';
 
 /** What to do when the chain checks out. Nothing, and saying so plainly is the point. */
-export const NOTHING_TO_DO =
-  'There is nothing for you to do. This screen is here so you can look, not so you can act on it.';
+export const NOTHING_TO_DO = 'Nothing to do here.';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // WHEN THE APP COULD NOT LOOK AT ALL  (s17/r2's F1)
@@ -290,8 +283,7 @@ export const NOTHING_TO_DO =
  * which is the only thing that is true.
  */
 export const COULD_NOT_READ_THE_LIST =
-  'This app tried to read its own list on this device and could not. So this screen cannot tell you '
-  + 'what this app has done, and it cannot tell you whether the list joins up.';
+  'This app tried to read its own list on this device and could not.';
 
 /**
  * What is NOT being claimed, said out loud, because the coach will assume the worse of the two.
@@ -301,8 +293,7 @@ export const COULD_NOT_READ_THE_LIST =
  * information rather than as bad news about this screen.
  */
 export const A_FAILED_READ_IS_NOT_A_VERDICT =
-  'This does not mean anything has been lost or changed. This app could not look, so it cannot say '
-  + 'either way.';
+  'This does not mean anything has been lost or changed.';
 
 /** WHICH HALF failed, one sentence each, from the closed set the source tags a failure with. */
 export const READ_STAGE_WORDS: Readonly<Record<string, string>> = Object.freeze({
@@ -312,8 +303,7 @@ export const READ_STAGE_WORDS: Readonly<Record<string, string>> = Object.freeze(
 
 /** What is said when the stage is one this screen has no words for. It invents nothing. */
 export const UNWORDED_READ_STAGE =
-  'This app could not say which part of the reading went wrong. The reference below is what somebody '
-  + 'helping you will need.';
+  'This app could not tell which part of the reading failed. See the reference below.';
 
 /**
  * THE EXIT FROM A FAILED READ, and it is the same person the rest of this screen names.
@@ -322,8 +312,7 @@ export const UNWORDED_READ_STAGE =
  * right when the list does not join up and is an accusation when the app simply could not read it.
  */
 export const WHO_TO_ASK_ABOUT_A_FAILED_READ =
-  'Try opening this screen again. If it still cannot read the list, tell whoever set this app up for '
-  + 'you, and read them the reference below.';
+  'Try again, then tell whoever set this app up for you and read them the reference below.';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // The vocabulary, worded — the SET from the core, the WORDS from here
@@ -353,7 +342,7 @@ const KIND_PHRASING: Readonly<Record<string, string>> = Object.freeze({
   [JOURNAL_KINDS.RECORD_CREATED]: 'Something new was written down.',
   [JOURNAL_KINDS.RECORD_UPDATED]: 'Something already written down was changed.',
   [JOURNAL_KINDS.RECORD_DELETED]:
-    'A record was removed. What it said is gone, and only a marker is left where it used to be.',
+    'A record was removed, leaving only a marker where it used to be.',
   [JOURNAL_KINDS.RECORD_PURGED]:
     'Everything belonging to a client you removed was taken off this device for good.',
   [JOURNAL_KINDS.RECORD_IMPORTED]:
@@ -363,7 +352,7 @@ const KIND_PHRASING: Readonly<Record<string, string>> = Object.freeze({
     'You started taking a copy of some of your information out of this app.',
   [JOURNAL_KINDS.EXPORT_COMPLETED]: 'A copy of some of your information left this app.',
   [JOURNAL_KINDS.EXPORT_REFUSED]:
-    'A copy you asked for did not leave this app. Either it went wrong, or you stopped it.',
+    'A copy you asked for did not leave this app, either from an error or because you stopped it.',
 
   [JOURNAL_KINDS.SYNC_STARTED]: 'This app began sending and fetching your changes.',
   [JOURNAL_KINDS.SYNC_COMPLETED]: 'This app finished sending everything it had waiting to go.',
@@ -380,8 +369,8 @@ const KIND_PHRASING: Readonly<Record<string, string>> = Object.freeze({
   [JOURNAL_KINDS.RECOVERY_REFUSED]:
     'Somebody tried a recovery sheet and it did not open your private notes.',
   [JOURNAL_KINDS.ESTABLISH_REFUSED]:
-    'This device would not set up a new lock for your notes, because it had not yet been able to '
-    + 'check whether one already existed. Setting up a second lock would have split your notes in two.',
+    'This device would not set up a new lock for your notes because it could not yet confirm one '
+    + 'did not already exist.',
   [JOURNAL_KINDS.DUPLICATE_ENVELOPE_DETECTED]:
     'This device found more than one lock for your notes, so it left them all alone rather than '
     + 'guessing which one is yours.',
@@ -542,23 +531,20 @@ export const DIVERGENCE_REASONS: readonly DivergenceReason[] = Object.freeze([
  */
 export const DIVERGENCE_WORDS: Readonly<Record<DivergenceReason, string>> = Object.freeze({
   not_an_entry:
-    'Something is sitting in this list that is not an entry at all. Something other than this app '
-    + 'has written into it.',
+    'Something in this list is not an entry at all — something other than this app wrote into it.',
   altered:
     'One entry no longer matches its own record of itself, so something in it was changed after it '
     + 'was written.',
   broken_link:
-    'One entry does not join up to the one before it. Something between the two was taken out, '
+    'One entry does not join up to the one before it — something between the two was taken out, '
     + 'swapped, or slipped in.',
   sequence_gap:
-    'The entries are numbered in order, and some of the numbers are missing. Entries that should '
-    + 'be between these two are not here.',
+    'Some entries are missing from the numbered sequence between these two.',
   device_mismatch:
-    'An entry written on a different device has turned up in this device\'s own list. Each device '
-    + 'keeps its own list, so this entry is in the wrong one.',
+    'An entry written on a different device has turned up in this device\'s own list.',
   head_not_anchored:
-    'The oldest entry here does not join up to what came before it in the way this app recorded at '
-    + 'the time. Something older was taken out by something other than this app tidying up.',
+    'The oldest entry here does not join up to what this app recorded before it — something older '
+    + 'was removed by something other than this app tidying up.',
   unknown_kind:
     'One entry describes something this app has never had a name for, so it was not written by '
     + 'this app.',
@@ -649,9 +635,8 @@ export function describeVerification(result: DeviceVerification): VerificationWo
       device: result.device,
       intact: true,
       headline: notEverythingChecked === null
-        ? `Everything this app recorded on ${result.device} joins up, from the oldest entry it still `
-          + 'holds to the newest.'
-        : `Everything this app checked on ${result.device} joins up. It did not check the whole list.`,
+        ? `Everything this app recorded on ${result.device} joins up.`
+        : `Everything this app checked on ${result.device} joins up; it did not check the whole list.`,
       checkedWords: checkedWords(result),
       notEverythingChecked,
       whereWords: null,
@@ -672,7 +657,7 @@ export function describeVerification(result: DeviceVerification): VerificationWo
     device: result.device,
     intact: false,
     headline:
-      `The list this app recorded on ${result.device} does not join up all the way through.`,
+      `The list this app recorded on ${result.device} does not join up.`,
     checkedWords: checkedWords(result),
     notEverythingChecked,
     whereWords: divergence === null ? null : whereWords(divergence),
@@ -682,8 +667,7 @@ export function describeVerification(result: DeviceVerification): VerificationWo
       ? 'This app could not say where the list stops joining up.'
       : (known
         ? DIVERGENCE_WORDS[reason as DivergenceReason]
-        : 'Something is wrong with this entry that this screen has not been taught to put into '
-          + 'plain words. The reference below is what somebody helping you will need.'),
+        : 'This app has no plain words for what went wrong with this entry. See the reference below.'),
     detail: divergence === null ? null : divergence.detail,
     reason,
     entryReference: divergence === null ? null : divergence.entry_id,
@@ -754,13 +738,11 @@ function countWords(count: number, total: number, complete: boolean): string {
 /** How many devices were found to have a break, in words. */
 function brokenWords(broken: number, total: number): string {
   if (broken === 1 && total === 1) {
-    return 'This app has checked its own list on this device, and the list does not join up.';
+    return 'This app checked its own list on this device; it does not join up.';
   }
   return broken === 1
-    ? 'This app has checked its own list on each of your devices. On one of them the list does not '
-      + 'join up.'
-    : `This app has checked its own list on each of your devices. On ${broken} of them the list `
-      + 'does not join up.';
+    ? 'This app checked its own list on each device; on one of them it does not join up.'
+    : `This app checked its own list on each device; on ${broken} of them it does not join up.`;
 }
 
 /** Everything the screen says when the read FAILED. A different report, because it is a different state. */
@@ -827,12 +809,10 @@ export function describeJournal(reading: JournalReading): JournalReport {
     more: !reading.done,
     moreWords: reading.done
       ? null
-      : 'There are more than these. This shows the newest ones first.',
+      : 'More entries exist, newest shown first.',
     intro: entries.length === 0
-      ? 'There is nothing here yet. As you use this app it writes down what it did, and this is '
-        + 'where you can read it back.'
-      : 'This is what this app has done, newest first. It records what happened and to which '
-        + 'record, never what was written in it.',
+      ? 'There is nothing here yet.'
+      : 'What this app has done, newest first.',
     intact,
     // AND THE HEADLINE IS QUALIFIED WHEN THE SURVEY WAS SHORT. "Every entry joins up" over a survey
     // that stopped at the device ceiling is a claim about devices nobody looked at.
@@ -840,8 +820,8 @@ export function describeJournal(reading: JournalReading): JournalReport {
       ? 'This app has not checked its own list yet.'
       : (intact
         ? (reading.verificationComplete
-          ? 'This app has checked its own list and every entry joins up to the one before it.'
-          : 'On every device this app was able to check, the list joins up. It could not check them all.')
+          ? 'This app checked its own list; every entry joins up.'
+          : 'On every device checked, the list joins up; not every device was checked.')
         : brokenWords(broken, devices.length)),
     devices,
     entries,

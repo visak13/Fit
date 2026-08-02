@@ -107,8 +107,16 @@ describe('the finish control reaches ONE ending, and it is the one the user rule
 });
 
 describe('what the control says about itself', () => {
-  it('names the ending it writes, rather than saying the session is merely over', () => {
-    assert.match(FINISH_WORDS, /went as planned/u);
+  /**
+   * THE INSTRUCTIONAL LEAD-IN WAS CUT — "Use this when the session went as planned and there is
+   * nothing more to record in it" — because a coach who has been running this screen for a session
+   * already knows when he presses Finish; what he needs is the one fact that is easy to get backwards.
+   * `FINISH_LABEL` still names the act on the control itself, so nothing about what the button DOES
+   * is lost, only the paragraph explaining it.
+   */
+  it('no longer explains when to use the control, only what leaving it does', () => {
+    assert.equal(/went as planned/u.test(FINISH_WORDS), false);
+    assert.equal(FINISH_LABEL, 'Finish this session');
   });
 
   it('says plainly that leaving the screen finishes nothing', () => {

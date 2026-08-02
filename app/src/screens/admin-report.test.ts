@@ -272,7 +272,7 @@ describe('the words in front of the two acts, which is what he actually decides 
   it('names what EACH act destroys, and never what it restores', () => {
     const choices = describeSignOutChoices();
 
-    assert.match(choices.plain.whatItDestroys, /Destroys the Google connection on this device/u);
+    assert.match(choices.plain.whatItDestroys, /^Destroys the Google connection on this device/u);
     assert.match(choices.erase.whatItDestroys, /Destroys everything this app has saved on this device/u);
 
     // The trap this asserts against: a card that describes the safe act by what he KEEPS and the

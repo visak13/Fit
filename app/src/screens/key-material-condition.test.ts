@@ -502,13 +502,10 @@ const DUPLICATES_AS_THEY_WERE = Object.freeze({
     countMeans: '2 were found where there should only ever be one.',
     whatHappened:
       'Your Google account is holding two sets of encryption details for this app, where there '
-      + 'should only ever be one. This usually happens when two devices were set up within moments '
-      + 'of each other and neither could see what the other had just done. Nobody did anything '
-      + 'wrong, and it is not a sign that anything has been broken into.',
+      + 'should only ever be one.',
     whatItMeans:
-      'Each set unlocks a different part of your client medical notes. You will notice it as a note '
-      + 'that opens on one device and refuses to open on the other. Both sets are still here and '
-      + 'nothing has been lost.',
+      'Each set unlocks a different part of your client medical notes — a note may open on one '
+      + 'device and not the other.',
     moreDangerous: false,
     dangerNote: null,
     candidateNoun: 'Set of encryption details',
@@ -519,19 +516,15 @@ const DUPLICATES_AS_THEY_WERE = Object.freeze({
     countMeans: '2 were found where there should only ever be one.',
     whatHappened:
       'Your Google account is holding two recovery keys for this app, where there should only ever '
-      + 'be one. As with the encryption details, this happens when two devices set themselves up '
-      + 'within moments of each other. Nobody did anything wrong.',
+      + 'be one.',
     whatItMeans:
-      'A recovery key is what gets your client medical notes back when a phone is lost, replaced or '
-      + 'wiped. With two of them, it is no longer certain which one would work on the day you need '
-      + 'it.',
+      'A recovery key gets your client medical notes back when a phone is lost, replaced or wiped '
+      + '— with two, it is no longer certain which one would work when you need it.',
     moreDangerous: true,
     dangerNote:
-      'This is the more serious of the two, and it is the one that gives no warning. Everything '
-      + 'will look completely normal for as long as your devices keep working. It only shows itself '
-      + 'on the day you set this app up again on a new or wiped phone — the one day there is no '
-      + 'other device left to check against, and the day you most need it to work. That is why it '
-      + 'is worth sorting out now, while everything is still fine.',
+      'This is the more serious of the two and gives no warning — it stays hidden until you set '
+      + 'this app up again on a new or wiped phone, the one day there is no other device left to '
+      + 'check against.',
     candidateNoun: 'Recovery key',
   }),
 });
@@ -539,18 +532,16 @@ const DUPLICATES_AS_THEY_WERE = Object.freeze({
 /** The four sentences the duplicates said before, and must still say, character for character. */
 const DUPLICATE_STANDING_SENTENCES = Object.freeze({
   nothingWasChanged:
-    'Nothing has been changed. This app has not deleted anything, has not chosen between them, '
-    + 'and will not.',
+    'Nothing has been changed. This app has not deleted or chosen between them, and will not.',
   doNotDelete:
-    'Do not delete either of them yourself, and do not ask anyone else to. If the wrong one goes, the '
-    + 'client notes it protects can never be opened again, and nothing can undo that.',
+    'Do not delete either of them, or ask anyone else to: the wrong one gone means the client notes '
+    + 'it protects can never be opened again.',
   doNotContinue:
-    'Stop here for now. Do not add or change any client medical notes until this has been sorted out. '
-    + 'The rest of the app — sessions, routines, diets — is unaffected and safe to keep using.',
+    'Stop adding or changing client medical notes until this is sorted out — the rest of the app is '
+    + 'unaffected.',
   whoToAsk:
-    'Ask the person who set this app up for you. They are who to go to — there is no help desk, no '
-    + 'company and no manual behind this app, and the app cannot sort this out on its own. Show them '
-    + 'this screen: everything they need is on it.',
+    'Ask the person who set this app up for you — there is no help desk, company or manual behind '
+    + 'this app, and it cannot sort this out on its own. Show them this screen.',
 });
 
 describe('extending the family left the two conditions it was built for untouched', () => {
@@ -599,8 +590,7 @@ describe('extending the family left the two conditions it was built for untouche
     assert.equal(entry.chip, '2', 'the chip no longer carries the figure for a condition that has one');
     assert.equal(
       entry.intro,
-      'This app has found more than one where there should only ever be one. Nothing has been '
-      + 'changed. Read this before adding any more client medical notes.',
+      'More than one found where there should only ever be one. Nothing has been changed.',
     );
     assert.equal(entry.linkLabel, 'See what was found');
     assert.equal(entry.settled, false);

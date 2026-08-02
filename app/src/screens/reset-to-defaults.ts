@@ -121,10 +121,8 @@ export const SEE_WHAT_WOULD_CHANGE = 'See what restoring would change';
  * deleting a routine stays deleted. That is what makes this the only way back.
  */
 export const WHY_IT_IS_IN_ADMIN =
-  'This is in Admin rather than beside your library because it undoes work, and a control that '
-  + 'undoes work should be somewhere you went on purpose. It is also the only way back: the app '
-  + 'puts its library in once, when you first open it, and never again on its own — so a routine '
-  + 'you delete stays deleted until you press this.';
+  'This is in Admin because it undoes work, and it is the only way back — the app seeds the '
+  + 'library once and never again on its own.';
 
 /**
  * WHAT THE ACT DESTROYS, said before anything else and in his words.
@@ -134,9 +132,8 @@ export const WHY_IT_IS_IN_ADMIN =
  * believing his clients were at risk.
  */
 export const WHAT_IT_DESTROYS =
-  'Your changes to anything the app came with will be gone: an exercise you corrected, a routine '
-  + 'you reordered, a curve you retuned. Anything you made yourself is left exactly as it is, and '
-  + 'so is everything else in the app.';
+  'Your changes to anything the app came with will be gone — corrected exercises, reordered '
+  + 'routines, retuned curves. Anything you made yourself is left exactly as it is.';
 
 /**
  * THE HALF THAT IS NOT ABOUT THE LIBRARY AT ALL, and it is the sentence that stops him worrying.
@@ -226,9 +223,8 @@ export function describeBackupOffer(state: BackupState): BackupOffer {
     return {
       heading: 'A copy will be saved first',
       words:
-        'The copy is made at the moment you restore, so it holds your library exactly as it is '
-        + 'now, and you can put it back from this page if you change your mind. If it cannot be '
-        + 'saved, nothing is restored and your library is left alone.',
+        'Made now, holding your library exactly as it is — put it back from this page if you '
+        + 'change your mind. If it cannot be saved, nothing is restored.',
       takeLabel: 'Save a copy first',
       declineLabel: 'Change to going without a copy',
       answered: true,
@@ -239,8 +235,8 @@ export function describeBackupOffer(state: BackupState): BackupOffer {
     return {
       heading: 'Going ahead without a copy',
       words:
-        'You have chosen not to save one. Your changes to anything the app came with will be gone, '
-        + 'and without a copy there is no file to put back afterwards.',
+        'Your changes to anything the app came with will be gone, with no file to put back '
+        + 'afterwards.',
       takeLabel: 'Change to saving a copy first',
       declineLabel: 'Go ahead without a copy',
       answered: true,
@@ -250,11 +246,9 @@ export function describeBackupOffer(state: BackupState): BackupOffer {
   return {
     heading: 'Save a copy of your library first?',
     words:
-      'A copy is one file holding every exercise, routine and curve you have, made on this device '
-      + 'at the moment you restore. It covers exactly what this button changes and nothing else. '
-      + 'You can put it back later from the "Put a backup back" card on this page, so this is a '
-      + 'way to undo what you are about to do — which is the reason to take it before you press '
-      + 'anything, not after.',
+      'One file holding every exercise, routine and curve, made at the moment you restore — it '
+      + 'covers exactly what this button changes and nothing else. Put it back later from the '
+      + '"Put a backup back" card: the way to undo what you are about to do.',
     takeLabel: 'Save a copy first',
     declineLabel: 'Go ahead without a copy',
     answered: false,
@@ -389,10 +383,9 @@ export function describeResetConfirmation(plan: ResetPlanReading): ResetConfirma
  * nothing of his own has nothing to be told is safe, so he is told the thing that IS true of him.
  */
 function nothingToChangeWords(coachCreated: number): string {
-  const opening = 'Your library already matches what the app came with, so this would change nothing.';
+  const opening = 'Your library already matches what the app came with.';
   if (coachCreated === 0) {
-    return `${opening} You have not added anything of your own yet, so there is nothing else here `
-      + 'for it to leave alone.';
+    return `${opening} You have not added anything of your own yet.`;
   }
   return `${opening} ${counted(coachCreated, 'thing you made yourself is', 'things you made '
     + 'yourself are')} left alone either way.`;

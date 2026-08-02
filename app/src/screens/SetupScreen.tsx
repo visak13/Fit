@@ -41,7 +41,7 @@ import { Fragment, useCallback, useEffect, useState } from 'react';
 import { Glyph } from '../design/Glyph';
 import type { SmallFactStorage } from '../platform/google-identity';
 import {
-  ALGORITHM_FACTS, EXPECTATIONS, HANDOVER_PHASES, PHASE_TITLES, SECURITY_SENTENCES, stepsOf,
+  ALGORITHM_FACTS, EXPECTATIONS, NOT_AUDITED, SECURITY_SENTENCES, WHO_CAN_READ_THE_NOTES,
 } from './setup-honesty';
 import { useSyncActionsIfWired } from '../shell/sync-actions';
 import { CONSOLE_TRAPS, ORIGIN_RULE } from './setup';
@@ -94,12 +94,28 @@ function Step({
       </div>
 
       {/* AT THE LINK, never folded and never at the foot of the card: a warning about what a link
-          does is read after he has followed it if it is anywhere else. */}
+          does is read after he has followed it if it is anywhere else — and it stands BEFORE the
+          clicks, because it is about the trip the first click takes. */}
       {besideTheLink !== null && (
         <p className="note read">
           <Glyph name="note" size="inline" decorative />
           <span>{besideTheLink}</span>
         </p>
+      )}
+
+      {/* The step's one-line why or what-to-check, under the act rather than folded into it. */}
+      {step.detail !== undefined && (
+        <p className="muted read step-detail">{step.detail}</p>
+      )}
+
+      {/* THE CLICKS THEMSELVES, numbered, on the page the link opens. Measured, and dated by the
+          card's own advice date rather than pretending Google's pages hold still. */}
+      {step.substeps !== undefined && (
+        <ol className="steps step-substeps">
+          {step.substeps.map((substep) => (
+            <li key={substep} className="muted read">{substep}</li>
+          ))}
+        </ol>
       )}
     </li>
   );
@@ -467,48 +483,56 @@ export function SetupScreen() {
       </section>
 
       {/*
-        WHAT TO EXPECT AFTERWARDS. Each one carries its own consequence and both halves are drawn:
-        `setup-honesty.ts` keeps them as separate fields precisely so the half that does the work
-        cannot be trimmed when a screen is felt to be getting long, and folding it here would be that
-        trim by another route.
+        WHAT TO EXPECT AFTERWARDS, folded and counted. Each expectation still carries its consequence
+        — `setup-honesty.ts` keeps the halves as separate fields so neither can be trimmed — but the
+        card opens closed: this is reading for later, not part of the walk.
       */}
       <section className="card card-tight" aria-labelledby="setup-expect">
         <div className="card-header">
           <h3 id="setup-expect" className="title-section">{CARD_TITLES.expectations}</h3>
         </div>
-        <div className="card-body stack">
-          {EXPECTATIONS.map((expectation) => (
-            <div className="stack-tight" key={expectation.id}>
-              <strong>{expectation.title}</strong>
-              <p className="read">{expectation.says}</p>
-              <p className="read">{expectation.consequence}</p>
-            </div>
-          ))}
-        </div>
+        <details className="disclose">
+          <summary>
+            Read once you are set up
+            <span className="count">{EXPECTATIONS.length}</span>
+          </summary>
+          <div className="card-body stack">
+            {EXPECTATIONS.map((expectation) => (
+              <div className="stack-tight" key={expectation.id}>
+                <strong>{expectation.title}</strong>
+                <p className="read">{expectation.says}</p>
+                <p className="read">{expectation.consequence}</p>
+              </div>
+            ))}
+          </div>
+        </details>
       </section>
 
       {/*
-        WHAT IS TRUE ABOUT THE ENCRYPTION. The seven sentences are permanent and in the order
-        `setup-honesty.ts` fixed them in, which includes the honest cost and the sentence saying this
-        application has not been audited or certified. NONE OF THEM FOLDS: a reader looking for
-        reassurance is meant not to find it here, and a fold is where the sentence he was meant to
-        read would go. Only the algorithm parameters fold — they are for whoever is helping him.
+        WHAT IS TRUE ABOUT THE ENCRYPTION. The two sentences a reader looking for reassurance must
+        MEET — who can read the notes, and that nothing here is audited or certified — stay unfolded;
+        `setup-surface.test.ts` holds them out of any fold. The rest of the statement and the
+        algorithm names fold beneath them, still verbatim from `setup-honesty.ts`.
       */}
       <section className="card card-tight" aria-labelledby="setup-security">
         <div className="card-header">
           <h3 id="setup-security" className="title-section">{CARD_TITLES.security}</h3>
         </div>
         <div className="card-body stack">
-          {SECURITY_SENTENCES.map((sentence) => (
-            <p className="read" key={sentence}>{sentence}</p>
-          ))}
+          <p className="read">{WHO_CAN_READ_THE_NOTES}</p>
+          <p className="read">{NOT_AUDITED}</p>
         </div>
         <details className="disclose">
           <summary>
-            The names, for whoever is helping you
-            <span className="count">{ALGORITHM_FACTS.length}</span>
+            The full statement, and the names for whoever is helping you
+            <span className="count">{SECURITY_SENTENCES.length + ALGORITHM_FACTS.length - 2}</span>
           </summary>
-          <div className="card-body">
+          <div className="card-body stack">
+            {SECURITY_SENTENCES
+              .filter((sentence) => sentence !== WHO_CAN_READ_THE_NOTES && sentence !== NOT_AUDITED)
+              .map((sentence) => (
+                <p className="read" key={sentence}>{sentence}</p>
+              ))}
             <dl className="pairs">
               {ALGORITHM_FACTS.map((fact) => (
                 <Fragment key={fact.purpose}>
@@ -517,41 +541,6 @@ export function SetupScreen() {
                 </Fragment>
               ))}
             </dl>
-          </div>
-        </details>
-      </section>
-
-      {/*
-        THE HANDOVER CHECKLIST, folded and counted, because it is addressed to the person RUNNING the
-        call rather than to the coach reading his own setup screen. Every step carries its reason:
-        `setup-honesty.ts` requires the `why` and never allows it to be empty, because a checklist
-        whose items carry no reason is one that gets shortened under time pressure.
-      */}
-      <section className="card card-tight" aria-labelledby="setup-handover">
-        <div className="card-header">
-          <h3 id="setup-handover" className="title-section">{CARD_TITLES.handover}</h3>
-        </div>
-        <details className="disclose">
-          <summary>
-            The checklist for the call
-            <span className="count">
-              {HANDOVER_PHASES.reduce((total, phase) => total + stepsOf(phase).length, 0)}
-            </span>
-          </summary>
-          <div className="card-body stack">
-            {HANDOVER_PHASES.map((phase) => (
-              <div className="stack-tight" key={phase}>
-                <strong>{PHASE_TITLES[phase]}</strong>
-                <ol className="steps">
-                  {stepsOf(phase).map((step) => (
-                    <li key={step.id} className="read">
-                      {step.does}
-                      <p className="muted read">{step.why}</p>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            ))}
           </div>
         </details>
       </section>

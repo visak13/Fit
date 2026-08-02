@@ -131,9 +131,7 @@ export interface RegisterReading {
  * half. This file owns the words.
  */
 export const CLINICAL_DETAIL_HINT =
-  'One thing worth knowing before you start. Keep general notes for how someone trains — what they '
-  + 'are working towards, what they find hard, how a session went. Anything medical belongs in the '
-  + 'protected field lower down, which is locked, rather than in these notes, which are not.';
+  'Keep medical detail out of these notes — it belongs in the protected field below, which is locked.';
 
 /** What the coach presses to say he has read it. An acknowledgement, never a dismissal. */
 export const CLINICAL_DETAIL_HINT_ACKNOWLEDGEMENT = 'I understand';
@@ -148,8 +146,8 @@ export const CLINICAL_DETAIL_HINT_ACKNOWLEDGEMENT = 'I understand';
  * says WHERE clinical detail goes; this one is permanent and says what THIS box is for.
  */
 export const ADAPTATION_FLAG_HINT =
-  'What changes the programme, in a few words — "knee injury, avoid deep squats". Never a '
-  + 'diagnosis, a medication or a doctor\'s note.';
+  'What changes the programme — e.g. "knee injury, avoid deep squats". Never a diagnosis, '
+  + 'medication or doctor\'s note.';
 
 /** How long the record lets the flag be. Read off the schema's own bound, never guessed. */
 export const ADAPTATION_FLAG_LIMIT = 120;
@@ -172,10 +170,9 @@ export const ADAPTATION_FLAG_LIMIT = 120;
  * screen has no measurement for — is now the one it does.
  */
 export const NOTHING_HAS_BACKED_UP_HERE_YET =
-  'This device has not backed anything up yet, so it cannot tell whether the encryption details for '
-  + 'these notes already exist on your other device. It will not make a second set: two sets cannot '
-  + 'read each other, and nothing would say so. Back up once from this device and this part opens up. '
-  + 'Everything else in the app works normally, and nothing you have already entered is affected.';
+  'This device has not backed anything up yet, so it cannot tell whether encryption details for '
+  + 'these notes already exist on another device. It will not create a second set — two sets cannot '
+  + 'read each other. Back up once from this device to unlock this field.';
 
 /**
  * WHERE TO GO AND DO IT — the half the core's sentence deliberately does not carry.
@@ -203,9 +200,8 @@ export const NOTHING_HAS_BACKED_UP_HERE_YET =
  * link, both measured painted and in the accessibility tree at rest at 1280 and at 390.
  */
 export const WHERE_TO_CONNECT =
-  'Open Admin, on the navigation, then Open Setup — connecting your Google account is set up on that '
-  + 'screen. Everything else on this page saves on this device straight away, with or without a '
-  + 'connection.';
+  'Open Admin, then Open Setup, to connect your Google account. Everything else here saves on this '
+  + 'device regardless.';
 
 /**
  * WHAT THE PROTECTED FIELD IS, said before he learns he cannot fill it in yet.
@@ -214,10 +210,8 @@ export const WHERE_TO_CONNECT =
  * switched on rather than as something broken.
  */
 export const PROTECTED_FIELD_PURPOSE =
-  'This is the one part of a client record that is locked. It holds a short medical note, a link or '
-  + 'a file path pointing at where the real detail lives in your own records, and a name for that '
-  + 'pointer. All three are locked together, including the pointer\'s name, because a name like '
-  + '"heart-condition.pdf" says the thing on its own.';
+  'The one locked part of a client record: a short medical note, a pointer to the real file, and its '
+  + 'label — locked together, since a filename like "heart-condition.pdf" is itself identifying.';
 
 /**
  * THE PROMISE THAT MAKES THE REFUSAL SAFE TO BELIEVE.
@@ -227,9 +221,8 @@ export const PROTECTED_FIELD_PURPOSE =
  * check which one happened.
  */
 export const NOTHING_IS_KEPT_IN_THE_CLEAR =
-  'Until it is switched on, this app will not take that text at all. It will not save it half-way, '
-  + 'it will not keep it unlocked, and it will not hold on to it in the background. There is nothing '
-  + 'to type into yet, on purpose.';
+  'Until this is switched on, nothing typed here is saved, kept unlocked, or held anywhere — there '
+  + 'is nothing to type into yet.';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // The register
@@ -314,7 +307,7 @@ export function describeRegister(reading: RegisterReading): RegisterReport {
     more: !reading.page.done,
     moreWords: reading.page.done
       ? null
-      : 'There are more than these. This shows them in name order, a page at a time.',
+      : 'There are more, shown in name order.',
     items,
     archivedToggleLabel: reading.includingArchived ? 'Hide archived clients' : 'Show archived clients',
     includingArchived: reading.includingArchived,
@@ -324,10 +317,8 @@ export function describeRegister(reading: RegisterReading): RegisterReport {
 function registerIntro(count: number, includingArchived: boolean): string {
   if (count === 0) {
     return includingArchived
-      ? 'Nobody is on your register, and that includes anyone you have archived. Add the first '
-        + 'person you train below.'
-      : 'Nobody is on your register yet. Add the first person you train below, and they will appear '
-        + 'here. Everything you enter is saved on this device, whether you have a connection or not.';
+      ? 'No clients, including archived. Add the first person you train below.'
+      : 'No clients yet. Add the first person you train below.';
   }
 
   const people = count === 1 ? '1 person' : `${count} people`;
@@ -575,9 +566,7 @@ export function describeClinicalField(state: BackupHistory): ClinicalFieldReport
     case 'unknown':
       return {
         ...common,
-        whatHappened:
-          'This app is still checking what this device can do. It will say in a moment whether this '
-          + 'part is ready.',
+        whatHappened: 'Checking whether this device can do this — one moment.',
         whatToDo: null,
       };
 
@@ -601,8 +590,8 @@ export function describeClinicalField(state: BackupHistory): ClinicalFieldReport
         // the moment he signs out while this sentence stays true. Saying "is connected" here put the
         // two answers on one screen contradicting each other; see `backup-history.ts`.
         whatHappened:
-          'This device has backed up to your Google account before, and the part of the app that locks '
-          + 'these notes is not finished yet. It is the last piece of this to be built.',
+          'This device has backed up to your Google account before. The part that locks these notes '
+          + 'is not built yet.',
         whatToDo: null,
       };
 

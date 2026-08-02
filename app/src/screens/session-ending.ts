@@ -69,9 +69,8 @@ export const FINISH_TITLE = 'Finishing this session';
  * reason there is a wording here at all.
  */
 export const FINISH_WORDS =
-  'Use this when the session went as planned and there is nothing more to record in it. Leaving this '
-  + 'screen without pressing it does not finish anything: the session stays open and the Calendar '
-  + 'offers to pick it up exactly as it stands.';
+  'Leaving this screen without pressing it does not finish anything: the session stays open and the '
+  + 'Calendar offers to pick it up exactly as it stands.';
 
 /** The control itself. */
 export const FINISH_LABEL = 'Finish this session';

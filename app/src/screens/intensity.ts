@@ -86,6 +86,8 @@ export interface PatternToggle {
   readonly words: string;
   /** The curve spelled out, so the button says what it does as well as what it is called. */
   readonly curveWords: string;
+  /** The same curve, as the levels alone — what the compact preview bars are drawn from. */
+  readonly sequence: readonly string[];
 }
 
 /**
@@ -106,6 +108,7 @@ export function toggleFor(pattern: {
     name: pattern.name,
     words: typeof pattern.description === 'string' ? pattern.description : '',
     curveWords: pattern.sequence.join(' · '),
+    sequence: pattern.sequence,
   };
 }
 
@@ -121,9 +124,7 @@ export const TOGGLES_TITLE = 'Shape this session to a curve';
  * document is a rule the next screen can contradict.
  */
 export const TOGGLES_WORDS =
-  'Press a curve to see what it would make of this routine. It puts the exercises in a new order and '
-  + 'it changes the effort at each one — the reps or the timer, the sets and the rest. Nothing is '
-  + 'changed and nothing is saved until you accept it, and every number stays yours to alter '
+  'Nothing changes or saves until you accept a curve, and every number stays yours to alter '
   + 'afterwards.';
 
 /** Said while the curves, the routine and your library are being read. */

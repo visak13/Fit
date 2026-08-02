@@ -51,9 +51,7 @@ export const FULL_EXPORT_HEADING = 'Export everything';
  * Google, and moving to a new phone — because a control whose purpose is unstated is one he will not
  * press, and this is the only independent copy of his practice he can make.
  */
-export const FULL_EXPORT_WORDS =
-  'One file with everything you tick below. It is made on this device and nothing is uploaded '
-  + 'anywhere, so this is how you keep a copy somewhere other than Google, or move to a new phone.';
+export const FULL_EXPORT_WORDS = 'One file with everything ticked below.';
 
 /** The words on the control that makes the file. */
 export const MAKE_THE_FILE = 'Make the file';
@@ -72,12 +70,10 @@ export const MAKING_THE_FILE = 'Making the file...';
  * It refuses ONLY when the whole selection is empty. A practice with clients and no diet plans yet is
  * an ordinary practice, and a backup of it is a real backup.
  */
-export const NOTHING_IN_WHAT_YOU_TICKED =
-  'Everything you have ticked is empty, so the file would have nothing in it. Tick something you '
-  + 'have records for, or add some records first.';
+export const NOTHING_IN_WHAT_YOU_TICKED = 'Nothing ticked has any records yet.';
 
 /** Said when the passphrase he typed twice does not match itself. */
-export const PASSPHRASE_MISMATCH = 'Those two do not match. Type the same passphrase in both boxes.';
+export const PASSPHRASE_MISMATCH = 'Those two do not match.';
 
 /** What the second box is for. */
 export const PASSPHRASE_AGAIN = 'Type it again';
@@ -90,11 +86,9 @@ export const PASSPHRASE_AGAIN = 'Type it again';
  * consequence, and a coach who learns that afterwards has learnt it too late.
  */
 export const PASSPHRASE_CANNOT_BE_RECOVERED =
-  'This file can only be opened with this passphrase. It will still open years from now on any '
-  + 'device, even if this phone and your Google account are both gone — and it cannot be opened '
-  + 'without it, by you or by anybody else. What it does NOT protect against is somebody who has '
-  + 'both the file and the passphrase, so keep them apart. Forgetting it loses nothing that '
-  + 'matters: this is a copy, and your own records keep their own ways in.';
+  'This file can only be opened with this passphrase — it will still open years from now, even if '
+  + 'this phone and your Google account are both gone, and it cannot be opened without it. It does '
+  + 'not protect against somebody who has both the file and the passphrase — keep them apart.';
 
 /** Whether the coach's current selection can be turned into a file, and what is said when it cannot. */
 export interface FullExportOffer {

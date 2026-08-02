@@ -40,6 +40,7 @@
  */
 
 import { Glyph } from '../design/Glyph';
+import { Tooltip } from '../design/Tooltip';
 import { SECTION_TITLES, describeGlance } from './launcher';
 import type { GlanceReport } from './launcher';
 import { recordTheNote, recordTheReading } from './session-readings-source';
@@ -455,12 +456,11 @@ export function SessionNoteCapture(props: CaptureWiring) {
 
   return (
     <>
-      {/* WHAT THE READING AND NOTE CONTROLS DO, said ONCE for the whole screen rather than inside each
-          of three people's cards. The same choice `ControlsIntro` makes for the six moves, and it is
-          here because this is the one card there is exactly one of. */}
-      <p className="muted read">{CAPTURE_INTRO}</p>
-
-      <p className="row-actions">
+      {/* THE TRIGGER, COMPACT — one control among the screen's own row rather than a card of its
+          own. `CAPTURE_INTRO` used to sit above it as a permanent paragraph; the one fact in it that
+          is not reassurance — that recording leaves the session exactly where it is on screen — is
+          the tooltip now, reachable rather than read every time this card renders. */}
+      <Tooltip text={CAPTURE_INTRO}>
         <button
           type="button"
           className="btn btn-quiet btn-sm"
@@ -471,22 +471,24 @@ export function SessionNoteCapture(props: CaptureWiring) {
           <Glyph name="note" size="dense" decorative />
           <span>{NOTE_ABOUT_SESSION_LABEL}</span>
         </button>
-      </p>
+      </Tooltip>
 
       {isOpen && (
-        <NotePanel
-          panelId="note-the-session"
-          title={NOTE_ABOUT_SESSION_TITLE}
-          words={NOTE_ABOUT_SESSION_WORDS}
-          text={text}
-          problem={problem}
-          shownProblem={shownProblem}
-          status={confirmationFor(state, key) ?? NOTHING_RECORDED_YET}
-          refusal={refusalFor(state, key)}
-          recording={state.recording}
-          setState={setState}
-          onRecord={pressRecord}
-        />
+        <div className="row-panel">
+          <NotePanel
+            panelId="note-the-session"
+            title={NOTE_ABOUT_SESSION_TITLE}
+            words={NOTE_ABOUT_SESSION_WORDS}
+            text={text}
+            problem={problem}
+            shownProblem={shownProblem}
+            status={confirmationFor(state, key) ?? NOTHING_RECORDED_YET}
+            refusal={refusalFor(state, key)}
+            recording={state.recording}
+            setState={setState}
+            onRecord={pressRecord}
+          />
+        </div>
       )}
     </>
   );

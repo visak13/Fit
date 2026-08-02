@@ -758,3 +758,52 @@ describe('the standing sentences', () => {
     assert.match(GLANCE_NOBODY_CHOSEN, /choose who is training/i);
   });
 });
+
+describe('last time, offered again', () => {
+  const remembered = { clientIds: ['client-ada', 'client-ben'], routineId: 'routine-pull' };
+
+  /** Storage over one map, throwing where a test says the platform refused. */
+  function storageOf(held: Map<string, string>) {
+    return {
+      getItem: (key: string) => held.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        held.set(key, value);
+      },
+    };
+  }
+
+  it('remembers who and what, and reads back exactly what it wrote', () => {
+    const held = new Map<string, string>();
+    launcher.writeLastSessionChoice(storageOf(held), remembered);
+    assert.deepEqual(launcher.readLastSessionChoice(storageOf(held)), remembered);
+  });
+
+  it('treats nothing stored, junk, and a mis-shaped record all as no memory', () => {
+    const empty = new Map<string, string>();
+    assert.equal(launcher.readLastSessionChoice(storageOf(empty)), null);
+    for (const junk of ['not json', '42', '{}', '{"routineId":""}', '{"routineId":"r","clientIds":"x"}']) {
+      const held = new Map([[launcher.LAST_SESSION_CHOICE_KEY, junk]]);
+      assert.equal(launcher.readLastSessionChoice(storageOf(held)), null, `read "${junk}" as a memory`);
+    }
+  });
+
+  it('offers only what still exists, and never answers the mode question', () => {
+    const applied = launcher.preselectLastChoice(
+      NOTHING_CHOSEN,
+      remembered,
+      new Set(['client-ada']),
+      new Set(['routine-pull']),
+    );
+    assert.deepEqual(applied.clientIds, ['client-ada'], 'a removed person was preselected');
+    assert.equal(applied.routineId, 'routine-pull');
+    assert.equal(applied.mode, null, 'mode records a fact and must be answered every time');
+  });
+
+  it('leaves the selection alone when nothing remembered survives', () => {
+    const applied = launcher.preselectLastChoice(
+      NOTHING_CHOSEN, remembered, new Set<string>(), new Set<string>(),
+    );
+    assert.equal(applied, NOTHING_CHOSEN);
+    assert.equal(launcher.preselectLastChoice(NOTHING_CHOSEN, null, new Set(), new Set()), NOTHING_CHOSEN);
+  });
+});

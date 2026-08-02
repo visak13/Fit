@@ -44,7 +44,9 @@ import { useEffect, useState } from 'react';
 import { RouterProvider } from 'react-router-dom';
 
 import { startBrowserChromeColour } from './design/browser-chrome';
+import { ThemeControllerContext } from './design/ThemeToggle';
 import { DARK_PREFERENCE_QUERY, startThemeController } from './design/theme';
+import type { ThemeController } from './design/theme';
 import { buildStamp } from './platform/build-identity';
 import { startOfflineSupport } from './platform/offline-start';
 import type { OfflineStartOutcome } from './platform/offline-start';
@@ -105,6 +107,9 @@ export function Application({ backup }: { backup: BackupAccess }) {
     reaching `installed` while this page was ALREADY controlled, rather than one sitting in `waiting`.
   */
   const [newVersion, setNewVersion] = useState<NewVersionReading>(NO_NEW_VERSION_WAITING);
+  // Held in state so the frame's quiet theme control can reach the ONE running controller. It is
+  // null for the instant before the effect below runs, and the control renders nothing for it.
+  const [themeController, setThemeController] = useState<ThemeController | null>(null);
 
   useEffect(() => {
     let stillMounted = true;
@@ -119,6 +124,7 @@ export function Application({ backup }: { backup: BackupAccess }) {
       storage: window.localStorage,
       darkPreference: window.matchMedia(DARK_PREFERENCE_QUERY),
     });
+    setThemeController(theme);
     const stopChromeColour = startBrowserChromeColour(document);
 
     const persistenceRequest = new StoragePersistence({
@@ -273,7 +279,9 @@ export function Application({ backup }: { backup: BackupAccess }) {
                   everything else here is — so the component is the same component in a test.
                 */}
                 <NewVersionProvider reading={newVersion} take={() => window.location.reload()}>
-                  <RouterProvider router={router} />
+                  <ThemeControllerContext.Provider value={themeController}>
+                    <RouterProvider router={router} />
+                  </ThemeControllerContext.Provider>
                 </NewVersionProvider>
               </RemovalsFromLastPass>
             </StoppedChangesProvider>

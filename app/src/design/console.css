@@ -975,6 +975,60 @@ samp {
   box-shadow: var(--lift-sticky);
 }
 
+/* The quiet theme control, at the end of the header row. Pushed to the far edge so it reads as
+ * frame chrome rather than as part of the breadcrumb it happens to sit beside. */
+.theme-toggle {
+  margin-inline-start: auto;
+}
+
+/* ── A ROW WHOSE LINE HOLDS THREE THINGS: the tap target, the one-tap act, the outcome chip. ──
+ * The toggle is the row's whole readable area and flexes; the act and the chip keep their size.
+ * The act's target is the standing touch size — density never buys it down. */
+.row-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-inline-end: var(--space-2);
+}
+
+.row-line .row-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-inline-size: 0;
+  min-block-size: var(--target-touch);
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.row-line .quick-record {
+  flex: none;
+  inline-size: var(--target-touch);
+  block-size: var(--target-touch);
+}
+
+/* One line under a setup step: the why, indented to the step's own text. */
+.step-detail {
+  margin-block-start: 0;
+}
+
+/* The clicks under one setup step: a tight numbered walk, visibly subordinate to its step. */
+.step-substeps {
+  margin-block: 0;
+  padding-inline-start: var(--space-6);
+}
+
+.step-substeps li {
+  padding-block: 0;
+  min-block-size: 0;
+}
+
 .content-body {
   padding: var(--gutter);
   min-inline-size: 0;
@@ -2460,4 +2514,131 @@ input[type='checkbox'] {
   gap: var(--space-2) var(--space-3);
   margin: 0;
   min-width: 0;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────────
+ * THE SESSION RUNNER, CONSOLE-ALIGNED. Carried over from `design/direction-two/console.css`
+ * verbatim where a rule already existed there — only `var(--token)` values, never a literal
+ * colour or size, exactly as the reference does. `.two-column` is the work column beside the
+ * per-client capture column; it collapses to one column below the same 840px boundary the rail
+ * itself branches at (`EXPANDED_VIEWPORT_MIN`, `viewport.ts`).
+ * ───────────────────────────────────────────────────────────────────────────────────── */
+.two-column {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, var(--measure-read));
+  gap: var(--gutter);
+  align-items: start;
+}
+
+@media (max-width: 839px) {
+  .two-column {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-4);
+  }
+}
+
+/* INTENSITY, AS A SHAPE. Three levels, and the shape carries them as well as the fill: one, two
+ * or three bars. A greyscale screenshot still tells you which is the hard one. */
+.level { display: inline-flex; align-items: flex-end; gap: 2px; height: 14px; }
+.level i {
+  display: block;
+  width: 4px;
+  background: var(--fill-neutral);
+  border-radius: var(--radius-1);
+}
+.level i:nth-child(1) { height: 5px; }
+.level i:nth-child(2) { height: 9px; }
+.level i:nth-child(3) { height: 14px; }
+.level[data-level='low'] i:nth-child(2),
+.level[data-level='low'] i:nth-child(3) { background: var(--surface-disabled); }
+.level[data-level='medium'] i:nth-child(3) { background: var(--surface-disabled); }
+.level[data-level='high'] i { background: var(--fill-accent); }
+
+/* THE ROUTINE'S OWN DECLARED ORDER, numbered — a default read out, never a position pressed on. */
+.row-position {
+  flex: 0 0 28px;
+  font-size: var(--type-body);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+/* THE CURRENT EXERCISE. Big numbers, the transport controls beside them, one line of cue. */
+.now-card { border: var(--border-strong) solid var(--fill-accent); }
+.now-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.now-head h4 { font-size: var(--type-title); }
+.now-measure {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-6);
+  padding-top: var(--space-3);
+}
+.measure-value {
+  font-size: var(--type-display);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+  font-variant-numeric: tabular-nums;
+}
+.measure-label { font-size: var(--type-meta); color: var(--text-muted); display: block; }
+.cue {
+  padding-top: var(--space-3);
+  max-width: var(--measure-read);
+  line-height: var(--leading-loose);
+  color: var(--text-muted);
+}
+
+.set-pips { display: flex; gap: var(--space-1); padding-top: var(--space-1); }
+.set-pips i {
+  display: block;
+  width: 18px;
+  height: 8px;
+  border-radius: var(--radius-1);
+  border: var(--border-control) solid var(--line-control);
+}
+.set-pips i[data-done='true'] { background: var(--fill-accent); border-color: var(--fill-accent); }
+.set-pips i[data-current='true'] {
+  background: var(--surface-selected);
+  border-color: var(--fill-accent);
+  border-width: var(--border-strong);
+}
+
+/* SHAPE THE WHOLE SESSION, COMPACT. A grid of curves — the preview bars and the name, and
+ * nothing else; the per-curve paragraph the toggles list used to carry is gone from here, and
+ * the honest degradation note stays, because it is the one sentence that is not reassurance. */
+.pattern-grid { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.pattern-btn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: var(--control-height);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-control) solid var(--line-control);
+  border-radius: var(--radius-1);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+  text-align: start;
+}
+.pattern-btn:hover { background: var(--surface-selected); }
+.pattern-btn[aria-pressed='true'] {
+  border-color: var(--fill-accent);
+  border-width: var(--border-strong);
+  background: var(--surface-selected);
+  font-weight: var(--weight-medium);
+}
+.pattern-curve { display: flex; align-items: flex-end; gap: 2px; height: 18px; }
+.pattern-curve i { display: block; width: 6px; background: var(--fill-accent); border-radius: var(--radius-1); }
+.pattern-curve i[data-level='low'] { height: 6px; }
+.pattern-curve i[data-level='medium'] { height: 12px; }
+.pattern-curve i[data-level='high'] { height: 18px; }
+
+.honest-note {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--surface-raised);
+  border-inline-start: var(--border-strong) solid var(--fill-warning);
+  border-radius: var(--radius-1);
+  line-height: var(--leading-loose);
 }

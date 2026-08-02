@@ -63,9 +63,7 @@ export const STANDING_FACTS_TITLE = 'Left here on purpose';
  * so is what makes an entry on it legible rather than alarming.
  */
 export const WHAT_THIS_CARD_IS =
-  'Some things cannot be undone without taking somebody else\'s data with them, so this app leaves '
-  + 'them exactly as they are and tells you they are there. Nothing on this card is waiting on you, '
-  + 'and nothing on it is going wrong. It stays here for as long as it is true.';
+  'Cannot be removed without taking another client\'s data with it, so it is left as is.';
 
 /**
  * THE FACT THAT IS SAID NOWHERE ELSE, and the whole reason this card exists.
@@ -86,18 +84,13 @@ export const WHAT_THIS_CARD_IS =
  * it is for: that finishing the removal did not take it with it.
  */
 export const STILL_HERE_AFTER_THE_REMOVAL_IS_DONE =
-  'Finishing the removal did not take this with it. The removal itself is done; this is a separate '
-  + 'copy of some work that was already queued when you removed them.';
+  'Removal is done; this queued copy was not taken with it.';
 
 /** What is true when this device has not been read. It is not the empty answer, and never reads as one. */
-export const NOT_READ_YET =
-  'This app has not been able to look on this device yet, so it cannot tell you either way. It is '
-  + 'not saying there is nothing.';
+export const NOT_READ_YET = 'This device has not been read yet — unknown either way.';
 
 /** What is true when the walk stopped short. Said out loud, because a bound nobody sees is a lie. */
-export const MORE_THAN_THESE =
-  'There are more removals on this device than this card was able to read in one go. What is shown '
-  + 'is the oldest of them.';
+export const MORE_THAN_THESE = 'More entries exist than shown here; oldest listed first.';
 
 /** Which of the three things this card is saying. Named so a test asserts the branch, not the sentence. */
 export type StandingFactsState = 'not-known' | 'settled' | 'standing';
@@ -164,12 +157,11 @@ export interface StandingFactsReport {
 /** How much of theirs is named in the entry, in plain words rather than as a bare figure. */
 function remainsWords(recordIds: readonly string[]): string {
   if (recordIds.length === 0) {
-    return 'A file this app had queued for your Google Drive still refers to this client.';
+    return 'A queued file for Google Drive still refers to this client.';
   }
   return recordIds.length === 1
-    ? 'A file this app had queued for your Google Drive has 1 record of theirs named in it.'
-    : `A file this app had queued for your Google Drive has ${recordIds.length} records of theirs `
-      + 'named in it.';
+    ? 'A queued file for Google Drive has 1 record of theirs.'
+    : `A queued file for Google Drive has ${recordIds.length} records of theirs.`;
 }
 
 /**
@@ -182,8 +174,7 @@ function remainsWords(recordIds: readonly string[]): string {
  */
 function whereWords(entryStatus: string): string {
   if (entryStatus === 'delivered') {
-    return 'That file has already gone to your Google Drive, and this device still keeps its own '
-      + 'copy of it. Neither copy can be taken apart without taking the other client\'s data too.';
+    return 'That file has already gone to your Google Drive; this device keeps its own copy too.';
   }
   return 'That file is still on this device, waiting to go to your Google Drive.';
 }
@@ -197,7 +188,7 @@ export function describeStandingFact(residual: StandingResidual): StandingFactIt
   });
 
   return {
-    heading: 'A client you removed, and a file of theirs that is still on this device',
+    heading: 'Removed client, file still on this device',
     clientReference: residual.subjectClientId,
     removedAt: residual.removedAt,
     stillHere: STILL_HERE_AFTER_THE_REMOVAL_IS_DONE,
@@ -251,10 +242,7 @@ export function describeStandingFacts(reading: StandingFactsReading | null): Sta
       chip: 'Nothing left here',
       tone: 'success',
       count: 0,
-      intro:
-        'Nothing of anybody\'s has been left behind on this device. When you remove a client, '
-        + 'anything of theirs this app cannot take out of your Google Drive queue is listed here, and '
-        + 'it stays listed for as long as it is there.',
+      intro: 'Nothing left behind on this device.',
       meaning: WHAT_THIS_CARD_IS,
       moreWords,
       noName: null,
@@ -273,9 +261,8 @@ export function describeStandingFacts(reading: StandingFactsReading | null): Sta
     tone: 'neutral',
     count: items.length,
     intro:
-      `${things(items.length)} on this device ${items.length === 1 ? 'was' : 'were'} left exactly as `
-      + `${items.length === 1 ? 'it was' : 'they were'} when you removed a client, because removing `
-      + `${items.length === 1 ? 'it' : 'them'} would have taken another client's data as well.`,
+      `${things(items.length)} left on this device — removing `
+      + `${items.length === 1 ? 'it' : 'them'} would take another client's data too.`,
     meaning: WHAT_THIS_CARD_IS,
     moreWords,
     noName: NO_NAME_IS_DELIBERATE,

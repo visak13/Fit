@@ -841,13 +841,18 @@ describe('what the screen draws', () => {
     }
   });
 
-  it('renders every handover step WITH its reason', async () => {
+  it('keeps the call checklist OFF this screen — it is the helper\'s, not the coach\'s', async () => {
+    // USER-RULED (2 August 2026): the coach's own setup page carries no section addressed to the
+    // person helping him. The checklist lives in HANDOVER.md. The data survives in
+    // `setup-honesty.ts` where its own suite still holds every step to carrying a reason.
     const { HANDOVER_CHECKLIST } = await import('./setup-honesty.ts');
-    for (const step of HANDOVER_CHECKLIST) {
-      const escaped = (text: string) => text.replace(/&/g, '&amp;').replace(/'/g, '&#x27;').replace(/"/g, '&quot;');
-      assert.ok(painted.includes(escaped(step.does)), `${step.id} is not on screen`);
-      assert.ok(painted.includes(escaped(step.why)), `${step.id} is on screen with no reason given`);
-    }
+    const SURFACE_TITLES = await import('./setup-surface.ts');
+    assert.ok(HANDOVER_CHECKLIST.length > 0, 'the checklist itself must still exist');
+    assert.ok(!painted.includes(SURFACE_TITLES.CARD_TITLES.handover),
+      'the call-checklist card is back on the coach\'s screen');
+    // POSITIVE CONTROL: the same sweep sees a title that IS rendered.
+    assert.ok(painted.includes(SURFACE_TITLES.CARD_TITLES.clientId),
+      'the sweep cannot see any card title, so its silence proves nothing');
   });
 
   it('renders both console traps with the date each was measured', async () => {

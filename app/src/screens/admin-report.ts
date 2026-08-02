@@ -142,8 +142,7 @@ export function describePersistence(record: PersistenceRecord | null): Persisten
       state: 'pending',
       word: 'Still asking',
       tone: 'neutral',
-      plainWords:
-        'The browser has not answered yet. This takes a moment on the first start after installing.',
+      plainWords: 'The browser has not answered yet.',
       permanent: [{ label: 'What the browser answered', literal: false, value: 'Nothing yet' }],
       folded: [],
     };
@@ -193,7 +192,7 @@ export function describePersistence(record: PersistenceRecord | null): Persisten
       word: 'Cannot be asked',
       tone: 'neutral',
       plainWords:
-        'This browser has no way to be asked to keep the data, so it was not asked. Everything still works; keep your backups current.',
+        'This browser has no way to be asked to keep the data, so it was not asked. Keep your backups current.',
       permanent: [answered, ...failed],
       folded,
     };
@@ -205,7 +204,7 @@ export function describePersistence(record: PersistenceRecord | null): Persisten
       word: 'The request failed',
       tone: 'neutral',
       plainWords:
-        'The browser was asked and something went wrong before it answered. Nothing has been lost by this; keep your backups current.',
+        'The browser was asked and something went wrong before it answered. Keep your backups current.',
       permanent: [answered, ...failed],
       folded,
     };
@@ -276,8 +275,8 @@ export const ERASE_LABEL = 'Sign out and erase this device';
  * rather than in terms of a key slot, which is a word from the implementation and not from his day.
  */
 export const DEVICE_KEY_SURVIVES_SIGNING_OUT =
-  'The key this device uses to open your medical notes stays here as well. Signing out does not '
-  + 'touch it, so your notes still open on this device straight afterwards.';
+  'The key to open your medical notes stays here; signing out does not touch it, so your notes '
+  + 'still open on this device afterwards.';
 
 /**
  * THE SAME FACT ON THE OTHER SIDE, AND IT IS THE ONE THAT COSTS HIM SOMETHING.
@@ -326,23 +325,18 @@ export function describeSignOutChoices(): SignOutChoices {
   return {
     title: SIGN_OUT_CARD_TITLE,
     intro:
-      'Two different things, and they are not versions of each other. One disconnects Google and '
-      + 'leaves everything here. The other disconnects Google and wipes this device.',
+      'One disconnects Google and leaves everything here; the other disconnects Google and wipes '
+      + 'this device.',
     plain: {
       label: SIGN_OUT_LABEL,
-      whatItDestroys:
-        'Destroys the Google connection on this device, and nothing else. Nothing you have saved '
-        + 'here is touched.',
+      whatItDestroys: 'Destroys the Google connection on this device, and nothing else.',
       whatSurvives: WHAT_SIGNING_OUT_KEEPS,
     },
     erase: {
       label: ERASE_LABEL,
       whatItDestroys:
-        'Destroys everything this app has saved on this device, as well as the Google connection. '
-        + 'Use it when the computer is not yours.',
-      whatSurvives:
-        'Your Google Drive backup is not touched, and neither is your other device. This is about '
-        + 'this computer only.',
+        'Destroys everything this app has saved on this device, as well as the Google connection.',
+      whatSurvives: 'Your Google Drive backup and your other device are not touched.',
     },
   };
 }
@@ -551,8 +545,7 @@ export function describeEraseConfirmation(reading: DeliveryReadingOutcome): Eras
     whatWillHappen: WHAT_ERASING_DESTROYS,
     deviceKey: DEVICE_KEY_IS_DESTROYED_BY_ERASING,
     cannotBeUndone:
-      'This cannot be undone from this device. Nothing this app has saved here is left behind, '
-      + 'which is the whole point of erasing rather than signing out.',
+      'This cannot be undone from this device. Nothing this app has saved here is left behind.',
     refusal,
     acknowledgeLabel: readiness.mayProceedWithAcknowledgement
       ? 'I understand that the changes named above will be lost'
@@ -621,10 +614,9 @@ export function describeAccountAct(outcome: AccountActOutcome): AccountActReport
         ? 'You were not signed out, and nothing on this device was changed'
         : 'This device was not erased, and nothing was deleted',
       detail: outcome.act === 'sign-out'
-        ? 'Everything you have saved here is exactly as it was, and you are still connected. Try '
-          + 'again, and if it says this a second time, reload the app.'
-        : 'Everything you have saved here is still here and you may still be signed in. Close every '
-          + 'other window of this app, then try again.',
+        ? 'Nothing changed; you are still connected. Try again — if it recurs, reload the app.'
+        : 'Nothing was deleted; you may still be signed in. Close other windows of this app, then '
+          + 'try again.',
       verbatim: outcome.verbatim,
       failed: true,
     };
@@ -640,12 +632,9 @@ export function describeAccountAct(outcome: AccountActOutcome): AccountActReport
         // nothing was ever counted — and saying the first about it would tell him changes stopped
         // backing up when this app has no idea whether any did.
         detail: outcome.because === 'not-read'
-          ? 'This app could not read what is backed up and what is still waiting here, so it stopped '
-            + 'rather than erasing work it has not been able to count. Nothing was deleted. Reload '
-            + 'the app and try again.'
-          : 'More changes stopped backing up while this was open, so this app stopped rather than '
-            + 'erasing more than you agreed to. Read the panel again — it now shows what is actually '
-            + 'at risk.',
+          ? 'Backup status could not be read, so nothing was erased. Reload the app and try again.'
+          : 'More changes stopped backing up while this was open, so nothing extra was erased. Read '
+            + 'the panel again — it shows what is actually at risk.',
         verbatim: null,
         failed: false,
       };
@@ -661,8 +650,8 @@ export function describeAccountAct(outcome: AccountActOutcome): AccountActReport
       detail:
         'Everything this app had saved here is gone, including the key that opens your medical '
         + 'notes, and you are signed out. Your Google Drive backup and your other device are '
-        + 'untouched. Close this window now — the app has nothing left to run on here. Signing in '
-        + 'again on this device brings your practice back from your backup.',
+        + 'untouched. Close this window now. Signing in again on this device brings your practice '
+        + 'back from your backup.',
       verbatim: null,
       failed: false,
     };
@@ -671,9 +660,7 @@ export function describeAccountAct(outcome: AccountActOutcome): AccountActReport
   if (outcome.result === 'not-connected') {
     return {
       headline: 'There was no Google account connected on this device',
-      detail:
-        'So there was nothing to sign out of, and nothing has changed. Everything you have saved '
-        + 'here is untouched.',
+      detail: 'There was nothing to sign out of; nothing has changed.',
       verbatim: null,
       failed: false,
     };
@@ -683,11 +670,11 @@ export function describeAccountAct(outcome: AccountActOutcome): AccountActReport
     headline: 'You are signed out of Google on this device',
     detail: outcome.revokedAtGoogle
       ? 'This app has also told Google to drop its access. Everything you have saved here is still '
-        + 'here, including the key that opens your medical notes. Sign in again whenever you like.'
+        + 'here, including the key that opens your medical notes.'
       // NOT reported as a completed revocation. See the note above this function.
-      : 'This device could not reach Google to hand the access back, so that part will lapse on its '
-        + 'own — you can also remove this app under your own Google account settings. Everything '
-        + 'you have saved here is still here, including the key that opens your medical notes.',
+      : 'This device could not reach Google to hand the access back; it will lapse on its own, or '
+        + 'you can remove this app under your own Google account settings. Everything you have '
+        + 'saved here is still here, including the key that opens your medical notes.',
     verbatim: null,
     failed: false,
   };
