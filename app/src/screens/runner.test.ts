@@ -31,8 +31,9 @@ import { describe, it } from 'node:test';
 import { aPerformedRecord, aRoutine, aSession } from '../../core/model/fixtures.js';
 import { projectSession } from '../../core/session/projection.js';
 import {
-  NO_SESSION_OPEN_WHAT_TO_DO, OPEN_SESSION_KEY, RUNNER_ADDRESS, describeOpening, describeRoom,
-  describeSession, roomStateWords, sessionAddress,
+  JOINING_LINK_LABEL, JOINING_LINK_NOT_COPIED, NO_SESSION_OPEN_WHAT_TO_DO, OPEN_SESSION_KEY,
+  RUNNER_ADDRESS, describeOpening, describeRoom, describeSession, joiningLinkOf, roomStateWords,
+  sessionAddress,
 } from './runner';
 import type { RunnerContext } from './runner';
 
@@ -483,5 +484,24 @@ describe('the rules this screen could break with no test noticing', () => {
       + JSON.stringify(describeOpening({ ok: false, reason: 'not_found', message: 'Not here.' }));
 
     assert.doesNotMatch(words, /\p{Extended_Pictographic}/u, 'an emoji reached a user-facing string');
+  });
+});
+
+describe('the joining link, printed where the session is run', () => {
+  it('reads the record`s own link off the projection, and nothing else as one', () => {
+    assert.equal(
+      joiningLinkOf({ meet_url: 'https://meet.google.com/abc-defg-hij' }),
+      'https://meet.google.com/abc-defg-hij',
+    );
+    assert.equal(joiningLinkOf({}), null, 'an absent field read as a link');
+    assert.equal(joiningLinkOf({ meet_url: null }), null);
+    assert.equal(joiningLinkOf({ meet_url: '  ' }), null, 'whitespace read as a link');
+    assert.equal(joiningLinkOf({ meet_url: 42 }), null, 'a non-string read as a link');
+  });
+
+  it('labels the link as a fact and words both clipboard outcomes', () => {
+    assert.ok(JOINING_LINK_LABEL.length > 0);
+    assert.ok(JOINING_LINK_NOT_COPIED.includes('select'),
+      'the refusal must leave him a route that does not need the clipboard');
   });
 });

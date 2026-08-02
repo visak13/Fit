@@ -88,6 +88,34 @@ export const RUNNER_WAY_IN_LABEL = 'The session you are running';
 export const RUNNER_WAY_IN_WORDS =
   'The way back to a session you started or left unfinished.';
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// The joining link, printed where the session is run
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * The link the session carries, or null when it carries none.
+ *
+ * READ OFF THE PROJECTION, never re-derived and never fetched: `projection.js` carries `meet_url`
+ * verbatim from the record, whichever way it got there — minted or pasted. USER-RULED (2 August
+ * 2026): the app minted a link and then showed it nowhere; the coach had to open Google Calendar
+ * to send his own client the address. It is printed on the runner, copyable, from this reader.
+ */
+export function joiningLinkOf(view: { readonly [key: string]: unknown }): string | null {
+  const held = view['meet_url'];
+  return typeof held === 'string' && held.trim().length > 0 ? held : null;
+}
+
+/** What the printed link is called. A fact label, not an instruction. */
+export const JOINING_LINK_LABEL = 'Joining link';
+
+/** The copy control's accessible name — what pressing it does. */
+export const COPY_THE_JOINING_LINK = 'Copy the joining link';
+
+/** Said when the copy landed, and when the browser refused it. The address stays selectable. */
+export const JOINING_LINK_COPIED = 'Copied.';
+export const JOINING_LINK_NOT_COPIED =
+  'This browser refused the clipboard — select the address and copy it yourself.';
+
 /** The words on the way back to the calendar, drawn on the runner in every state. */
 export const BACK_TO_CALENDAR_LABEL = 'Calendar';
 

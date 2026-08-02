@@ -79,8 +79,10 @@ import type { TimerState } from './exercise-timer';
 import { browserAudio } from './session-audio';
 import type { AudioPort, Unlocked } from './session-audio';
 import {
-  BACK_TO_CALENDAR_LABEL, CALENDAR_ADDRESS, NO_SESSION_OPEN, NO_SESSION_OPEN_WHAT_TO_DO,
-  OPENING_WORDS, OPEN_SESSION_KEY, RUNNER_TITLE, describeOpening, describeSession, roomStateWords,
+  BACK_TO_CALENDAR_LABEL, CALENDAR_ADDRESS, COPY_THE_JOINING_LINK, JOINING_LINK_COPIED,
+  JOINING_LINK_LABEL, JOINING_LINK_NOT_COPIED, NO_SESSION_OPEN, NO_SESSION_OPEN_WHAT_TO_DO,
+  OPENING_WORDS, OPEN_SESSION_KEY, RUNNER_TITLE, describeOpening, describeSession, joiningLinkOf,
+  roomStateWords,
 } from './runner';
 import type { AttendeeReport } from './runner';
 import { openSessionInto } from './runner-source';
@@ -92,6 +94,48 @@ import type { LocalStore } from '../../core/store/store.js';
 interface Read<T> {
   readonly from: LocalStore;
   readonly what: T;
+}
+
+/**
+ * THE JOINING LINK, PRINTED — copyable where the session is run, because the client it is FOR is
+ * not in this room. The address stays on screen and selectable whatever the clipboard does; the
+ * copy control failing costs a longer route, never the link. Same pattern as Setup's origin card.
+ */
+function JoiningLinkLine({ url }: { url: string }) {
+  const [copying, setCopying] = useState<'copied' | 'refused' | null>(null);
+
+  const copy = useCallback(() => {
+    const clipboard = navigator.clipboard as Clipboard | undefined;
+    if (clipboard === undefined) {
+      setCopying('refused');
+      return;
+    }
+    clipboard.writeText(url).then(
+      () => setCopying('copied'),
+      (error: unknown) => {
+        console.error('[session] this browser refused the clipboard', error);
+        setCopying('refused');
+      },
+    );
+  }, [url]);
+
+  return (
+    <div className="inline">
+      <span className="meta">{JOINING_LINK_LABEL}</span>
+      <p className="copy-value"><code>{url}</code></p>
+      <button type="button" className="icon-btn" aria-label={COPY_THE_JOINING_LINK} onClick={copy}>
+        <Glyph name="export" decorative />
+      </button>
+      <a href={url} target="_blank" rel="noopener noreferrer" className="icon-btn" aria-label="Open the call">
+        <Glyph name="link-external" decorative />
+      </a>
+      {copying !== null && (
+        <span className="muted read" role="status">
+          {copying === 'copied' ? JOINING_LINK_COPIED : JOINING_LINK_NOT_COPIED}
+        </span>
+      )}
+    </div>
+  );
 }
 
 /** The way back, drawn in every state. A screen with no door is the dead end this build has shipped. */
@@ -747,6 +791,12 @@ export function RunnerScreen() {
                 used to sit under them is dropped: what it verified (a clean resume) is now simply
                 true or the screen above it would already be showing a refusal. */}
             <p className="muted read">{roomStateWords(report.attendees, report.stateWords)}</p>
+
+            {/* THE JOINING LINK, when this session carries one — minted or pasted, the record's own
+                copy. Printed HERE because this is the screen he is on when the client asks for it. */}
+            {view !== null && joiningLinkOf(view as never) !== null && (
+              <JoiningLinkLine url={joiningLinkOf(view as never) as string} />
+            )}
             {report.routineUnknownWords !== null && (
               <p className="note read">
                 <Glyph name="note" size="inline" decorative />
